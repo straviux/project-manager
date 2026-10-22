@@ -296,6 +296,15 @@ const containerCtxItems: ContextMenuItem[] = [
   { label: "Import folder", icon: FolderInput, action: () => (showImport.value = true) },
   { label: "Clone repository", icon: Download, action: () => (showClone.value = true) },
 ];
+const filesViewRef = ref<InstanceType<typeof FilesView> | null>(null);
+function onBodyContext(event: MouseEvent) {
+  if ((event.target as HTMLElement).closest("input, textarea, select")) return;
+  if (tab.value === "projects") {
+    onContainerContext(event);
+  } else {
+    filesViewRef.value?.openContainerCtx(event);
+  }
+}
 function onContainerContext(event: MouseEvent) {
   // Leave the normal text menu alone inside form fields.
   if ((event.target as HTMLElement).closest("input, textarea, select")) return;
@@ -492,8 +501,8 @@ function openEdit(project: Project) {
         {{ error }}
       </div>
 
-      <main class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-6 py-6">
-        <div v-show="tab === 'projects'" @contextmenu="onContainerContext">
+      <main class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-6 py-6" @contextmenu="onBodyContext">
+        <div v-show="tab === 'projects'">
         <div class="mb-4 flex flex-wrap items-center gap-2">
           <div class="relative min-w-52 flex-1 sm:max-w-md">
             <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
@@ -563,13 +572,14 @@ function openEdit(project: Project) {
         </div>
         <div v-show="tab === 'files'">
           <FilesView
+            ref="filesViewRef"
             :files-dir="filesDir"
             :active="tab === 'files'"
             @dir-changed="(d) => (filesDir = d)"
           />
         </div>
       </main>
-      <footer
+      <footer @contextmenu="onBodyContext"
         v-if="tab === 'projects'"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
         :class="{ dark: chromeDark }"

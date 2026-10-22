@@ -438,6 +438,7 @@ function openContainerCtx(event: MouseEvent) {
   }
   ctx.value = { x: event.clientX, y: event.clientY, items };
 }
+defineExpose({ openContainerCtx });
 function openFolderCtx(event: MouseEvent, folder: { path: string }) {
   ctx.value = {
     x: event.clientX,
@@ -498,7 +499,7 @@ onUnmounted(() => unlisten?.());
     </div>
   </div>
 
-  <div v-else @contextmenu="openContainerCtx">
+  <div v-else @contextmenu.stop="openContainerCtx">
     <!-- Toolbar -->
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <div class="relative min-w-52 flex-1 sm:max-w-md">
