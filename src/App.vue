@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import {
   Download,
   Files,
@@ -23,6 +23,8 @@ import {
   getSetting,
   listProjects,
   PROJECTS_DIR_KEY,
+  setProjectOrder,
+  setProjectPinned,
 } from "./lib/db";
 import {
   openInVsCode,
@@ -33,6 +35,8 @@ import type { Project } from "./types";
 
 const ready = ref(false);
 const statusKey = ref(0);
+const dragId = ref<number | null>(null);
+const searchInput = ref<HTMLInputElement | null>(null);
 const tab = ref<"projects" | "files">("projects");
 const projectsDir = ref<string | null>(null);
 const filesDir = ref<string | null>(null);
@@ -131,6 +135,85 @@ function openNewProject() {
   showProjectDialog.value = true;
 }
 
+async function togglePin(project: Project) {
+  await setProjectPinned(project.id, !project.pinned);
+  await refresh();
+}
+
+function onDragStart(id: number) {
+  dragId.value = id;
+}
+
+async function onDrop(targetId: number) {
+  const from = dragId.value;
+  dragId.value = null;
+  if (from == null || from === targetId) return;
+  const list = [...projects.value];
+  const fromIdx = list.findIndex((p) => p.id === from);
+  const toIdx = list.findIndex((p) => p.id === targetId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  if (list[fromIdx].pinned !== list[toIdx].pinned) {
+    flash("Pinned and unpinned projects sort in separate groups.");
+    return;
+  }
+  const [moved] = list.splice(fromIdx, 1);
+  list.splice(toIdx, 0, moved);
+  projects.value = list;
+  await setProjectOrder(list.map((p) => p.id));
+}
+
+/* --------------------------- keyboard shortcuts --------------------------- */
+
+function isTypingTarget(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null;
+  return (
+    !!el &&
+    (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)
+  );
+}
+
+function focusSearch() {
+  if (tab.value !== "projects") tab.value = "projects";
+  setTimeout(() => searchInput.value?.focus(), 30);
+}
+
+function closeTopmost() {
+  if (readmeProject.value) readmeProject.value = null;
+  else if (sshProject.value) sshProject.value = null;
+  else if (showClone.value) showClone.value = false;
+  else if (showProjectDialog.value) showProjectDialog.value = false;
+  else if (showSetup.value) showSetup.value = false;
+  else if (search.value) search.value = "";
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    focusSearch();
+    return;
+  }
+  if (e.key === "Escape") {
+    closeTopmost();
+    return;
+  }
+  if (isTypingTarget(e.target)) return;
+  if (e.key === "/") {
+    e.preventDefault();
+    focusSearch();
+  } else if (e.key === "1") {
+    tab.value = "projects";
+  } else if (e.key === "2") {
+    tab.value = "files";
+  } else if (e.key.toLowerCase() === "s" && tab.value === "projects" && projectsDir.value) {
+    scan();
+  } else if (e.key.toLowerCase() === "n" && tab.value === "projects") {
+    openNewProject();
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+
 function openEdit(project: Project) {
   editingProject.value = project;
   showProjectDialog.value = true;
@@ -170,9 +253,10 @@ function openEdit(project: Project) {
           <div v-if="tab === 'projects'" class="relative ml-auto min-w-52 flex-1 sm:max-w-xs">
             <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
             <input
+              ref="searchInput"
               v-model="search"
               class="w-full rounded-lg border border-neutral-300 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
-              placeholder="Search by name or stack…"
+              placeholder="Search by name or stack…  ( / )"
             />
           </div>
 
@@ -196,6 +280,9 @@ function openEdit(project: Project) {
         </div>
         <p v-if="tab === 'projects'" class="mx-auto max-w-6xl px-6 pb-3 text-xs text-neutral-500">
           Projects folder: <span class="font-mono">{{ projectsDir }}</span>
+          <span class="ml-3 text-neutral-400">
+            Shortcuts: / or Ctrl+K search · 1 Projects · 2 Files · S scan · N new project · Esc close
+          </span>
         </p>
       </header>
 
@@ -222,6 +309,10 @@ function openEdit(project: Project) {
             :key="project.id"
             :project="project"
             :status-key="statusKey"
+            :reorder-enabled="!search.trim()"
+            @pin="togglePin(project)"
+            @drag-start="onDragStart(project.id)"
+            @drop="onDrop(project.id)"
             @vscode="runAction(() => openInVsCode(project.path), 'Could not open VS Code')"
             @terminal="runAction(() => openTerminal(project.path), 'Could not open terminal')"
             @ssh="sshProject = project"

@@ -34,6 +34,21 @@ function loadDb(): Promise<Database> {
           stack      TEXT NOT NULL,
           PRIMARY KEY (project_id, stack)
         )`);
+      // Migrations for existing databases (columns added after v0.1).
+      const cols = await db.select<{ name: string }[]>(
+        "PRAGMA table_info(projects)",
+      );
+      const colNames = new Set(cols.map((c) => c.name));
+      if (!colNames.has("pinned")) {
+        await db.execute(
+          "ALTER TABLE projects ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+      if (!colNames.has("sort_order")) {
+        await db.execute(
+          "ALTER TABLE projects ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+        );
+      }
       // NOTE: SSH passwords are intentionally NOT stored here.
       // Profiles hold connection details only; auth uses SSH keys.
       await db.execute(`
@@ -84,6 +99,8 @@ interface ProjectRow {
   path: string;
   repo_url: string | null;
   description: string | null;
+  pinned: number;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -91,7 +108,7 @@ interface ProjectRow {
 export async function listProjects(): Promise<Project[]> {
   const db = await loadDb();
   const rows = await db.select<ProjectRow[]>(
-    "SELECT * FROM projects ORDER BY name COLLATE NOCASE ASC",
+    "SELECT * FROM projects ORDER BY pinned DESC, sort_order ASC, name COLLATE NOCASE ASC",
   );
   const projects: Project[] = [];
   for (const row of rows) {
@@ -106,6 +123,8 @@ export async function listProjects(): Promise<Project[]> {
       repoUrl: row.repo_url,
       description: row.description,
       stacks: stackRows.map((s) => s.stack),
+      pinned: row.pinned === 1,
+      sortOrder: row.sort_order,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
@@ -156,6 +175,28 @@ export async function updateProject(
 export async function deleteProject(id: number): Promise<void> {
   const db = await loadDb();
   await db.execute("DELETE FROM projects WHERE id = $1", [id]);
+}
+
+export async function setProjectPinned(
+  id: number,
+  pinned: boolean,
+): Promise<void> {
+  const db = await loadDb();
+  await db.execute("UPDATE projects SET pinned = $1 WHERE id = $2", [
+    pinned ? 1 : 0,
+    id,
+  ]);
+}
+
+/** Persist display order: ids in the order they should appear. */
+export async function setProjectOrder(ids: number[]): Promise<void> {
+  const db = await loadDb();
+  for (let i = 0; i < ids.length; i++) {
+    await db.execute("UPDATE projects SET sort_order = $1 WHERE id = $2", [
+      i,
+      ids[i],
+    ]);
+  }
 }
 
 /* ----------------------------- ssh configs ---------------------------- */

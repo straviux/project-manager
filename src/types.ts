@@ -5,6 +5,8 @@ export interface Project {
   repoUrl: string | null;
   description: string | null;
   stacks: string[];
+  pinned: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }

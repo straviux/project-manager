@@ -9,7 +9,9 @@ import {
   FileText,
   Folder,
   GitBranch,
+  GripVertical,
   Pencil,
+  Pin,
   Server,
   Terminal,
   Trash2,
@@ -17,7 +19,11 @@ import {
 import { getGitStatus } from "../lib/api";
 import type { GitStatus, Project } from "../types";
 
-const props = defineProps<{ project: Project; statusKey?: number }>();
+const props = defineProps<{
+  project: Project;
+  statusKey?: number;
+  reorderEnabled?: boolean;
+}>();
 const emit = defineEmits<{
   vscode: [];
   terminal: [];
@@ -25,6 +31,9 @@ const emit = defineEmits<{
   readme: [];
   edit: [];
   remove: [];
+  pin: [];
+  dragStart: [];
+  drop: [];
 }>();
 
 const status = ref<GitStatus | null>(null);
@@ -39,13 +48,30 @@ watch(() => props.statusKey, loadStatus);
 <template>
   <article
     class="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+    :class="project.pinned ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''"
+    :draggable="reorderEnabled"
+    @dragstart="emit('dragStart')"
+    @dragover.prevent
+    @drop.prevent="emit('drop')"
   >
     <header class="mb-1 flex items-start justify-between gap-2">
       <h3 class="flex items-center gap-2 text-lg font-semibold">
+        <GripVertical
+          v-if="reorderEnabled"
+          class="h-4 w-4 shrink-0 cursor-grab text-neutral-400"
+        />
         <Folder class="h-5 w-5 shrink-0 text-amber-500" />
         <span class="truncate">{{ project.name }}</span>
       </h3>
       <div class="flex shrink-0 gap-1">
+        <button
+          class="rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          :class="project.pinned ? 'text-amber-500' : ''"
+          :title="project.pinned ? 'Unpin' : 'Pin to top'"
+          @click="emit('pin')"
+        >
+          <Pin class="h-4 w-4" />
+        </button>
         <button class="rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800" title="Edit project" @click="emit('edit')">
           <Pencil class="h-4 w-4" />
         </button>

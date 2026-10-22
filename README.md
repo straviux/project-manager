@@ -20,6 +20,12 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
 - **Git status at a glance** — every project card shows its current branch,
   whether the working tree is clean or how many uncommitted changes it has,
   and ahead/behind counts versus its upstream.
+- **Pin & reorder** — pin favorite projects to the top and drag cards to
+  reorder them (order and pins persist in SQLite, with an automatic column
+  migration for existing databases).
+- **Keyboard shortcuts** — `/` or `Ctrl+K` search, `1`/`2` switch
+  Projects/Files tabs, `S` scan, `N` new project, `Esc` closes the topmost
+  dialog.
 - **Add projects three ways**
   - Scan the parent directory (auto-detects stacks and git remotes)
   - Add manually
@@ -99,8 +105,6 @@ When scanning a folder or after a clone, the app inspects marker files:
   dedupe, watch folder, image thumbnails.
   Spec: [docs/file-manager.md](docs/file-manager.md)
 - "Open remote" and copy-clone-URL actions
-- Global search & keyboard shortcuts
-- Drag-to-reorder / pin favorite projects
 
 ## License
 
