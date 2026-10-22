@@ -410,7 +410,7 @@ function openEdit(project: Project) {
             <input
               ref="searchInput"
               v-model="search"
-              class="w-full rounded-lg border border-neutral-300 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
+              class="on-bg w-full rounded-lg border border-neutral-300 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
               placeholder="Search by name or stack\u2026  ( / )"
             />
           </div>
@@ -456,7 +456,7 @@ function openEdit(project: Project) {
             @remove="remove(project)"
           />
         </div>
-        <div v-if="!filtered.length" class="py-20 text-center text-neutral-500">
+        <div v-if="!filtered.length" class="on-bg py-20 text-center text-neutral-500">
           <p class="mb-2 text-lg font-medium">No projects yet</p>
           <p class="text-sm">
             Use <strong>Scan</strong> to pick up the folders inside your projects

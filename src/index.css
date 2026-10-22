@@ -133,3 +133,75 @@ html[data-bg]:not([data-bg="none"]) .card-glass {
 html.dark[data-bg]:not([data-bg="none"]) .card-glass {
   background-color: rgb(23 23 23 / 0.78);
 }
+
+/* Night backgrounds: dark backdrops that work in any mode. */
+html[data-bg="dusk"] body {
+  background-image: linear-gradient(135deg, #463763 0%, #71486b 52%, #9c665e 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="dusk"] body {
+  background-image: linear-gradient(135deg, #171126 0%, #2c1a33 52%, #3d2320 100%);
+}
+html[data-bg="midnight"] body {
+  background-image: linear-gradient(135deg, #1b2340 0%, #232a52 48%, #141a33 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="midnight"] body {
+  background-image: linear-gradient(135deg, #0a0e1f 0%, #0d1330 48%, #060912 100%);
+}
+html[data-bg="starlight"] body {
+  background-image:
+    radial-gradient(1.5px 1.5px at 15% 25%, rgb(255 255 255 / 0.9), transparent),
+    radial-gradient(1px 1px at 35% 65%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 55% 15%, rgb(255 255 255 / 0.8), transparent),
+    radial-gradient(1px 1px at 72% 45%, rgb(255 255 255 / 0.6), transparent),
+    radial-gradient(1px 1px at 85% 75%, rgb(255 255 255 / 0.75), transparent),
+    radial-gradient(1.5px 1.5px at 92% 20%, rgb(255 255 255 / 0.85), transparent),
+    radial-gradient(1px 1px at 45% 85%, rgb(255 255 255 / 0.6), transparent),
+    radial-gradient(1px 1px at 8% 80%, rgb(255 255 255 / 0.7), transparent),
+    linear-gradient(150deg, #131c3f 0%, #1d1440 52%, #0b1030 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="starlight"] body {
+  background-image:
+    radial-gradient(1.5px 1.5px at 15% 25%, rgb(255 255 255 / 0.9), transparent),
+    radial-gradient(1px 1px at 35% 65%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 55% 15%, rgb(255 255 255 / 0.8), transparent),
+    radial-gradient(1px 1px at 72% 45%, rgb(255 255 255 / 0.6), transparent),
+    radial-gradient(1px 1px at 85% 75%, rgb(255 255 255 / 0.75), transparent),
+    radial-gradient(1.5px 1.5px at 92% 20%, rgb(255 255 255 / 0.85), transparent),
+    radial-gradient(1px 1px at 45% 85%, rgb(255 255 255 / 0.6), transparent),
+    radial-gradient(1px 1px at 8% 80%, rgb(255 255 255 / 0.7), transparent),
+    linear-gradient(150deg, #070d24 0%, #0d0824 52%, #04061a 100%);
+}
+html[data-bg="aurora"] body {
+  background-image:
+    radial-gradient(55% 45% at 75% 0%, rgb(52 211 153 / 0.28), transparent 70%),
+    radial-gradient(40% 35% at 20% 10%, rgb(45 212 191 / 0.18), transparent 70%),
+    linear-gradient(160deg, #081826 0%, #07231f 48%, #0a2e2a 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="aurora"] body {
+  background-image:
+    radial-gradient(55% 45% at 75% 0%, rgb(52 211 153 / 0.18), transparent 70%),
+    radial-gradient(40% 35% at 20% 10%, rgb(45 212 191 / 0.12), transparent 70%),
+    linear-gradient(160deg, #040f18 0%, #04150f 48%, #051a16 100%);
+}
+html[data-bg="graphite"] body {
+  background-image: linear-gradient(135deg, #3a4150 0%, #2e3442 48%, #232833 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="graphite"] body {
+  background-image: linear-gradient(135deg, #14171d 0%, #10131a 48%, #0b0d12 100%);
+}
+
+/* Loose text that sits directly on the backdrop (info lines, group
+   headings, empty states, transparent search inputs) flips light over
+   the dark night backgrounds so it stays readable. */
+html[data-bg-dark="true"] .on-bg {
+  color: rgb(226 232 240);
+  border-color: rgb(100 116 139 / 0.7);
+}
+html[data-bg-dark="true"] .on-bg::placeholder {
+  color: rgb(148 163 184);
+}

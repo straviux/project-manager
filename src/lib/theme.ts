@@ -36,7 +36,18 @@ export function setThemeMode(mode: ThemeMode) {
 
 /* ------------------- Explorer background ("eye candy") ------------------- */
 
-export type BgTheme = "none" | "dawn" | "ocean" | "forest" | "lavender" | "sand";
+export type BgTheme =
+  | "none"
+  | "dawn"
+  | "ocean"
+  | "forest"
+  | "lavender"
+  | "sand"
+  | "dusk"
+  | "midnight"
+  | "starlight"
+  | "aurora"
+  | "graphite";
 
 export interface BgThemeDef {
   id: BgTheme;
@@ -44,6 +55,8 @@ export interface BgThemeDef {
   hint: string;
   /** Light-scheme gradient, used for the settings swatch preview. */
   preview: string;
+  /** Dark backdrops: loose on-background text flips light for readability. */
+  dark?: boolean;
 }
 
 /** Soft, low-contrast gradients meant to be easy on the eyes. The actual
@@ -81,6 +94,45 @@ export const BG_THEMES: BgThemeDef[] = [
     hint: "Warm neutral beige",
     preview: "linear-gradient(135deg,#faf2df,#f6e8d4 48%,#f1eee2)",
   },
+  {
+    id: "dusk",
+    label: "Dusk",
+    hint: "Violet into ember",
+    preview: "linear-gradient(135deg,#463763,#71486b 52%,#9c665e)",
+    dark: true,
+  },
+  {
+    id: "midnight",
+    label: "Midnight",
+    hint: "Deep indigo night",
+    preview: "linear-gradient(135deg,#1b2340,#232a52 48%,#141a33)",
+    dark: true,
+  },
+  {
+    id: "starlight",
+    label: "Starlight",
+    hint: "Night sky & stars",
+    preview:
+      "radial-gradient(1.5px 1.5px at 15% 25%, rgb(255 255 255 / 0.9), transparent),radial-gradient(1px 1px at 35% 65%, rgb(255 255 255 / 0.7), transparent),radial-gradient(1.5px 1.5px at 55% 15%, rgb(255 255 255 / 0.8), transparent),radial-gradient(1px 1px at 72% 45%, rgb(255 255 255 / 0.6), transparent),radial-gradient(1px 1px at 85% 75%, rgb(255 255 255 / 0.75), transparent),radial-gradient(1.5px 1.5px at 92% 20%, rgb(255 255 255 / 0.85), transparent),radial-gradient(1px 1px at 45% 85%, rgb(255 255 255 / 0.6), transparent),radial-gradient(1px 1px at 8% 80%, rgb(255 255 255 / 0.7), transparent)," +
+      "linear-gradient(150deg,#131c3f,#1d1440 52%,#0b1030)",
+    dark: true,
+  },
+  {
+    id: "aurora",
+    label: "Aurora",
+    hint: "Northern-lights glow",
+    preview:
+      "radial-gradient(55% 45% at 75% 0%, rgb(52 211 153 / 0.28), transparent 70%),radial-gradient(40% 35% at 20% 10%, rgb(45 212 191 / 0.18), transparent 70%)," +
+      "linear-gradient(160deg,#081826,#07231f 48%,#0a2e2a)",
+    dark: true,
+  },
+  {
+    id: "graphite",
+    label: "Graphite",
+    hint: "Calm dark slate",
+    preview: "linear-gradient(135deg,#3a4150,#2e3442 48%,#232833)",
+    dark: true,
+  },
 ];
 
 const BG_STORAGE_KEY = "pm-bg";
@@ -97,6 +149,11 @@ watch(
   (bg) => {
     localStorage.setItem(BG_STORAGE_KEY, bg);
     document.documentElement.dataset.bg = bg;
+    if (BG_THEMES.find((t) => t.id === bg)?.dark) {
+      document.documentElement.dataset.bgDark = "true";
+    } else {
+      delete document.documentElement.dataset.bgDark;
+    }
   },
   { immediate: true },
 );

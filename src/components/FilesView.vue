@@ -316,7 +316,7 @@ onUnmounted(() => unlisten?.());
 
       <input
         v-model="query"
-        class="min-w-40 flex-1 rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 sm:max-w-xs"
+        class="on-bg min-w-40 flex-1 rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 sm:max-w-xs"
         placeholder="Search files…"
       />
 
@@ -334,7 +334,7 @@ onUnmounted(() => unlisten?.());
       </button>
     </div>
 
-    <p class="mb-4 text-xs text-neutral-500">
+    <p class="on-bg mb-4 text-xs text-neutral-500">
       Library: <span class="font-mono">{{ filesDir }}</span> — drop files
       anywhere here to add them.
     </p>
@@ -371,14 +371,14 @@ onUnmounted(() => unlisten?.());
     </div>
 
     <!-- File groups -->
-    <p v-if="loading" class="py-10 text-center text-sm text-neutral-500">Loading…</p>
-    <div v-else-if="!filtered.length" class="py-16 text-center text-neutral-500">
+    <p v-if="loading" class="on-bg py-10 text-center text-sm text-neutral-500">Loading…</p>
+    <div v-else-if="!filtered.length" class="on-bg py-16 text-center text-neutral-500">
       <p class="mb-1 text-lg font-medium">The library is empty</p>
       <p class="text-sm">Use <strong>Add files</strong>, <strong>Add folder</strong>, or drag &amp; drop files here — they'll be moved in and categorized.</p>
     </div>
     <div v-else class="space-y-6">
       <section v-for="[group, items] in groups" :key="group">
-        <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+        <h3 class="on-bg mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
           {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
         </h3>
         <div

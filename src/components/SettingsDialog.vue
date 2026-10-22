@@ -25,7 +25,7 @@ const MODES: { id: ThemeMode; label: string; hint: string }[] = [
     :class="{ dark: chromeDark }"
     @click.self="emit('close')"
   >
-    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+    <div class="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <header class="mb-4 flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
           <Settings class="h-5 w-5" /> Settings
