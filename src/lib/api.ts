@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FileCheck, ScannedProject, SshConfig } from "../types";
+import type { FileCheck, LibraryFile, ScannedProject, SshConfig } from "../types";
 
 /** Open the project folder in VS Code. */
 export function openInVsCode(path: string): Promise<void> {
@@ -65,4 +65,14 @@ export function moveFileToLibrary(
   libraryDir: string,
 ): Promise<string> {
   return invoke("move_file_to_library", { source, libraryDir });
+}
+
+/** List every file in the managed library folder (recursive). */
+export function listLibraryFiles(libraryDir: string): Promise<LibraryFile[]> {
+  return invoke("list_library_files", { libraryDir });
+}
+
+/** Open a file or folder with the OS default application. */
+export function openPath(path: string): Promise<void> {
+  return invoke("open_path", { path });
 }

@@ -27,6 +27,13 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   and secrets belong in your OS keychain (keychain storage is on the roadmap).
 - **Local-first** — all data lives in a local SQLite database. No account, no
   cloud, no telemetry.
+- **File Manager** — a managed file library in the Files tab: pick a library
+  folder, then add files by picker or drag & drop. Files are *moved* in and
+  categorized (Images, Videos, Audio, Documents, Archives, Code, Other),
+  browsable **by type** or **by folder** — but only after a safety check
+  verifies each file isn't running or open in another app. Busy files are
+  skipped with the reason shown and a Retry button, never forced.
+  Spec: [docs/file-manager.md](docs/file-manager.md)
 
 ## Tech stack
 
@@ -83,11 +90,9 @@ When scanning a folder or after a clone, the app inspects marker files:
 
 ## Roadmap
 
-- **File Manager** — a managed file library: files are moved into a parent
-  folder and categorized by type or browsed by folder, with a hard safety
-  rule — a file is only moved after verifying it isn't running or in use.
-  Spec: [docs/file-manager.md](docs/file-manager.md). The backend checks
-  (`check_file_free`, `move_file_to_library`) are already implemented.
+- **File Manager extras** — SQLite index for instant search, hash-based
+  dedupe, watch folder, image thumbnails.
+  Spec: [docs/file-manager.md](docs/file-manager.md)
 - Store SSH secrets in the OS keychain (`keyring`)
 - Git status at a glance (branch, dirty, ahead/behind) on each project card
 - "Open remote" and copy-clone-URL actions

@@ -24,6 +24,17 @@ struct FileCheck {
     reason: Option<String>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LibraryFile {
+    name: String,
+    path: String,
+    relative_path: String,
+    folder: String,
+    category: String,
+    size: u64,
+}
+
 /* ============================ terminal helper =========================== */
 
 /// Spawn a new terminal window, optionally in `cwd` and/or running `command`.
@@ -546,6 +557,87 @@ fn move_file_to_library(source: String, library_dir: String) -> Result<String, S
     }
 }
 
+const CATEGORIES: [&str; 7] = [
+    "Images", "Videos", "Audio", "Documents", "Archives", "Code", "Other",
+];
+
+fn collect_library_files(dir: &Path, base: &Path, out: &mut Vec<LibraryFile>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_library_files(&path, base, out);
+        } else if path.is_file() {
+            let relative = path.strip_prefix(base).unwrap_or(&path).to_path_buf();
+            let relative_str = relative.display().to_string();
+            let folder = relative
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default();
+            let first = relative
+                .components()
+                .next()
+                .map(|c| c.as_os_str().to_string_lossy().to_string())
+                .unwrap_or_default();
+            let category = if CATEGORIES.contains(&first.as_str()) {
+                first
+            } else {
+                categorize_file(&path).to_string()
+            };
+            out.push(LibraryFile {
+                name: entry.file_name().to_string_lossy().to_string(),
+                path: path.display().to_string(),
+                relative_path: relative_str,
+                folder,
+                category,
+                size: entry.metadata().map(|m| m.len()).unwrap_or(0),
+            });
+        }
+    }
+}
+
+/// List every file inside the managed library folder (recursively).
+#[tauri::command]
+fn list_library_files(library_dir: String) -> Result<Vec<LibraryFile>, String> {
+    let base = PathBuf::from(&library_dir);
+    if !base.is_dir() {
+        return Err(format!("Library folder does not exist: {library_dir}"));
+    }
+    let mut out = Vec::new();
+    collect_library_files(&base, &base, &mut out);
+    out.sort_by_key(|f| f.relative_path.to_lowercase());
+    Ok(out)
+}
+
+/// Open a file or folder with the OS default application.
+#[tauri::command]
+fn open_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open: {e}"))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open: {e}"))?;
+    }
+    Ok(())
+}
+
 /* ================================= run ================================== */
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -562,7 +654,9 @@ pub fn run() {
             detect_stacks,
             read_readme,
             check_file_free,
-            move_file_to_library
+            move_file_to_library,
+            list_library_files,
+            open_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

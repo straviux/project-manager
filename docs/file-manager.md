@@ -1,8 +1,8 @@
 # File Manager — feature spec (future)
 
-Status: **planned**. The backend safety primitives already exist
-(`check_file_free`, `move_file_to_library` in `src-tauri/src/lib.rs`);
-the UI is a later phase.
+Status: **implemented (core)**. The backend safety primitives
+(`check_file_free`, `move_file_to_library`) and the Files tab UI are in;
+remaining extras are listed under Phases.
 
 ## What it is
 
@@ -71,7 +71,9 @@ CREATE TABLE files (
 ## Phases
 
 1. ✅ Backend: `check_file_free` + `move_file_to_library` commands.
-2. Settings: pick the files library folder (`files_dir`).
-3. UI: file list with By type / By folder toggle, add-by-picker + drag & drop,
-   busy-file states with retry.
-4. Extras: hash dedupe, watch folder, thumbnails for images.
+2. ✅ Settings: pick the files library folder (`files_dir`) from the Files tab.
+3. ✅ UI: file list with By type / By folder toggle, add-by-picker +
+   drag & drop, busy-file states with retry. Listing is disk-based
+   (the folder is the source of truth).
+4. Extras: SQLite index for instant search, hash dedupe, watch folder,
+   thumbnails for images.

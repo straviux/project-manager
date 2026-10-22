@@ -51,6 +51,16 @@ export interface FileCheck {
   reason: string | null;
 }
 
+/** A file inside the managed file library (from the Rust scanner). */
+export interface LibraryFile {
+  name: string;
+  path: string;
+  relativePath: string;
+  folder: string;
+  category: string;
+  size: number;
+}
+
 /** Library categories used by the (future) file manager. */
 export const FILE_CATEGORIES = [
   "Images",

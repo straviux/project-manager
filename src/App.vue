@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import {
   Download,
+  Files,
   FolderCog,
   LayoutGrid,
   Plus,
@@ -14,9 +15,11 @@ import ProjectDialog from "./components/ProjectDialog.vue";
 import CloneDialog from "./components/CloneDialog.vue";
 import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
+import FilesView from "./components/FilesView.vue";
 import {
   createProject,
   deleteProject,
+  FILES_DIR_KEY,
   getSetting,
   listProjects,
   PROJECTS_DIR_KEY,
@@ -29,7 +32,9 @@ import {
 import type { Project } from "./types";
 
 const ready = ref(false);
+const tab = ref<"projects" | "files">("projects");
 const projectsDir = ref<string | null>(null);
+const filesDir = ref<string | null>(null);
 const projects = ref<Project[]>([]);
 const search = ref("");
 const notice = ref<string | null>(null);
@@ -58,6 +63,7 @@ async function refresh() {
 
 async function boot() {
   projectsDir.value = await getSetting(PROJECTS_DIR_KEY);
+  filesDir.value = await getSetting(FILES_DIR_KEY);
   if (projectsDir.value) await refresh();
   ready.value = true;
 }
@@ -142,7 +148,24 @@ function openEdit(project: Project) {
             <LayoutGrid class="h-6 w-6 text-blue-600" /> Project Manager
           </h1>
 
-          <div class="relative ml-auto min-w-52 flex-1 sm:max-w-xs">
+          <nav class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
+            <button
+              class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
+              :class="tab === 'projects' ? 'bg-blue-600 text-white' : ''"
+              @click="tab = 'projects'"
+            >
+              <LayoutGrid class="h-4 w-4" /> Projects
+            </button>
+            <button
+              class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
+              :class="tab === 'files' ? 'bg-blue-600 text-white' : ''"
+              @click="tab = 'files'"
+            >
+              <Files class="h-4 w-4" /> Files
+            </button>
+          </nav>
+
+          <div v-if="tab === 'projects'" class="relative ml-auto min-w-52 flex-1 sm:max-w-xs">
             <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
             <input
               v-model="search"
@@ -151,16 +174,17 @@ function openEdit(project: Project) {
             />
           </div>
 
-          <button class="toolbar-btn" title="Scan the projects folder for new projects" @click="scan">
+          <button v-if="tab === 'projects'" class="toolbar-btn" title="Scan the projects folder for new projects" @click="scan">
             <RefreshCw class="h-4 w-4" /> Scan
           </button>
-          <button class="toolbar-btn" @click="showClone = true">
+          <button v-if="tab === 'projects'" class="toolbar-btn" @click="showClone = true">
             <Download class="h-4 w-4" /> Clone
           </button>
-          <button class="toolbar-btn" @click="openNewProject">
+          <button v-if="tab === 'projects'" class="toolbar-btn" @click="openNewProject">
             <Plus class="h-4 w-4" /> Add project
           </button>
           <button
+            v-if="tab === 'projects'"
             class="toolbar-btn"
             :title="`Projects folder: ${projectsDir}`"
             @click="showSetup = true"
@@ -168,7 +192,7 @@ function openEdit(project: Project) {
             <FolderCog class="h-4 w-4" />
           </button>
         </div>
-        <p class="mx-auto max-w-6xl px-6 pb-3 text-xs text-neutral-500">
+        <p v-if="tab === 'projects'" class="mx-auto max-w-6xl px-6 pb-3 text-xs text-neutral-500">
           Projects folder: <span class="font-mono">{{ projectsDir }}</span>
         </p>
       </header>
@@ -188,7 +212,7 @@ function openEdit(project: Project) {
 
       <main class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-6 py-6">
         <div
-          v-if="filtered.length"
+          v-if="tab === 'projects' && filtered.length"
           class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
         >
           <ProjectCard
@@ -203,7 +227,7 @@ function openEdit(project: Project) {
             @remove="remove(project)"
           />
         </div>
-        <div v-else class="py-20 text-center text-neutral-500">
+        <div v-if="tab === 'projects' && !filtered.length" class="py-20 text-center text-neutral-500">
           <p class="mb-2 text-lg font-medium">No projects yet</p>
           <p class="text-sm">
             Use <strong>Scan</strong> to import the folders inside your projects
@@ -211,6 +235,11 @@ function openEdit(project: Project) {
             <strong>Add project</strong> manually.
           </p>
         </div>
+        <FilesView
+          v-if="tab === 'files'"
+          :files-dir="filesDir"
+          @dir-changed="(d) => (filesDir = d)"
+        />
       </main>
     </template>
 

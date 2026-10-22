@@ -74,6 +74,7 @@ export async function setSetting(key: string, value: string): Promise<void> {
 }
 
 export const PROJECTS_DIR_KEY = "projects_dir";
+export const FILES_DIR_KEY = "files_dir";
 
 /* ------------------------------ projects ------------------------------ */
 
