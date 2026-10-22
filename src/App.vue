@@ -297,6 +297,7 @@ const containerCtxItems: ContextMenuItem[] = [
   { label: "Clone repository", icon: Download, action: () => (showClone.value = true) },
 ];
 const filesViewRef = ref<InstanceType<typeof FilesView> | null>(null);
+const filesStats = ref("");
 function onBodyContext(event: MouseEvent) {
   if ((event.target as HTMLElement).closest("input, textarea, select")) return;
   if (tab.value === "projects") {
@@ -576,15 +577,16 @@ function openEdit(project: Project) {
             :files-dir="filesDir"
             :active="tab === 'files'"
             @dir-changed="(d) => (filesDir = d)"
+            @stats="(text) => (filesStats = text)"
           />
         </div>
       </main>
       <footer @contextmenu="onBodyContext"
-        v-if="tab === 'projects'"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
         :class="{ dark: chromeDark }"
       >
         <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-1">
+          <template v-if="tab === 'projects'">
           <span class="flex min-w-0 items-baseline gap-1.5">
             <span class="shrink-0">Projects folder:</span>
             <span class="truncate font-mono" :title="projectsDir ?? ''">{{ projectsDir }}</span>
@@ -593,6 +595,14 @@ function openEdit(project: Project) {
             <span class="font-medium text-neutral-500 dark:text-neutral-400">Shortcuts:</span>
             <span class="whitespace-nowrap">/ or Ctrl+K search</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">1 Projects</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">2 Files</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">S scan</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">I import</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">N new project</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">Esc close</span>
           </span>
+          </template>
+          <template v-else>
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="shrink-0">Library folder:</span>
+              <span class="truncate font-mono" :title="filesDir ?? ''">{{ filesDir }}</span>
+            </span>
+            <span v-if="filesStats" class="ml-auto shrink-0 whitespace-nowrap">{{ filesStats }}</span>
+          </template>
         </div>
       </footer>
     </template>

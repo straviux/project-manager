@@ -50,7 +50,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import ContextMenu, { type ContextMenuItem } from "./ContextMenu.vue";
 
 const props = defineProps<{ filesDir: string | null; active: boolean }>();
-const emit = defineEmits<{ dirChanged: [dir: string] }>();
+const emit = defineEmits<{ dirChanged: [dir: string]; stats: [text: string] }>();
 
 const files = ref<LibraryFile[]>([]);
 const query = ref("");
@@ -280,6 +280,17 @@ function goFolder(path: string) {
 function goUp() {
   currentFolder.value = crumbs.value.slice(0, -1).join(SEP.value);
 }
+watch(
+  files,
+  () => {
+    const total = files.value.reduce((sum, f) => sum + f.size, 0);
+    emit(
+      "stats",
+      `${files.value.length} file${files.value.length === 1 ? "" : "s"} \u00b7 ${formatSize(total)}`,
+    );
+  },
+  { immediate: true },
+);
 watch(
   () => props.filesDir,
   () => (currentFolder.value = ""),

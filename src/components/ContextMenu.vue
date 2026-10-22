@@ -32,6 +32,7 @@ function choose(item: ContextMenuItem) {
 </script>
 
 <template>
+  <Teleport to="body">
   <div
     class="fixed inset-0 z-[60]"
     @click="emit('close')"
@@ -50,4 +51,5 @@ function choose(item: ContextMenuItem) {
       </li>
     </ul>
   </div>
+  </Teleport>
 </template>
