@@ -8,6 +8,7 @@ import {
   ExternalLink,
   FileText,
   Folder,
+  FolderOpen,
   GitBranch,
   GripVertical,
   Pencil,
@@ -29,6 +30,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   vscode: [];
   terminal: [];
+  folder: [];
   ssh: [];
   readme: [];
   edit: [];
@@ -148,9 +150,12 @@ watch(() => props.statusKey, loadStatus);
       <span class="truncate">{{ project.repoUrl }}</span>
     </a>
 
-    <footer class="mt-auto grid grid-cols-4 gap-1.5">
+    <footer class="mt-auto grid grid-cols-5 gap-1.5">
       <button class="action" title="Open in VS Code" @click="emit('vscode')">
         <Code class="h-4 w-4" /> Code
+      </button>
+      <button class="action" title="Open source folder" @click="emit('folder')">
+        <FolderOpen class="h-4 w-4" /> Folder
       </button>
       <button class="action" title="Open terminal at project root" @click="emit('terminal')">
         <Terminal class="h-4 w-4" /> Terminal

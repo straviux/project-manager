@@ -39,6 +39,7 @@ import {
   deleteProjectIcon,
   importProjectFolder,
   openInVsCode,
+  openPath,
   openTerminal,
   scanProjects,
 } from "./lib/api";
@@ -474,6 +475,7 @@ function openEdit(project: Project) {
             @drop="onDrop(project.id)"
             @vscode="runAction(() => openInVsCode(project.path), 'Could not open VS Code')"
             @terminal="runAction(() => openTerminal(project.path), 'Could not open terminal')"
+            @folder="runAction(() => openPath(project.path), 'Could not open folder')"
             @ssh="sshProject = project"
             @readme="readmeProject = project"
             @edit="openEdit(project)"
