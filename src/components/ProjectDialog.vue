@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, X } from "lucide-vue-next";
+import { FolderOpen, X } from "@lucide/vue";
 import { createProject, updateProject } from "../lib/db";
 import { detectStacks } from "../lib/api";
 import { KNOWN_STACKS, type Project, type ProjectDraft } from "../types";

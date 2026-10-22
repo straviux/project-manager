@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, HardDriveDownload } from "lucide-vue-next";
+import { FolderOpen, HardDriveDownload } from "@lucide/vue";
 import { getSetting, setSetting, PROJECTS_DIR_KEY } from "../lib/db";
 
 const emit = defineEmits<{ done: [dir: string] }>();

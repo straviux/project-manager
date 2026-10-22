@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { marked } from "marked";
-import { FileText, X } from "lucide-vue-next";
+import { FileText, X } from "@lucide/vue";
 import { readReadme } from "../lib/api";
 import type { Project } from "../types";
 

@@ -8,7 +8,7 @@ import {
   Server,
   Terminal,
   Trash2,
-} from "lucide-vue-next";
+} from "@lucide/vue";
 import type { Project } from "../types";
 
 defineProps<{ project: Project }>();

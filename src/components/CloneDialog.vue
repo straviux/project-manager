@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { Download, X } from "lucide-vue-next";
+import { Download, X } from "@lucide/vue";
 import { gitClone, detectStacks } from "../lib/api";
 import { createProject } from "../lib/db";
 

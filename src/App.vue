@@ -7,7 +7,7 @@ import {
   Plus,
   RefreshCw,
   Search,
-} from "lucide-vue-next";
+} from "@lucide/vue";
 import SetupWizard from "./components/SetupWizard.vue";
 import ProjectCard from "./components/ProjectCard.vue";
 import ProjectDialog from "./components/ProjectDialog.vue";

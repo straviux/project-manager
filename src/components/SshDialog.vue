@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
-import { KeyRound, Play, Trash2, X } from "lucide-vue-next";
+import { KeyRound, Play, Trash2, X } from "@lucide/vue";
 import {
   deleteSshConfig,
   listSshConfigs,
