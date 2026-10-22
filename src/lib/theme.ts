@@ -47,7 +47,10 @@ export type BgTheme =
   | "midnight"
   | "starlight"
   | "aurora"
-  | "graphite";
+  | "graphite"
+  | "sonoma"
+  | "sequoia"
+  | "monterey";
 
 export interface BgThemeDef {
   id: BgTheme;
@@ -57,6 +60,8 @@ export interface BgThemeDef {
   preview: string;
   /** Dark backdrops: loose on-background text flips light for readability. */
   dark?: boolean;
+  /** iOS/macOS-style layout themes: cards become true frosted glass. */
+  glass?: boolean;
 }
 
 /** Soft, low-contrast gradients meant to be easy on the eyes. The actual
@@ -133,6 +138,30 @@ export const BG_THEMES: BgThemeDef[] = [
     preview: "linear-gradient(135deg,#3a4150,#2e3442 48%,#232833)",
     dark: true,
   },
+  {
+    id: "sonoma",
+    label: "Sonoma",
+    hint: "Grape & ember, glass cards",
+    preview: "radial-gradient(60% 50% at 20% 20%, rgb(255 154 158 / 0.55), transparent 70%),radial-gradient(50% 40% at 85% 15%, rgb(250 208 108 / 0.45), transparent 70%),radial-gradient(70% 60% at 75% 85%, rgb(168 85 247 / 0.5), transparent 70%),linear-gradient(140deg, #3b1d5e 0%, #7c2d5e 45%, #b23a48 100%)",
+    dark: true,
+    glass: true,
+  },
+  {
+    id: "sequoia",
+    label: "Sequoia",
+    hint: "Blue-teal, glass cards",
+    preview: "radial-gradient(55% 45% at 15% 25%, rgb(56 189 248 / 0.5), transparent 70%),radial-gradient(50% 45% at 85% 20%, rgb(45 212 191 / 0.45), transparent 70%),radial-gradient(65% 55% at 70% 90%, rgb(129 140 248 / 0.5), transparent 70%),linear-gradient(150deg, #0b2447 0%, #144272 50%, #17616b 100%)",
+    dark: true,
+    glass: true,
+  },
+  {
+    id: "monterey",
+    label: "Monterey",
+    hint: "Midnight glass",
+    preview: "radial-gradient(50% 40% at 25% 15%, rgb(99 102 241 / 0.45), transparent 70%),radial-gradient(45% 40% at 80% 30%, rgb(34 211 238 / 0.35), transparent 70%),radial-gradient(60% 50% at 60% 95%, rgb(217 70 239 / 0.28), transparent 70%),linear-gradient(160deg, #070b1f 0%, #0d1440 55%, #131038 100%)",
+    dark: true,
+    glass: true,
+  },
 ];
 
 const BG_STORAGE_KEY = "pm-bg";
@@ -149,10 +178,16 @@ watch(
   (bg) => {
     localStorage.setItem(BG_STORAGE_KEY, bg);
     document.documentElement.dataset.bg = bg;
-    if (BG_THEMES.find((t) => t.id === bg)?.dark) {
+    const def = BG_THEMES.find((t) => t.id === bg);
+    if (def?.dark) {
       document.documentElement.dataset.bgDark = "true";
     } else {
       delete document.documentElement.dataset.bgDark;
+    }
+    if (def?.glass) {
+      document.documentElement.dataset.glass = "true";
+    } else {
+      delete document.documentElement.dataset.glass;
     }
   },
   { immediate: true },

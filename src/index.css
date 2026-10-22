@@ -205,3 +205,72 @@ html[data-bg-dark="true"] .on-bg {
 html[data-bg-dark="true"] .on-bg::placeholder {
   color: rgb(148 163 184);
 }
+
+/* iOS/macOS "glass" layout themes: vivid mesh-gradient wallpapers with
+   true frosted-glass cards (heavy blur + saturation, bright top edge). */
+html[data-bg="sonoma"] body {
+  background-image:
+    radial-gradient(60% 50% at 20% 20%, rgb(255 154 158 / 0.55), transparent 70%),
+    radial-gradient(50% 40% at 85% 15%, rgb(250 208 108 / 0.45), transparent 70%),
+    radial-gradient(70% 60% at 75% 85%, rgb(168 85 247 / 0.5), transparent 70%),
+    linear-gradient(140deg, #3b1d5e 0%, #7c2d5e 45%, #b23a48 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="sonoma"] body {
+  background-image:
+    radial-gradient(60% 50% at 20% 20%, rgb(255 154 158 / 0.32), transparent 70%),
+    radial-gradient(50% 40% at 85% 15%, rgb(250 208 108 / 0.26), transparent 70%),
+    radial-gradient(70% 60% at 75% 85%, rgb(168 85 247 / 0.3), transparent 70%),
+    linear-gradient(140deg, #170b2e 0%, #38122e 45%, #571f16 100%);
+}
+html[data-bg="sequoia"] body {
+  background-image:
+    radial-gradient(55% 45% at 15% 25%, rgb(56 189 248 / 0.5), transparent 70%),
+    radial-gradient(50% 45% at 85% 20%, rgb(45 212 191 / 0.45), transparent 70%),
+    radial-gradient(65% 55% at 70% 90%, rgb(129 140 248 / 0.5), transparent 70%),
+    linear-gradient(150deg, #0b2447 0%, #144272 50%, #17616b 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="sequoia"] body {
+  background-image:
+    radial-gradient(55% 45% at 15% 25%, rgb(56 189 248 / 0.3), transparent 70%),
+    radial-gradient(50% 45% at 85% 20%, rgb(45 212 191 / 0.27), transparent 70%),
+    radial-gradient(65% 55% at 70% 90%, rgb(129 140 248 / 0.3), transparent 70%),
+    linear-gradient(150deg, #04101f 0%, #081f3d 50%, #062a30 100%);
+}
+html[data-bg="monterey"] body {
+  background-image:
+    radial-gradient(50% 40% at 25% 15%, rgb(99 102 241 / 0.45), transparent 70%),
+    radial-gradient(45% 40% at 80% 30%, rgb(34 211 238 / 0.35), transparent 70%),
+    radial-gradient(60% 50% at 60% 95%, rgb(217 70 239 / 0.28), transparent 70%),
+    linear-gradient(160deg, #070b1f 0%, #0d1440 55%, #131038 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="monterey"] body {
+  background-image:
+    radial-gradient(50% 40% at 25% 15%, rgb(99 102 241 / 0.3), transparent 70%),
+    radial-gradient(45% 40% at 80% 30%, rgb(34 211 238 / 0.22), transparent 70%),
+    radial-gradient(60% 50% at 60% 95%, rgb(217 70 239 / 0.18), transparent 70%),
+    linear-gradient(160deg, #03040c 0%, #05081f 55%, #080620 100%);
+}
+
+/* Frosted glass for cards while a glass theme is active. These rules
+   come last and use stacked attribute selectors so they win over the
+   plainer translucent-card rule for the other backgrounds. The edge is
+   an inset shadow (not a border) so card sizes never shift. */
+html[data-glass="true"][data-bg] .card-glass {
+  background-color: rgb(255 255 255 / 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    0 8px 32px rgb(31 38 135 / 0.12);
+}
+html.dark[data-glass="true"][data-bg] .card-glass {
+  background-color: rgb(28 28 32 / 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.16),
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 8px 32px rgb(0 0 0 / 0.35);
+}

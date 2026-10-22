@@ -56,7 +56,8 @@ const MODES: { id: ThemeMode; label: string; hint: string }[] = [
       <p class="mb-2 text-xs text-neutral-500">
         A soft, eye-soothing backdrop for the explorer — it sits behind your
         projects and files, and cards turn slightly translucent over it.
-        Changes apply immediately.
+        The last three are iOS/macOS-style glass themes: vivid wallpapers
+        with true frosted-glass cards. Changes apply immediately.
       </p>
       <div class="grid grid-cols-3 gap-2">
         <button
