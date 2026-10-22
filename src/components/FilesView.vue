@@ -22,6 +22,7 @@ import {
   List,
   Music,
   RefreshCw,
+  Search,
   StickyNote,
   Tag,
   Trash2,
@@ -46,6 +47,7 @@ import { type FileMeta, LibraryFile } from "../types";
 import { deleteFileMeta, getAllFileMeta, setFileMeta } from "../lib/db";
 import { chromeDark } from "../lib/theme";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import ContextMenu, { type ContextMenuItem } from "./ContextMenu.vue";
 
 const props = defineProps<{ filesDir: string | null; active: boolean }>();
 const emit = defineEmits<{ dirChanged: [dir: string] }>();
@@ -379,6 +381,54 @@ function dismissBusy(item: BusyItem) {
   busyItems.value = busyItems.value.filter((b) => b.source !== item.source);
 }
 
+/* ------------------------- context menu ------------------------- */
+const ctx = ref<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+function openFileCtx(event: MouseEvent, file: LibraryFile) {
+  ctx.value = {
+    x: event.clientX,
+    y: event.clientY,
+    items: [
+      { label: "Open", icon: ExternalLink, action: () => openPath(file.path) },
+      {
+        label: "Open containing folder",
+        icon: FolderOpen,
+        action: () => openFolder(file),
+      },
+      { label: "Set status", icon: Tag, action: () => openStatus(file) },
+      {
+        label: metaOf(file).notes ? "Edit note" : "Add a note",
+        icon: StickyNote,
+        action: () => openNotes(file),
+      },
+      {
+        label: "Delete",
+        icon: Trash2,
+        danger: true,
+        action: () => (confirmDelete.value = { kind: "file", file }),
+      },
+    ],
+  };
+}
+function openFolderCtx(event: MouseEvent, folder: { path: string }) {
+  ctx.value = {
+    x: event.clientX,
+    y: event.clientY,
+    items: [
+      {
+        label: "Open folder",
+        icon: FolderOpen,
+        action: () => goFolder(folder.path),
+      },
+      {
+        label: "Delete folder",
+        icon: Trash2,
+        danger: true,
+        action: () => askDeleteFolderPath(folder.path),
+      },
+    ],
+  };
+}
+
 /* Drag & drop: dropping files anywhere on this view adds them. */
 let unlisten: (() => void) | null = null;
 onMounted(async () => {
@@ -422,6 +472,15 @@ onUnmounted(() => unlisten?.());
   <div v-else>
     <!-- Toolbar -->
     <div class="mb-4 flex flex-wrap items-center gap-2">
+      <div class="relative min-w-52 flex-1 sm:max-w-md">
+        <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
+        <input
+          v-model="query"
+          class="on-bg w-full rounded-lg border border-neutral-300 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
+          placeholder="Search files…"
+        />
+      </div>
+
       <div class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
         <button
           class="toggle-btn"
@@ -440,12 +499,6 @@ onUnmounted(() => unlisten?.());
           <LayoutGrid class="h-4 w-4" /> Icons
         </button>
       </div>
-
-      <input
-        v-model="query"
-        class="on-bg min-w-40 flex-1 rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700 sm:max-w-xs"
-        placeholder="Search files…"
-      />
 
       <button class="toolbar-btn" @click="pickFiles">
         <FilePlus2 class="h-4 w-4" /> Add files
@@ -540,6 +593,7 @@ onUnmounted(() => unlisten?.());
             class="group relative flex cursor-pointer flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
             :title="`Open folder ${folder.name}`"
             @click="goFolder(folder.path)"
+            @contextmenu.prevent="openFolderCtx($event, folder)"
           >
             <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
               <button
@@ -565,6 +619,7 @@ onUnmounted(() => unlisten?.());
             :key="folder.path"
             class="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
             @click="goFolder(folder.path)"
+            @contextmenu.prevent="openFolderCtx($event, folder)"
           >
             <Folder class="h-5 w-5 shrink-0 text-amber-500" />
             <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
@@ -624,7 +679,7 @@ onUnmounted(() => unlisten?.());
               </tr>
             </thead>
             <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
-              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" @contextmenu.prevent="openFileCtx($event, file)">
                 <td class="max-w-0 px-4 py-2.5">
                   <span class="flex min-w-0 items-center gap-2.5">
                     <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0 text-blue-600" />
@@ -675,6 +730,7 @@ onUnmounted(() => unlisten?.());
             class="group relative flex flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
             title="Double-click to open"
             @dblclick="openPath(file.path)"
+            @contextmenu.prevent="openFileCtx($event, file)"
           >
             <span
               class="absolute right-1 top-1 z-10 flex gap-0.5 opacity-0 transition group-hover:opacity-100"
@@ -819,6 +875,14 @@ onUnmounted(() => unlisten?.());
       </div>
     </div>
   </div>
+
+  <ContextMenu
+    v-if="ctx"
+    :x="ctx.x"
+    :y="ctx.y"
+    :items="ctx.items"
+    @close="ctx = null"
+  />
 
   <ConfirmDialog
     v-if="confirmDelete"

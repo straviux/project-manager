@@ -1,16 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, type Component } from "vue";
 import {
   ArrowDownToLine,
+  BookOpen,
+  Code,
   Download,
   Files,
   FolderCog,
   FolderInput,
+  FolderOpen,
   LayoutGrid,
+  Network,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
   Settings,
+  SquareTerminal,
+  Star,
+  Trash2,
 } from "@lucide/vue";
 import { chromeDark } from "./lib/theme";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -24,6 +32,9 @@ import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
+import ContextMenu, {
+  type ContextMenuItem,
+} from "./components/ContextMenu.vue";
 import {
   createProject,
   deleteProject,
@@ -229,6 +240,53 @@ async function togglePin(project: Project) {
   await refresh();
 }
 
+/* ------------------------- context menu ------------------------- */
+const projectCtx = ref<{ x: number; y: number; project: Project } | null>(null);
+const projectCtxItems = computed<ContextMenuItem[]>(() => {
+  const project = projectCtx.value?.project;
+  if (!project) return [];
+  return [
+    {
+      label: "Open in VS Code",
+      icon: Code,
+      action: () =>
+        runAction(() => openInVsCode(project.path), "Could not open VS Code"),
+    },
+    {
+      label: "Open source folder",
+      icon: FolderOpen,
+      action: () =>
+        runAction(() => openPath(project.path), "Could not open folder"),
+    },
+    {
+      label: "Open terminal",
+      icon: SquareTerminal,
+      action: () =>
+        runAction(() => openTerminal(project.path), "Could not open terminal"),
+    },
+    {
+      label: "SSH connections",
+      icon: Network,
+      action: () => (sshProject.value = project),
+    },
+    {
+      label: "Open README",
+      icon: BookOpen,
+      action: () => (readmeProject.value = project),
+    },
+    {
+      label: project.pinned ? "Remove star" : "Star",
+      icon: Star,
+      action: () => togglePin(project),
+    },
+    { label: "Edit", icon: Pencil, action: () => openEdit(project) },
+    { label: "Remove", icon: Trash2, danger: true, action: () => remove(project) },
+  ];
+});
+function onProjectContext(event: MouseEvent, project: Project) {
+  projectCtx.value = { x: event.clientX, y: event.clientY, project };
+}
+
 function onDragStart(id: number) {
   dragId.value = id;
 }
@@ -316,6 +374,14 @@ function openEdit(project: Project) {
 <template>
   <div class="flex h-full flex-col">
     <!-- First-run setup -->
+  <ContextMenu
+    v-if="projectCtx"
+    :x="projectCtx.x"
+    :y="projectCtx.y"
+    :items="projectCtxItems"
+    @close="projectCtx = null"
+  />
+
     <SetupWizard v-if="ready && !projectsDir" @done="onSetupDone" />
     <SetupWizard v-else-if="showSetup" @done="onSetupDone" />
 
@@ -449,6 +515,7 @@ function openEdit(project: Project) {
             :status-key="statusKey"
             :reorder-enabled="!search.trim()"
             @pin="togglePin(project)"
+            @context="(e) => onProjectContext(e, project)"
             @drag-start="onDragStart(project.id)"
             @drop="onDrop(project.id)"
             @vscode="runAction(() => openInVsCode(project.path), 'Could not open VS Code')"
