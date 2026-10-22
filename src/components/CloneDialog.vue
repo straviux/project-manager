@@ -45,7 +45,7 @@ async function clone() {
 
 <template>
   <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }" @click.self="emit('close')">
-    <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900">
+    <div class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900">
       <header class="mb-4 flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
           <Download class="h-5 w-5" /> Clone repository

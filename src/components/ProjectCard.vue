@@ -99,20 +99,24 @@ watch(() => props.statusKey, loadStatus);
           </button>
           <template v-if="menuOpen">
             <div class="fixed inset-0 z-10" @click="menuOpen = false"></div>
-            <div
-              class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-neutral-200 dark:bg-neutral-800 dark:ring-neutral-700"
+            <ul
+              class="menu absolute right-0 top-full z-20 mt-1 w-44 rounded-box bg-base-200 p-2 text-sm shadow-xl ring-1 ring-white/10"
             >
-              <button class="menu-item" @click="menuOpen = false; emit('edit')">
-                <Pencil class="h-4 w-4" /> Edit
-              </button>
-              <button
-                class="menu-item text-red-600 dark:text-red-400"
-                title="Remove from list (files are kept)"
-                @click="menuOpen = false; emit('remove')"
-              >
-                <Trash2 class="h-4 w-4" /> Remove
-              </button>
-            </div>
+              <li>
+                <a @click="menuOpen = false; emit('edit')">
+                  <Pencil class="h-4 w-4" /> Edit
+                </a>
+              </li>
+              <li>
+                <a
+                  class="text-error"
+                  title="Remove from list (files are kept)"
+                  @click="menuOpen = false; emit('remove')"
+                >
+                  <Trash2 class="h-4 w-4" /> Remove
+                </a>
+              </li>
+            </ul>
           </template>
         </div>
       </div>
@@ -193,9 +197,6 @@ watch(() => props.statusKey, loadStatus);
 </template>
 
 <style scoped>
-.menu-item {
-  @apply flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700;
-}
 .action {
   @apply flex items-center justify-center gap-1.5 rounded-lg bg-blue-100/80 px-2 py-2 text-xs font-medium text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/70;
 }

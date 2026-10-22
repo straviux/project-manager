@@ -81,7 +81,7 @@ async function submit() {
     @click.self="emit('close')"
   >
     <div
-      class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-neutral-900"
+      class="glass-panel w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-neutral-900"
     >
       <div class="mb-4 flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-lg font-semibold">

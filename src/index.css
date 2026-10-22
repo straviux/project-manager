@@ -204,28 +204,28 @@ html[data-bg="sky"] body {
   background-image: none;
 }
 html.dark[data-bg="sky"] body {
-  background-color: #10222e;
+  background-color: #14334d;
 }
 html[data-bg="mint"] body {
   background-color: #dcf2e3;
   background-image: none;
 }
 html.dark[data-bg="mint"] body {
-  background-color: #12291d;
+  background-color: #16382a;
 }
 html[data-bg="blush"] body {
   background-color: #fbe3e8;
   background-image: none;
 }
 html.dark[data-bg="blush"] body {
-  background-color: #2b1620;
+  background-color: #3d1e2c;
 }
 html[data-bg="butter"] body {
   background-color: #fdf3d8;
   background-image: none;
 }
 html.dark[data-bg="butter"] body {
-  background-color: #292211;
+  background-color: #3a3114;
 }
 html[data-bg="ink"] body {
   background-color: #23272f;
@@ -248,4 +248,74 @@ html.dark[data-bg="ink"] body {
   text-shadow:
     0 0 8px rgb(96 165 250 / 0.42),
     0 0 2px rgb(96 165 250 / 0.28);
+}
+
+html[data-bg="bigsur"] body {
+  background-image:
+    radial-gradient(55% 45% at 18% 12%, rgb(59 130 246 / 0.55), transparent 70%),
+    radial-gradient(50% 45% at 85% 18%, rgb(168 85 247 / 0.5), transparent 70%),
+    radial-gradient(60% 55% at 55% 95%, rgb(236 72 153 / 0.42), transparent 70%),
+    linear-gradient(155deg, #0a1e42 0%, #27306e 52%, #4c1d95 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="bigsur"] body {
+  background-image:
+    radial-gradient(55% 45% at 18% 12%, rgb(59 130 246 / 0.35), transparent 70%),
+    radial-gradient(50% 45% at 85% 18%, rgb(168 85 247 / 0.32), transparent 70%),
+    radial-gradient(60% 55% at 55% 95%, rgb(236 72 153 / 0.26), transparent 70%),
+    linear-gradient(155deg, #050914 0%, #0e1330 52%, #22093f 100%);
+}
+html[data-bg="catalina"] body {
+  background-image:
+    radial-gradient(50% 40% at 80% 10%, rgb(251 146 60 / 0.4), transparent 70%),
+    radial-gradient(55% 50% at 15% 30%, rgb(124 58 237 / 0.5), transparent 70%),
+    radial-gradient(60% 55% at 60% 100%, rgb(37 99 235 / 0.45), transparent 70%),
+    linear-gradient(160deg, #160b2e 0%, #2a1350 50%, #0b2447 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="catalina"] body {
+  background-image:
+    radial-gradient(50% 40% at 80% 10%, rgb(251 146 60 / 0.24), transparent 70%),
+    radial-gradient(55% 50% at 15% 30%, rgb(124 58 237 / 0.3), transparent 70%),
+    radial-gradient(60% 55% at 60% 100%, rgb(37 99 235 / 0.28), transparent 70%),
+    linear-gradient(160deg, #08040f 0%, #120826 50%, #04101f 100%);
+}
+
+/* Deeper glass while a glass theme is active: the nav bar and footer
+   frost over too, dialog panels become frosted glass, and the action
+   buttons turn into translucent glass chips. */
+html[data-glass="true"] header.dark,
+html[data-glass="true"] footer.dark {
+  background-color: rgb(23 23 23 / 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+html[data-glass="true"] .glass-panel {
+  background-color: rgb(28 28 32 / 0.55);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 24px 64px rgb(0 0 0 / 0.45);
+}
+html[data-glass="true"] .toolbar-btn,
+html[data-glass="true"] .file-action,
+html[data-glass="true"] .file-action-sm,
+html[data-glass="true"] .action {
+  background-color: rgb(255 255 255 / 0.13);
+  color: rgb(219 234 254);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+}
+html[data-glass="true"] .toolbar-btn:hover,
+html[data-glass="true"] .file-action:hover,
+html[data-glass="true"] .file-action-sm:hover,
+html[data-glass="true"] .action:hover {
+  background-color: rgb(255 255 255 / 0.22);
+}
+html[data-glass="true"] .file-action-danger:hover {
+  background-color: rgb(239 68 68 / 0.28);
+  color: rgb(254 202 202);
 }

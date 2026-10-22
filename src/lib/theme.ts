@@ -1,46 +1,28 @@
 import { computed, ref, watch } from "vue";
 
-export type ThemeMode = "light" | "dark" | "mix";
+// The app is dark-only: <html> always carries `.dark`, so every dark:
+// utility is active. DaisyUI (registered in tailwind.config.js) renders
+// its components with the dark theme via the data-theme attribute.
+document.documentElement.classList.add("dark");
+document.documentElement.dataset.theme = "dark";
+localStorage.removeItem("pm-theme"); // leftover from the removed mode switch
 
-const STORAGE_KEY = "pm-theme";
+/**
+ * App chrome (header/nav, dialogs, menus) is always dark. Kept as an
+ * export because the header, footer and every dialog bind it to apply
+ * the `.dark` class to themselves.
+ */
+export const chromeDark = computed(() => true);
 
-function initialMode(): ThemeMode {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === "light" || saved === "dark" || saved === "mix") return saved;
-  // First run: follow the OS, like the app did before the switch existed.
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-export const themeMode = ref<ThemeMode>(initialMode());
-
-/** App chrome (header/nav, dialogs, menus) renders dark in dark & mix modes. */
-export const chromeDark = computed(() => themeMode.value !== "light");
-
-watch(
-  themeMode,
-  (mode) => {
-    localStorage.setItem(STORAGE_KEY, mode);
-    // Full dark: `.dark` on <html> scopes every dark: utility to the page.
-    // Mix: no root class — chrome elements carry `.dark` themselves, so
-    // only they (and their children) flip; page content stays light.
-    document.documentElement.classList.toggle("dark", mode === "dark");
-  },
-  { immediate: true },
-);
-
-export function setThemeMode(mode: ThemeMode) {
-  themeMode.value = mode;
-}
-
-/* ------------------- Explorer background ("eye candy") ------------------- */
+/* --------------------- Explorer background themes --------------------- */
 
 export type BgTheme =
   | "none"
   | "sonoma"
   | "sequoia"
   | "monterey"
+  | "bigsur"
+  | "catalina"
   | "sky"
   | "mint"
   | "blush"
@@ -51,7 +33,8 @@ export interface BgThemeDef {
   id: BgTheme;
   label: string;
   hint: string;
-  /** Light-scheme gradient, used for the settings swatch preview. */
+  /** Gradient used for the settings swatch preview (the dark variant,
+   *  since the app is dark-only). */
   preview: string;
   /** Dark backdrops: loose on-background text flips light for readability. */
   dark?: boolean;
@@ -59,16 +42,14 @@ export interface BgThemeDef {
   glass?: boolean;
 }
 
-/** Soft, low-contrast gradients meant to be easy on the eyes. The actual
- *  page gradients (light + dark variants) live in index.css, keyed by the
- *  `data-bg` attribute these definitions set on <html>. */
 export const BG_THEMES: BgThemeDef[] = [
   { id: "none", label: "None", hint: "Plain background", preview: "" },
   {
     id: "sonoma",
     label: "Sonoma",
     hint: "Grape & ember, glass cards",
-    preview: "radial-gradient(60% 50% at 20% 20%, rgb(255 154 158 / 0.55), transparent 70%),radial-gradient(50% 40% at 85% 15%, rgb(250 208 108 / 0.45), transparent 70%),radial-gradient(70% 60% at 75% 85%, rgb(168 85 247 / 0.5), transparent 70%),linear-gradient(140deg, #3b1d5e 0%, #7c2d5e 45%, #b23a48 100%)",
+    preview:
+      "radial-gradient(60% 50% at 20% 20%, rgb(255 154 158 / 0.32), transparent 70%),radial-gradient(50% 40% at 85% 15%, rgb(250 208 108 / 0.26), transparent 70%),radial-gradient(70% 60% at 75% 85%, rgb(168 85 247 / 0.3), transparent 70%),linear-gradient(140deg, #170b2e 0%, #38122e 45%, #571f16 100%)",
     dark: true,
     glass: true,
   },
@@ -76,7 +57,8 @@ export const BG_THEMES: BgThemeDef[] = [
     id: "sequoia",
     label: "Sequoia",
     hint: "Blue-teal, glass cards",
-    preview: "radial-gradient(55% 45% at 15% 25%, rgb(56 189 248 / 0.5), transparent 70%),radial-gradient(50% 45% at 85% 20%, rgb(45 212 191 / 0.45), transparent 70%),radial-gradient(65% 55% at 70% 90%, rgb(129 140 248 / 0.5), transparent 70%),linear-gradient(150deg, #0b2447 0%, #144272 50%, #17616b 100%)",
+    preview:
+      "radial-gradient(55% 45% at 15% 25%, rgb(56 189 248 / 0.3), transparent 70%),radial-gradient(50% 45% at 85% 20%, rgb(45 212 191 / 0.27), transparent 70%),radial-gradient(65% 55% at 70% 90%, rgb(129 140 248 / 0.3), transparent 70%),linear-gradient(150deg, #04101f 0%, #081f3d 50%, #062a30 100%)",
     dark: true,
     glass: true,
   },
@@ -84,39 +66,58 @@ export const BG_THEMES: BgThemeDef[] = [
     id: "monterey",
     label: "Monterey",
     hint: "Midnight glass",
-    preview: "radial-gradient(50% 40% at 25% 15%, rgb(99 102 241 / 0.45), transparent 70%),radial-gradient(45% 40% at 80% 30%, rgb(34 211 238 / 0.35), transparent 70%),radial-gradient(60% 50% at 60% 95%, rgb(217 70 239 / 0.28), transparent 70%),linear-gradient(160deg, #070b1f 0%, #0d1440 55%, #131038 100%)",
+    preview:
+      "radial-gradient(50% 40% at 25% 15%, rgb(99 102 241 / 0.3), transparent 70%),radial-gradient(45% 40% at 80% 30%, rgb(34 211 238 / 0.22), transparent 70%),radial-gradient(60% 50% at 60% 95%, rgb(217 70 239 / 0.18), transparent 70%),linear-gradient(160deg, #03040c 0%, #05081f 55%, #080620 100%)",
+    dark: true,
+    glass: true,
+  },
+  {
+    id: "bigsur",
+    label: "Big Sur",
+    hint: "Blue & violet waves, glass",
+    preview:
+      "radial-gradient(55% 45% at 18% 12%, rgb(59 130 246 / 0.35), transparent 70%),radial-gradient(50% 45% at 85% 18%, rgb(168 85 247 / 0.32), transparent 70%),radial-gradient(60% 55% at 55% 95%, rgb(236 72 153 / 0.26), transparent 70%),linear-gradient(155deg, #050914 0%, #0e1330 52%, #22093f 100%)",
+    dark: true,
+    glass: true,
+  },
+  {
+    id: "catalina",
+    label: "Catalina",
+    hint: "Violet dusk glow, glass",
+    preview:
+      "radial-gradient(50% 40% at 80% 10%, rgb(251 146 60 / 0.24), transparent 70%),radial-gradient(55% 50% at 15% 30%, rgb(124 58 237 / 0.3), transparent 70%),radial-gradient(60% 55% at 60% 100%, rgb(37 99 235 / 0.28), transparent 70%),linear-gradient(160deg, #08040f 0%, #120826 50%, #04101f 100%)",
     dark: true,
     glass: true,
   },
   {
     id: "sky",
     label: "Sky",
-    hint: "Flat color \u00b7 sky blue",
-    preview: "linear-gradient(#dbeeff,#dbeeff)",
+    hint: "Flat color · sky blue",
+    preview: "linear-gradient(#14334d,#14334d)",
   },
   {
     id: "mint",
     label: "Mint",
-    hint: "Flat color \u00b7 mint green",
-    preview: "linear-gradient(#dcf2e3,#dcf2e3)",
+    hint: "Flat color · mint green",
+    preview: "linear-gradient(#16382a,#16382a)",
   },
   {
     id: "blush",
     label: "Blush",
-    hint: "Flat color \u00b7 blush pink",
-    preview: "linear-gradient(#fbe3e8,#fbe3e8)",
+    hint: "Flat color · blush pink",
+    preview: "linear-gradient(#3d1e2c,#3d1e2c)",
   },
   {
     id: "butter",
     label: "Butter",
-    hint: "Flat color \u00b7 butter cream",
-    preview: "linear-gradient(#fdf3d8,#fdf3d8)",
+    hint: "Flat color · butter cream",
+    preview: "linear-gradient(#3a3114,#3a3114)",
   },
   {
     id: "ink",
     label: "Ink",
-    hint: "Flat color \u00b7 ink charcoal",
-    preview: "linear-gradient(#23272f,#23272f)",
+    hint: "Flat color · ink charcoal",
+    preview: "linear-gradient(#101216,#101216)",
     dark: true,
   },
 ];

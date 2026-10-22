@@ -1,22 +1,8 @@
 <script setup lang="ts">
-import { Check, Contrast, Moon, Settings, Sun, X } from "@lucide/vue";
-import {
-  BG_THEMES,
-  bgTheme,
-  chromeDark,
-  setBgTheme,
-  setThemeMode,
-  themeMode,
-  type ThemeMode,
-} from "../lib/theme";
+import { Check, Settings, X } from "@lucide/vue";
+import { BG_THEMES, bgTheme, chromeDark, setBgTheme } from "../lib/theme";
 
 const emit = defineEmits<{ close: [] }>();
-
-const MODES: { id: ThemeMode; label: string; hint: string }[] = [
-  { id: "light", label: "Light", hint: "Bright everywhere" },
-  { id: "dark", label: "Dark", hint: "Dark everywhere" },
-  { id: "mix", label: "Mix", hint: "Dark nav & menus, light content" },
-];
 </script>
 
 <template>
@@ -25,7 +11,7 @@ const MODES: { id: ThemeMode; label: string; hint: string }[] = [
     :class="{ dark: chromeDark }"
     @click.self="emit('close')"
   >
-    <div class="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+    <div class="glass-panel max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <header class="mb-4 flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
           <Settings class="h-5 w-5" /> Settings
@@ -35,26 +21,9 @@ const MODES: { id: ThemeMode; label: string; hint: string }[] = [
         </button>
       </header>
 
-      <h3 class="mb-2 text-sm font-semibold">Appearance</h3>
-      <div class="mb-5 grid grid-cols-3 gap-2">
-        <button
-          v-for="m in MODES"
-          :key="m.id"
-          class="option-btn"
-          :class="themeMode === m.id ? 'option-btn-active' : ''"
-          @click="setThemeMode(m.id)"
-        >
-          <Sun v-if="m.id === 'light'" class="h-5 w-5" />
-          <Moon v-else-if="m.id === 'dark'" class="h-5 w-5" />
-          <Contrast v-else class="h-5 w-5" />
-          <span class="text-sm font-medium">{{ m.label }}</span>
-          <span class="text-center text-[11px] leading-tight text-neutral-500">{{ m.hint }}</span>
-        </button>
-      </div>
-
       <h3 class="mb-1 text-sm font-semibold">Background</h3>
       <p class="mb-2 text-xs text-neutral-500">
-        Sonoma, Sequoia and Monterey are iOS/macOS-style glass themes:
+        Sonoma, Sequoia, Monterey, Big Sur and Catalina are iOS/macOS-style glass themes:
         vivid wallpapers with true frosted-glass cards. The rest are flat
         colors with softly translucent cards. Changes apply immediately.
       </p>

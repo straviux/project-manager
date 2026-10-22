@@ -34,7 +34,7 @@ loadCurrent();
 
 <template>
   <div class="flex h-full items-center justify-center p-6" :class="{ dark: chromeDark }">
-    <div class="w-full max-w-lg rounded-2xl bg-white p-8 shadow dark:bg-neutral-900">
+    <div class="glass-panel w-full max-w-lg rounded-2xl bg-white p-8 shadow dark:bg-neutral-900">
       <div class="mb-4 flex items-center gap-3">
         <HardDriveDownload class="h-8 w-8 text-blue-600" />
         <h1 class="text-2xl font-bold">Where do your projects live?</h1>

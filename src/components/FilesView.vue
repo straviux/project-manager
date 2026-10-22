@@ -780,7 +780,7 @@ onUnmounted(() => unlisten?.());
     :class="{ dark: chromeDark }"
     @click.self="statusTarget = null"
   >
-    <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+    <div class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
         <Tag class="h-5 w-5" /> Set status
       </h2>
@@ -805,7 +805,7 @@ onUnmounted(() => unlisten?.());
           @keyup.enter="customStatus.trim() && applyStatus(customStatus.trim())"
         />
         <button
-          class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          class="btn btn-primary btn-sm"
           :disabled="!customStatus.trim()"
           @click="applyStatus(customStatus.trim())"
         >
@@ -821,12 +821,7 @@ onUnmounted(() => unlisten?.());
           Clear status
         </button>
         <span v-else></span>
-        <button
-          class="rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
-          @click="statusTarget = null"
-        >
-          Cancel
-        </button>
+        <button class="btn btn-ghost btn-sm" @click="statusTarget = null">Cancel</button>
       </div>
     </div>
   </div>
@@ -837,7 +832,7 @@ onUnmounted(() => unlisten?.());
     :class="{ dark: chromeDark }"
     @click.self="notesTarget = null"
   >
-    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+    <div class="glass-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
         <StickyNote class="h-5 w-5" /> Notes
       </h2>
@@ -849,18 +844,8 @@ onUnmounted(() => unlisten?.());
         placeholder="Write a note about this file…"
       ></textarea>
       <div class="mt-4 flex justify-end gap-2">
-        <button
-          class="rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
-          @click="notesTarget = null"
-        >
-          Cancel
-        </button>
-        <button
-          class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-          @click="saveNotes"
-        >
-          Save note
-        </button>
+        <button class="btn btn-ghost btn-sm" @click="notesTarget = null">Cancel</button>
+        <button class="btn btn-primary btn-sm" @click="saveNotes">Save note</button>
       </div>
     </div>
   </div>
