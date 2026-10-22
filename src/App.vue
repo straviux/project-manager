@@ -321,7 +321,7 @@ function openEdit(project: Project) {
 
     <template v-else-if="ready">
       <header class="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900" :class="{ dark: chromeDark }">
-        <div class="flex flex-wrap items-center gap-3 px-6 py-4">
+        <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-6 py-4">
           <h1 class="flex items-center gap-2 text-xl font-bold">
             <LayoutGrid class="h-6 w-6 text-blue-600" /> Project Manager
           </h1>

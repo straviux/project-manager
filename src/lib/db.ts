@@ -1,5 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import type {
+  FileMeta,
   Project,
   ProjectDraft,
   SshConfig,
@@ -33,6 +34,12 @@ function loadDb(): Promise<Database> {
           project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
           stack      TEXT NOT NULL,
           PRIMARY KEY (project_id, stack)
+        )`);
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS file_meta (
+          path   TEXT PRIMARY KEY,
+          status TEXT NOT NULL DEFAULT '',
+          notes  TEXT NOT NULL DEFAULT ''
         )`);
       // Migrations for existing databases (columns added after v0.1).
       const cols = await db.select<{ name: string }[]>(
@@ -285,4 +292,30 @@ export async function saveSshConfig(
 export async function deleteSshConfig(id: number): Promise<void> {
   const db = await loadDb();
   await db.execute("DELETE FROM ssh_configs WHERE id = $1", [id]);
+}
+
+/* ------------------------- file status & notes ------------------------- */
+
+export async function getAllFileMeta(): Promise<Record<string, FileMeta>> {
+  const db = await loadDb();
+  const rows = await db.select<{ path: string; status: string; notes: string }[]>(
+    "SELECT path, status, notes FROM file_meta",
+  );
+  const out: Record<string, FileMeta> = {};
+  for (const r of rows) out[r.path] = { status: r.status, notes: r.notes };
+  return out;
+}
+
+export async function setFileMeta(path: string, meta: FileMeta): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "INSERT INTO file_meta (path, status, notes) VALUES ($1, $2, $3) " +
+      "ON CONFLICT(path) DO UPDATE SET status = excluded.status, notes = excluded.notes",
+    [path, meta.status, meta.notes],
+  );
+}
+
+export async function deleteFileMeta(path: string): Promise<void> {
+  const db = await loadDb();
+  await db.execute("DELETE FROM file_meta WHERE path = $1", [path]);
 }

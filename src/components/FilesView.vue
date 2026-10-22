@@ -4,7 +4,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { pickerDefaultPath } from "../lib/paths";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
-  Activity,
   Archive,
   Code,
   ExternalLink,
@@ -21,6 +20,9 @@ import {
   Music,
   RefreshCw,
   Shapes,
+  StickyNote,
+  Tag,
+  Trash2,
   TriangleAlert,
   Video,
   X,
@@ -28,13 +30,18 @@ import {
 import { FILES_DIR_KEY, setSetting } from "../lib/db";
 import {
   checkFileFree,
+  deleteLibraryFile,
+  deleteLibraryFolder,
   importFolderToLibrary,
   listLibraryFiles,
   moveFileToLibrary,
   openPath,
 } from "../lib/api";
 import ImportDialog from "./ImportDialog.vue";
-import { FILE_CATEGORIES, type LibraryFile } from "../types";
+import { FILE_CATEGORIES, type FileMeta, LibraryFile } from "../types";
+import { deleteFileMeta, getAllFileMeta, setFileMeta } from "../lib/db";
+import { chromeDark } from "../lib/theme";
+import ConfirmDialog from "./ConfirmDialog.vue";
 
 const props = defineProps<{ filesDir: string | null; active: boolean }>();
 const emit = defineEmits<{ dirChanged: [dir: string] }>();
@@ -70,33 +77,103 @@ function setLayout(v: "table" | "grid") {
   localStorage.setItem("pm-files-layout", v);
 }
 
-interface FileStatusEntry {
-  free: boolean;
-  reason: string | null;
-  checking?: boolean;
+/* ------------------- per-file status & notes (SQLite) ------------------- */
+const meta = ref<Record<string, FileMeta>>({});
+async function loadMeta() {
+  meta.value = await getAllFileMeta().catch(() => meta.value);
 }
-const fileStatus = ref<Record<string, FileStatusEntry>>({});
-function statusOf(path: string): FileStatusEntry | undefined {
-  return fileStatus.value[path];
+function metaOf(file: LibraryFile): FileMeta {
+  return meta.value[file.path] ?? { status: "", notes: "" };
 }
-async function checkStatus(file: LibraryFile) {
-  fileStatus.value = {
-    ...fileStatus.value,
-    [file.path]: { free: false, reason: null, checking: true },
-  };
+async function saveMeta(file: LibraryFile, next: FileMeta) {
+  await setFileMeta(file.path, next);
+  meta.value = { ...meta.value, [file.path]: next };
+}
+
+const STATUS_PRESETS = ["To review", "In progress", "Done", "Important", "On hold"];
+const STATUS_CLASSES: Record<string, string> = {
+  "To review": "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  "In progress": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  Done: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  Important: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  "On hold": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+};
+function statusClasses(status: string): string {
+  return (
+    STATUS_CLASSES[status] ??
+    "bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200"
+  );
+}
+
+const statusTarget = ref<LibraryFile | null>(null);
+const customStatus = ref("");
+function openStatus(file: LibraryFile) {
+  statusTarget.value = file;
+  customStatus.value = "";
+}
+async function applyStatus(status: string) {
+  const file = statusTarget.value;
+  if (!file) return;
+  statusTarget.value = null;
   try {
-    const res = await checkFileFree(file.path);
-    fileStatus.value = {
-      ...fileStatus.value,
-      [file.path]: { free: res.free, reason: res.reason },
-    };
-  } catch {
-    fileStatus.value = {
-      ...fileStatus.value,
-      [file.path]: { free: false, reason: "Could not check this file." },
-    };
+    await saveMeta(file, { ...metaOf(file), status });
+  } catch (e) {
+    error.value = String(e);
   }
 }
+
+const notesTarget = ref<LibraryFile | null>(null);
+const notesDraft = ref("");
+function openNotes(file: LibraryFile) {
+  notesTarget.value = file;
+  notesDraft.value = metaOf(file).notes;
+}
+async function saveNotes() {
+  const file = notesTarget.value;
+  if (!file) return;
+  notesTarget.value = null;
+  try {
+    await saveMeta(file, { ...metaOf(file), notes: notesDraft.value.trim() });
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
+/* ------------------------------ deletion ------------------------------ */
+type DeleteRequest =
+  | { kind: "file"; file: LibraryFile }
+  | { kind: "folder"; folder: string; count: number; paths: string[] };
+const confirmDelete = ref<DeleteRequest | null>(null);
+function askDeleteFolder(items: LibraryFile[]) {
+  const folder = items[0]?.folder;
+  if (!folder) return;
+  confirmDelete.value = {
+    kind: "folder",
+    folder,
+    count: items.length,
+    paths: items.map((f) => f.path),
+  };
+}
+async function doDelete() {
+  const req = confirmDelete.value;
+  if (!req || !props.filesDir) return;
+  confirmDelete.value = null;
+  try {
+    if (req.kind === "file") {
+      await deleteLibraryFile(props.filesDir, req.file.path);
+      await deleteFileMeta(req.file.path).catch(() => {});
+      notice.value = `Deleted ${req.file.name}.`;
+    } else {
+      await deleteLibraryFolder(props.filesDir, req.folder);
+      for (const path of req.paths) await deleteFileMeta(path).catch(() => {});
+      notice.value = `Deleted folder ${req.folder} (${req.count} files).`;
+    }
+    await refresh();
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
 function openFolder(file: LibraryFile) {
   const i = Math.max(file.path.lastIndexOf("\\"), file.path.lastIndexOf("/"));
   if (i > 0) void openPath(file.path.slice(0, i));
@@ -160,6 +237,7 @@ async function refresh() {
   loading.value = true;
   try {
     files.value = await listLibraryFiles(props.filesDir);
+    await loadMeta();
   } catch (e) {
     error.value = String(e);
   } finally {
@@ -378,9 +456,19 @@ onUnmounted(() => unlisten?.());
     </div>
     <div v-else class="space-y-6">
       <section v-for="[group, items] in groups" :key="group">
-        <h3 class="on-bg mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
-          {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
-        </h3>
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <h3 class="on-bg text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
+          </h3>
+          <button
+            v-if="view === 'folder' && items[0]?.folder"
+            class="file-action file-action-danger"
+            :title="`Delete folder ${items[0]?.folder ?? ''} and everything in it`"
+            @click="askDeleteFolder(items)"
+          >
+            <Trash2 class="h-4 w-4" />
+          </button>
+        </div>
         <div
           v-if="layout === 'table'"
           class="card-glass overflow-x-auto rounded-xl bg-white ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
@@ -406,23 +494,25 @@ onUnmounted(() => unlisten?.());
                 <td class="whitespace-nowrap px-4 py-2.5 text-neutral-500">{{ view === 'type' ? file.folder || 'Library root' : file.category }}</td>
                 <td class="whitespace-nowrap px-4 py-2.5 text-neutral-500">{{ formatSize(file.size) }}</td>
                 <td class="whitespace-nowrap px-4 py-2.5">
-                  <span v-if="statusOf(file.path)?.checking" class="text-xs text-neutral-400">Checking\u2026</span>
-                  <span v-else-if="statusOf(file.path)" class="inline-flex items-center gap-1.5 text-xs font-medium" :class="statusOf(file.path)?.free ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'" :title="statusOf(file.path)?.reason ?? ''">
-                    <span class="h-1.5 w-1.5 rounded-full" :class="statusOf(file.path)?.free ? 'bg-green-500' : 'bg-amber-500'"></span>
-                    {{ statusOf(file.path)?.free ? 'Free' : 'In use' }}
-                  </span>
-                  <span v-else class="text-xs text-neutral-400">—</span>
+                  <button v-if="metaOf(file).status" class="status-badge" :class="statusClasses(metaOf(file).status)" title="Change status" @click="openStatus(file)">{{ metaOf(file).status }}</button>
+                  <button v-else class="text-xs text-neutral-400 hover:text-blue-600" title="Set a status for this file" @click="openStatus(file)">Set status</button>
                 </td>
                 <td class="px-4 py-2.5">
                   <span class="flex justify-end gap-1">
-                    <button class="file-action" title="Check whether this file is in use right now" @click="checkStatus(file)">
-                      <Activity class="h-3.5 w-3.5" /> Status
+                    <button class="file-action" title="Set status" @click="openStatus(file)">
+                      <Tag class="h-4 w-4" />
+                    </button>
+                    <button class="file-action" :title="metaOf(file).notes ? 'Edit note' : 'Add a note'" @click="openNotes(file)">
+                      <StickyNote class="h-4 w-4" :class="metaOf(file).notes ? 'text-blue-600 dark:text-blue-400' : ''" />
                     </button>
                     <button class="file-action" title="Open the folder containing this file" @click="openFolder(file)">
-                      <FolderOpen class="h-3.5 w-3.5" /> Folder
+                      <FolderOpen class="h-4 w-4" />
                     </button>
                     <button class="file-action" title="Open this file" @click="openPath(file.path)">
-                      <ExternalLink class="h-3.5 w-3.5" /> Open
+                      <ExternalLink class="h-4 w-4" />
+                    </button>
+                    <button class="file-action file-action-danger" title="Delete this file" @click="confirmDelete = { kind: 'file', file }">
+                      <Trash2 class="h-4 w-4" />
                     </button>
                   </span>
                 </td>
@@ -442,30 +532,135 @@ onUnmounted(() => unlisten?.());
               <span class="block truncate text-xs text-neutral-500">
                 {{ view === 'type' ? file.folder || 'Library root' : file.category }} · {{ formatSize(file.size) }}
               </span>
-              <span class="mt-0.5 block">
-                <span v-if="statusOf(file.path)?.checking" class="text-xs text-neutral-400">Checking\u2026</span>
-                  <span v-else-if="statusOf(file.path)" class="inline-flex items-center gap-1.5 text-xs font-medium" :class="statusOf(file.path)?.free ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'" :title="statusOf(file.path)?.reason ?? ''">
-                    <span class="h-1.5 w-1.5 rounded-full" :class="statusOf(file.path)?.free ? 'bg-green-500' : 'bg-amber-500'"></span>
-                    {{ statusOf(file.path)?.free ? 'Free' : 'In use' }}
-                  </span>
-              </span>
+              <span v-if="metaOf(file).status" class="status-badge mt-0.5" :class="statusClasses(metaOf(file).status)">{{ metaOf(file).status }}</span>
+              <span v-if="metaOf(file).notes" class="mt-0.5 block truncate text-xs italic text-neutral-400" :title="metaOf(file).notes">{{ metaOf(file).notes }}</span>
             </span>
             <span class="mt-auto flex flex-wrap gap-1 pt-1">
-              <button class="file-action" title="Check whether this file is in use right now" @click="checkStatus(file)">
-                      <Activity class="h-3.5 w-3.5" /> Status
-                    </button>
-                    <button class="file-action" title="Open the folder containing this file" @click="openFolder(file)">
-                      <FolderOpen class="h-3.5 w-3.5" /> Folder
-                    </button>
-                    <button class="file-action" title="Open this file" @click="openPath(file.path)">
-                      <ExternalLink class="h-3.5 w-3.5" /> Open
-                    </button>
+              <button class="file-action" title="Set status" @click="openStatus(file)">
+                <Tag class="h-4 w-4" />
+              </button>
+              <button class="file-action" :title="metaOf(file).notes ? 'Edit note' : 'Add a note'" @click="openNotes(file)">
+                <StickyNote class="h-4 w-4" :class="metaOf(file).notes ? 'text-blue-600 dark:text-blue-400' : ''" />
+              </button>
+              <button class="file-action" title="Open the folder containing this file" @click="openFolder(file)">
+                <FolderOpen class="h-4 w-4" />
+              </button>
+              <button class="file-action" title="Open this file" @click="openPath(file.path)">
+                <ExternalLink class="h-4 w-4" />
+              </button>
+              <button class="file-action file-action-danger" title="Delete this file" @click="confirmDelete = { kind: 'file', file }">
+                <Trash2 class="h-4 w-4" />
+              </button>
             </span>
           </li>
         </ul>
       </section>
     </div>
   </div>
+
+  <div
+    v-if="statusTarget"
+    class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
+    :class="{ dark: chromeDark }"
+    @click.self="statusTarget = null"
+  >
+    <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
+        <Tag class="h-5 w-5" /> Set status
+      </h2>
+      <p class="mb-4 truncate text-sm text-neutral-500">{{ statusTarget.name }}</p>
+      <div class="mb-4 flex flex-wrap gap-1.5">
+        <button
+          v-for="preset in STATUS_PRESETS"
+          :key="preset"
+          class="status-badge px-2.5 py-1 text-xs"
+          :class="statusClasses(preset)"
+          @click="applyStatus(preset)"
+        >
+          {{ preset }}
+        </button>
+      </div>
+      <label class="mb-1 block text-sm font-medium">Custom status</label>
+      <div class="flex gap-2">
+        <input
+          v-model="customStatus"
+          class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
+          placeholder="Type your own\u2026"
+          @keyup.enter="customStatus.trim() && applyStatus(customStatus.trim())"
+        />
+        <button
+          class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          :disabled="!customStatus.trim()"
+          @click="applyStatus(customStatus.trim())"
+        >
+          Set
+        </button>
+      </div>
+      <div class="mt-5 flex items-center justify-between">
+        <button
+          v-if="metaOf(statusTarget).status"
+          class="text-sm font-medium text-red-600 hover:underline"
+          @click="applyStatus('')"
+        >
+          Clear status
+        </button>
+        <span v-else></span>
+        <button
+          class="rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+          @click="statusTarget = null"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="notesTarget"
+    class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
+    :class="{ dark: chromeDark }"
+    @click.self="notesTarget = null"
+  >
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
+        <StickyNote class="h-5 w-5" /> Notes
+      </h2>
+      <p class="mb-3 truncate text-sm text-neutral-500">{{ notesTarget.name }}</p>
+      <textarea
+        v-model="notesDraft"
+        rows="4"
+        class="w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
+        placeholder="Write a note about this file\u2026"
+      ></textarea>
+      <div class="mt-4 flex justify-end gap-2">
+        <button
+          class="rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+          @click="notesTarget = null"
+        >
+          Cancel
+        </button>
+        <button
+          class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+          @click="saveNotes"
+        >
+          Save note
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <ConfirmDialog
+    v-if="confirmDelete"
+    :title="confirmDelete.kind === 'file' ? 'Delete file?' : 'Delete folder?'"
+    :message="
+      confirmDelete.kind === 'file'
+        ? `${confirmDelete.file.name} will be permanently deleted from the library folder. This cannot be undone.`
+        : `The folder \u201c${confirmDelete.folder}\u201d and the ${confirmDelete.count} file(s) in this view will be permanently deleted. This cannot be undone.`
+    "
+    confirm-label="Delete"
+    @confirm="doDelete"
+    @cancel="confirmDelete = null"
+  />
 
   <ImportDialog
     v-if="showAddFolder && filesDir"
@@ -483,7 +678,13 @@ onUnmounted(() => unlisten?.());
   @apply flex items-center gap-1.5 px-3 py-2 text-sm font-medium;
 }
 .file-action {
-  @apply flex items-center gap-1 rounded-lg bg-neutral-100 px-2.5 py-1.5 text-xs font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
+  @apply flex items-center rounded-lg bg-neutral-100 p-2 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
+}
+.file-action-danger {
+  @apply hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-300;
+}
+.status-badge {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium;
 }
 .toolbar-btn {
   @apply flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;

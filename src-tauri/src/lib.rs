@@ -958,6 +958,53 @@ async fn list_library_files(library_dir: String) -> Result<Vec<LibraryFile>, Str
         .map_err(|e| e.to_string())?
 }
 
+fn delete_library_file_impl(library_dir: String, path: String) -> Result<(), String> {
+    let lib = PathBuf::from(&library_dir)
+        .canonicalize()
+        .map_err(|e| format!("Library folder not found: {e}"))?;
+    let target = PathBuf::from(&path)
+        .canonicalize()
+        .map_err(|e| format!("File not found: {e}"))?;
+    if target == lib || !target.starts_with(&lib) {
+        return Err("That file is not inside the library folder.".into());
+    }
+    if !target.is_file() {
+        return Err("That is not a file.".into());
+    }
+    fs::remove_file(&target).map_err(|e| format!("Could not delete the file: {e}"))
+}
+
+#[tauri::command]
+async fn delete_library_file(library_dir: String, path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || delete_library_file_impl(library_dir, path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn delete_library_folder_impl(library_dir: String, folder: String) -> Result<(), String> {
+    let lib = PathBuf::from(&library_dir)
+        .canonicalize()
+        .map_err(|e| format!("Library folder not found: {e}"))?;
+    let target = lib
+        .join(&folder)
+        .canonicalize()
+        .map_err(|e| format!("Folder not found: {e}"))?;
+    if target == lib || !target.starts_with(&lib) {
+        return Err("That folder is not inside the library folder.".into());
+    }
+    if !target.is_dir() {
+        return Err("That is not a folder.".into());
+    }
+    fs::remove_dir_all(&target).map_err(|e| format!("Could not delete the folder: {e}"))
+}
+
+#[tauri::command]
+async fn delete_library_folder(library_dir: String, folder: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || delete_library_folder_impl(library_dir, folder))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 
 fn do_import_folder_to_library(
     source: String,
@@ -1122,6 +1169,8 @@ pub fn run() {
             save_project_icon,
             delete_project_icon,
             list_library_files,
+            delete_library_file,
+            delete_library_folder,
             open_path
         ])
         .run(tauri::generate_context!())

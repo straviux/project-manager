@@ -66,6 +66,12 @@ export interface FileCheck {
 }
 
 /** A file inside the managed file library (from the Rust scanner). */
+/** Per-file status & notes, stored in SQLite keyed by absolute path. */
+export interface FileMeta {
+  status: string;
+  notes: string;
+}
+
 export interface LibraryFile {
   name: string;
   path: string;

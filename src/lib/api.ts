@@ -101,6 +101,16 @@ export function openPath(path: string): Promise<void> {
   return invoke("open_path", { path });
 }
 
+/** Permanently delete a file from the library (must live inside it). */
+export function deleteLibraryFile(libraryDir: string, path: string): Promise<void> {
+  return invoke("delete_library_file", { libraryDir, path });
+}
+
+/** Permanently delete a folder (and everything in it) from the library. */
+export function deleteLibraryFolder(libraryDir: string, folder: string): Promise<void> {
+  return invoke("delete_library_folder", { libraryDir, folder });
+}
+
 export interface ImportResult {
   path: string;
   warning: string | null;

@@ -11,6 +11,7 @@ import {
   FolderOpen,
   GitBranch,
   GripVertical,
+  MoreVertical,
   Pencil,
   Pin,
   Server,
@@ -41,6 +42,7 @@ const emit = defineEmits<{
 }>();
 
 const status = ref<GitStatus | null>(null);
+const menuOpen = ref(false);
 
 async function loadStatus() {
   status.value = await getGitStatus(props.project.path).catch(() => null);
@@ -87,12 +89,32 @@ watch(() => props.statusKey, loadStatus);
         >
           <Pin class="h-4 w-4" />
         </button>
-        <button class="rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800" title="Edit project" @click="emit('edit')">
-          <Pencil class="h-4 w-4" />
-        </button>
-        <button class="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950" title="Remove from list (files are kept)" @click="emit('remove')">
-          <Trash2 class="h-4 w-4" />
-        </button>
+        <div class="relative">
+          <button
+            class="rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            title="More actions"
+            @click="menuOpen = !menuOpen"
+          >
+            <MoreVertical class="h-4 w-4" />
+          </button>
+          <template v-if="menuOpen">
+            <div class="fixed inset-0 z-10" @click="menuOpen = false"></div>
+            <div
+              class="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-neutral-200 dark:bg-neutral-800 dark:ring-neutral-700"
+            >
+              <button class="menu-item" @click="menuOpen = false; emit('edit')">
+                <Pencil class="h-4 w-4" /> Edit
+              </button>
+              <button
+                class="menu-item text-red-600 dark:text-red-400"
+                title="Remove from list (files are kept)"
+                @click="menuOpen = false; emit('remove')"
+              >
+                <Trash2 class="h-4 w-4" /> Remove
+              </button>
+            </div>
+          </template>
+        </div>
       </div>
     </header>
 
@@ -152,25 +174,28 @@ watch(() => props.statusKey, loadStatus);
 
     <footer class="mt-auto grid grid-cols-5 gap-1.5">
       <button class="action" title="Open in VS Code" @click="emit('vscode')">
-        <Code class="h-4 w-4" /> Code
+        <Code class="h-4 w-4" />
       </button>
       <button class="action" title="Open source folder" @click="emit('folder')">
-        <FolderOpen class="h-4 w-4" /> Folder
+        <FolderOpen class="h-4 w-4" />
       </button>
       <button class="action" title="Open terminal at project root" @click="emit('terminal')">
-        <Terminal class="h-4 w-4" /> Terminal
+        <Terminal class="h-4 w-4" />
       </button>
       <button class="action" title="SSH connections" @click="emit('ssh')">
-        <Server class="h-4 w-4" /> SSH
+        <Server class="h-4 w-4" />
       </button>
       <button class="action" title="Open README.md" @click="emit('readme')">
-        <FileText class="h-4 w-4" /> README
+        <FileText class="h-4 w-4" />
       </button>
     </footer>
   </article>
 </template>
 
 <style scoped>
+.menu-item {
+  @apply flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700;
+}
 .action {
   @apply flex items-center justify-center gap-1.5 rounded-lg bg-neutral-100 px-2 py-2 text-xs font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
 }
