@@ -44,6 +44,9 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
 - **Themes** — Light, Dark, or **Mix** (dark header/nav, dialogs and menus
   over light content), switchable from the header and remembered between
   launches. First run follows your OS setting.
+- **Auto-updates** — the app checks GitHub Releases a few seconds after
+  launch (or via the header button) and can download and install signed
+  updates on restart. Release process: [docs/releases.md](docs/releases.md).
 - **File Manager** — a managed file library in the Files tab: pick a library
   folder, then add files by picker or drag & drop. Files are *moved* in and
   categorized (Images, Videos, Audio, Documents, Archives, Code, Other),

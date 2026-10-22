@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import {
+  ArrowDownToLine,
   Contrast,
   Download,
   Files,
@@ -14,6 +15,8 @@ import {
   Sun,
 } from "@lucide/vue";
 import { chromeDark, setThemeMode, themeMode } from "./lib/theme";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import SetupWizard from "./components/SetupWizard.vue";
 import ProjectCard from "./components/ProjectCard.vue";
 import ProjectDialog from "./components/ProjectDialog.vue";
@@ -92,6 +95,75 @@ function flash(message: string) {
   notice.value = message;
   setTimeout(() => (notice.value = null), 4000);
 }
+
+/* ------------------------------ updates ------------------------------ */
+const pendingUpdate = ref<Update | null>(null);
+const checkingUpdates = ref(false);
+const updatePhase = ref<"idle" | "downloading" | "installing">("idle");
+const updatePercent = ref(0);
+const DISMISSED_UPDATE_KEY = "pm-update-dismissed";
+
+async function checkForUpdates(manual: boolean) {
+  if (checkingUpdates.value) return;
+  checkingUpdates.value = true;
+  try {
+    const update = await check();
+    if (update) {
+      if (
+        !manual &&
+        localStorage.getItem(DISMISSED_UPDATE_KEY) === update.version
+      ) {
+        return;
+      }
+      pendingUpdate.value = update;
+    } else if (manual) {
+      flash("You're on the latest version.");
+    }
+  } catch (e) {
+    if (manual) error.value = `Update check failed: ${String(e)}`;
+  } finally {
+    checkingUpdates.value = false;
+  }
+}
+
+function dismissUpdate() {
+  if (pendingUpdate.value) {
+    localStorage.setItem(DISMISSED_UPDATE_KEY, pendingUpdate.value.version);
+  }
+  pendingUpdate.value = null;
+}
+
+async function installUpdate() {
+  const update = pendingUpdate.value;
+  if (!update || updatePhase.value !== "idle") return;
+  updatePhase.value = "downloading";
+  updatePercent.value = 0;
+  let total = 0;
+  let downloaded = 0;
+  try {
+    await update.downloadAndInstall((event) => {
+      if (event.event === "Started") {
+        total = event.data.contentLength ?? 0;
+      } else if (event.event === "Progress") {
+        downloaded += event.data.chunkLength;
+        if (total > 0) {
+          updatePercent.value = Math.round((downloaded / total) * 100);
+        }
+      } else if (event.event === "Finished") {
+        updatePhase.value = "installing";
+      }
+    });
+    await relaunch();
+  } catch (e) {
+    error.value = `Update failed: ${String(e)}`;
+    updatePhase.value = "idle";
+  }
+}
+
+onMounted(() => {
+  // Quiet background check a few seconds after launch.
+  setTimeout(() => checkForUpdates(false), 4000);
+});
 
 async function runAction(fn: () => Promise<unknown>, failMsg: string) {
   error.value = null;
@@ -326,6 +398,9 @@ function openEdit(project: Project) {
               <Contrast class="h-4 w-4" />
             </button>
           </div>
+          <button class="toolbar-btn" title="Check for updates" @click="checkForUpdates(true)">
+            <ArrowDownToLine class="h-4 w-4" :class="checkingUpdates ? 'animate-pulse' : ''" />
+          </button>
         </div>
         <p v-if="tab === 'projects'" class="mx-auto max-w-6xl px-6 pb-3 text-xs text-neutral-500">
           Projects folder: <span class="font-mono">{{ projectsDir }}</span>
@@ -335,6 +410,41 @@ function openEdit(project: Project) {
         </p>
       </header>
 
+      <div
+        v-if="pendingUpdate"
+        class="mx-auto mt-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100"
+      >
+        <ArrowDownToLine class="h-4 w-4 shrink-0" />
+        <span class="min-w-0 flex-1">
+          <strong>Version {{ pendingUpdate.version }} is available.</strong>
+          <span
+            v-if="pendingUpdate.body"
+            class="block truncate text-blue-700 dark:text-blue-300"
+          >
+            {{ pendingUpdate.body }}
+          </span>
+        </span>
+        <span v-if="updatePhase === 'downloading'" class="text-xs">
+          Downloading… {{ updatePercent }}%
+        </span>
+        <span v-else-if="updatePhase === 'installing'" class="text-xs">
+          Installing — the app will restart…
+        </span>
+        <template v-else>
+          <button
+            class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+            @click="installUpdate"
+          >
+            Download &amp; restart
+          </button>
+          <button
+            class="rounded-lg px-3 py-1.5 text-sm hover:bg-blue-100 dark:hover:bg-blue-900"
+            @click="dismissUpdate"
+          >
+            Later
+          </button>
+        </template>
+      </div>
       <div
         v-if="notice"
         class="mx-auto mt-4 w-full max-w-6xl rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
