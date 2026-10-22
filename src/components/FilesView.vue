@@ -16,14 +16,12 @@ import {
   FolderCog,
   FolderOpen,
   FolderPlus,
-  FolderTree,
   Image,
   LayoutGrid,
   Library,
   List,
   Music,
   RefreshCw,
-  Shapes,
   StickyNote,
   Tag,
   Trash2,
@@ -44,7 +42,7 @@ import {
 } from "../lib/api";
 import ImportDialog from "./ImportDialog.vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { FILE_CATEGORIES, type FileMeta, LibraryFile } from "../types";
+import { type FileMeta, LibraryFile } from "../types";
 import { deleteFileMeta, getAllFileMeta, setFileMeta } from "../lib/db";
 import { chromeDark } from "../lib/theme";
 import ConfirmDialog from "./ConfirmDialog.vue";
@@ -53,7 +51,6 @@ const props = defineProps<{ filesDir: string | null; active: boolean }>();
 const emit = defineEmits<{ dirChanged: [dir: string] }>();
 
 const files = ref<LibraryFile[]>([]);
-const view = ref<"type" | "folder">("folder");
 const query = ref("");
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -221,21 +218,12 @@ const filtered = computed(() => {
 const groups = computed(() => {
   const map = new Map<string, LibraryFile[]>();
   for (const f of filtered.value) {
-    const key =
-      view.value === "type" ? f.category : f.folder || "Library root";
+    const key = f.folder || "Library root";
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(f);
   }
   const entries = [...map.entries()];
-  if (view.value === "type") {
-    entries.sort(
-      (a, b) =>
-        FILE_CATEGORIES.indexOf(a[0] as never) -
-        FILE_CATEGORIES.indexOf(b[0] as never),
-    );
-  } else {
-    entries.sort((a, b) => a[0].localeCompare(b[0]));
-  }
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
   return entries;
 });
 
@@ -244,7 +232,7 @@ const currentFolder = ref("");
 const SEP = computed(() =>
   files.value.some((f) => f.folder.includes("\\")) ? "\\" : "/",
 );
-const drillIn = computed(() => view.value === "folder" && !query.value.trim());
+const drillIn = computed(() => !query.value.trim());
 const crumbs = computed(() =>
   currentFolder.value ? currentFolder.value.split(SEP.value) : [],
 );
@@ -290,7 +278,6 @@ function goFolder(path: string) {
 function goUp() {
   currentFolder.value = crumbs.value.slice(0, -1).join(SEP.value);
 }
-watch(view, () => (currentFolder.value = ""));
 watch(
   () => props.filesDir,
   () => (currentFolder.value = ""),
@@ -438,23 +425,6 @@ onUnmounted(() => unlisten?.());
       <div class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
         <button
           class="toggle-btn"
-          :class="view === 'type' ? 'switch-active' : ''"
-          @click="view = 'type'"
-        >
-          <Shapes class="h-4 w-4" /> By type
-        </button>
-        <button
-          class="toggle-btn"
-          :class="view === 'folder' ? 'switch-active' : ''"
-          @click="view = 'folder'"
-        >
-          <FolderTree class="h-4 w-4" /> By folder
-        </button>
-      </div>
-
-      <div class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
-        <button
-          class="toggle-btn"
           :class="layout === 'table' ? 'switch-active' : ''"
           title="Show files as a list"
           @click="setLayout('table')"
@@ -483,8 +453,8 @@ onUnmounted(() => unlisten?.());
       <button class="toolbar-btn" @click="showAddFolder = true">
         <FolderPlus class="h-4 w-4" /> Add folder
       </button>
-      <button class="toolbar-btn" @click="refresh">
-        <RefreshCw class="h-4 w-4" /> Refresh
+      <button class="toolbar-btn" title="Refresh the list" @click="refresh">
+        <RefreshCw class="h-4 w-4" />
       </button>
       <button class="toolbar-btn" :title="`Library folder: ${filesDir}`" @click="chooseFolder">
         <FolderCog class="h-4 w-4" />
@@ -624,7 +594,7 @@ onUnmounted(() => unlisten?.());
             {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
           </h3>
           <button
-            v-if="view === 'folder' && items[0]?.folder"
+            v-if="items[0]?.folder"
             class="file-action file-action-danger"
             :title="`Delete folder ${items[0]?.folder ?? ''} and everything in it`"
             @click="askDeleteFolderPath(items[0]?.folder ?? '')"
@@ -647,7 +617,7 @@ onUnmounted(() => unlisten?.());
             <thead>
               <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
                 <th class="px-4 py-2 font-medium">Name</th>
-                <th class="px-4 py-2 font-medium">{{ view === 'type' ? 'Folder' : 'Category' }}</th>
+                <th class="px-4 py-2 font-medium">Category</th>
                 <th class="px-4 py-2 font-medium">Size</th>
                 <th class="px-4 py-2 font-medium">Status</th>
                 <th class="px-4 py-2"></th>
@@ -669,7 +639,7 @@ onUnmounted(() => unlisten?.());
                       </span>
                   </span>
                 </td>
-                <td class="whitespace-nowrap px-4 py-2.5 text-neutral-500">{{ view === 'type' ? file.folder || 'Library root' : file.category }}</td>
+                <td class="whitespace-nowrap px-4 py-2.5 text-neutral-500">{{ file.category }}</td>
                 <td class="whitespace-nowrap px-4 py-2.5 text-neutral-500">{{ formatSize(file.size) }}</td>
                 <td class="whitespace-nowrap px-4 py-2.5">
                   <button v-if="metaOf(file).status" class="status-badge" :class="statusClasses(metaOf(file).status)" title="Change status" @click="openStatus(file)">{{ metaOf(file).status }}</button>
@@ -755,7 +725,7 @@ onUnmounted(() => unlisten?.());
               </span>
             </span>
             <span class="mt-0.5 text-[11px] text-neutral-500">
-              {{ view === 'type' ? file.folder || 'Library root' : file.category }} · {{ formatSize(file.size) }}
+              {{ file.category }} · {{ formatSize(file.size) }}
             </span>
             <span v-if="metaOf(file).status" class="status-badge mt-1" :class="statusClasses(metaOf(file).status)">{{ metaOf(file).status }}</span>
           </li>
