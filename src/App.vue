@@ -320,9 +320,9 @@ function openEdit(project: Project) {
     <SetupWizard v-else-if="showSetup" @done="onSetupDone" />
 
     <template v-else-if="ready">
-      <header class="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900" :class="{ dark: chromeDark }">
+      <header class="relative border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900" :class="{ dark: chromeDark }">
         <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-6 py-4">
-          <h1 class="flex items-center gap-2 text-xl font-bold">
+          <h1 class="flex items-center gap-2 text-xl font-bold min-[1600px]:absolute min-[1600px]:left-6 min-[1600px]:top-1/2 min-[1600px]:-translate-y-1/2">
             <LayoutGrid class="h-6 w-6 text-blue-600" /> Project Manager
           </h1>
 
@@ -343,7 +343,7 @@ function openEdit(project: Project) {
             </button>
           </nav>
 
-          <div class="ml-auto flex items-center gap-2">
+          <div class="ml-auto flex items-center gap-2 min-[1600px]:absolute min-[1600px]:right-6 min-[1600px]:top-1/2 min-[1600px]:ml-0 min-[1600px]:-translate-y-1/2">
           <button class="toolbar-btn" title="Settings" @click="showSettings = true">
             <Settings class="h-4 w-4" />
           </button>
