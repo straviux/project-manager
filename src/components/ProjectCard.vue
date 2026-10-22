@@ -13,7 +13,7 @@ import {
   GripVertical,
   MoreVertical,
   Pencil,
-  Pin,
+  Star,
   Server,
   Terminal,
   Trash2,
@@ -84,10 +84,10 @@ watch(() => props.statusKey, loadStatus);
         <button
           class="tooltip tooltip-left rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           :class="project.pinned ? 'text-amber-500' : ''"
-          :data-tip="project.pinned ? 'Unpin' : 'Pin to top'"
+          :data-tip="project.pinned ? 'Remove star' : 'Star'"
           @click="emit('pin')"
         >
-          <Pin class="h-4 w-4" />
+          <Star class="h-4 w-4" :fill="project.pinned ? 'currentColor' : 'none'" />
         </button>
         <div class="relative">
           <button

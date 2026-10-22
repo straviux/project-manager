@@ -20,9 +20,9 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
 - **Git status at a glance** — every project card shows its current branch,
   whether the working tree is clean or how many uncommitted changes it has,
   and ahead/behind counts versus its upstream.
-- **Pin & reorder** — pin favorite projects to the top and drag cards to
-  reorder them (order and pins persist in SQLite, with an automatic column
-  migration for existing databases).
+- **Star & reorder** — star favorite projects to keep them at the top and
+  drag cards to reorder them (order and stars persist in SQLite, with an
+  automatic column migration for existing databases).
 - **Custom project icons** — per project, from the edit dialog: keep the
   default folder icon, pick one of 24 Lucide icons, or use your own `.ico`
   file (validated and copied into the app's storage, so it keeps working

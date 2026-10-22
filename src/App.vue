@@ -242,7 +242,7 @@ async function onDrop(targetId: number) {
   const toIdx = list.findIndex((p) => p.id === targetId);
   if (fromIdx < 0 || toIdx < 0) return;
   if (list[fromIdx].pinned !== list[toIdx].pinned) {
-    flash("Pinned and unpinned projects sort in separate groups.");
+    flash("Starred and unstarred projects sort in separate groups.");
     return;
   }
   const [moved] = list.splice(fromIdx, 1);
@@ -414,9 +414,6 @@ function openEdit(project: Project) {
               placeholder="Search by name or stack…  ( / )"
             />
           </div>
-          <button class="toolbar-btn" title="Scan the projects folder for new projects" @click="scan">
-            <RefreshCw class="h-4 w-4" /> Scan
-          </button>
           <button class="toolbar-btn" title="Move or copy an existing folder into your projects folder" @click="showImport = true">
             <FolderInput class="h-4 w-4" /> Import
           </button>
@@ -425,6 +422,13 @@ function openEdit(project: Project) {
           </button>
           <button class="toolbar-btn" @click="openNewProject">
             <Plus class="h-4 w-4" /> Add project
+          </button>
+          <button
+            class="toolbar-btn tooltip tooltip-bottom"
+            data-tip="Scan for new projects"
+            @click="scan"
+          >
+            <RefreshCw class="h-4 w-4" />
           </button>
           <button
             class="toolbar-btn tooltip tooltip-bottom"

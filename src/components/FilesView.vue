@@ -451,7 +451,7 @@ onUnmounted(() => unlisten?.());
         <FilePlus2 class="h-4 w-4" /> Add files
       </button>
       <button class="toolbar-btn" @click="showAddFolder = true">
-        <FolderPlus class="h-4 w-4" /> Add folder
+        <FolderPlus class="h-4 w-4" /> Import folder
       </button>
       <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Refresh the list" @click="refresh">
         <RefreshCw class="h-4 w-4" />
@@ -501,7 +501,7 @@ onUnmounted(() => unlisten?.());
     <p v-if="loading" class="on-bg py-10 text-center text-sm text-neutral-500">Loading…</p>
     <div v-else-if="!filtered.length" class="on-bg py-16 text-center text-neutral-500">
       <p class="mb-1 text-lg font-medium">The library is empty</p>
-      <p class="text-sm">Use <strong>Add files</strong>, <strong>Add folder</strong>, or drag &amp; drop files here — they'll be moved in and categorized.</p>
+      <p class="text-sm">Use <strong>Add files</strong>, <strong>Import folder</strong>, or drag &amp; drop files here — they'll be moved in and categorized.</p>
     </div>
     <div v-else class="space-y-6">
       <template v-if="drillIn">
@@ -836,7 +836,7 @@ onUnmounted(() => unlisten?.());
   <ImportDialog
     v-if="showAddFolder && filesDir"
     :parent-dir="filesDir"
-    title="Add folder to library"
+    title="Import folder"
     parent-label="file library"
     :importer="importFolderToLibrary"
     @close="showAddFolder = false"
