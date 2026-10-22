@@ -5,17 +5,21 @@ import { pickerDefaultPath } from "../lib/paths";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   Archive,
+  ArrowUp,
+  ChevronRight,
   Code,
   ExternalLink,
   File,
   FilePlus2,
   FileText,
+  Folder,
   FolderCog,
   FolderOpen,
   FolderPlus,
   FolderTree,
   Image,
   LayoutGrid,
+  Library,
   List,
   Music,
   RefreshCw,
@@ -147,9 +151,9 @@ type DeleteRequest =
   | { kind: "file"; file: LibraryFile }
   | { kind: "folder"; folder: string; count: number; paths: string[] };
 const confirmDelete = ref<DeleteRequest | null>(null);
-function askDeleteFolder(items: LibraryFile[]) {
-  const folder = items[0]?.folder;
+function askDeleteFolderPath(folder: string) {
   if (!folder) return;
+  const items = filesUnder(folder);
   confirmDelete.value = {
     kind: "folder",
     folder,
@@ -233,6 +237,77 @@ const groups = computed(() => {
     entries.sort((a, b) => a[0].localeCompare(b[0]));
   }
   return entries;
+});
+
+/* --------------------- folder drill-in navigation --------------------- */
+const currentFolder = ref("");
+const SEP = computed(() =>
+  files.value.some((f) => f.folder.includes("\\")) ? "\\" : "/",
+);
+const drillIn = computed(() => view.value === "folder" && !query.value.trim());
+const crumbs = computed(() =>
+  currentFolder.value ? currentFolder.value.split(SEP.value) : [],
+);
+function crumbPath(index: number): string {
+  return crumbs.value.slice(0, index + 1).join(SEP.value);
+}
+function filesUnder(folder: string): LibraryFile[] {
+  return files.value.filter(
+    (f) => f.folder === folder || f.folder.startsWith(folder + SEP.value),
+  );
+}
+const childFolders = computed(() => {
+  if (!drillIn.value) return [] as { name: string; path: string; count: number }[];
+  const cur = currentFolder.value;
+  const prefix = cur ? cur + SEP.value : "";
+  const names = new Map<string, string>();
+  for (const f of files.value) {
+    if (!f.folder || f.folder === cur) continue;
+    if (prefix && !f.folder.startsWith(prefix)) continue;
+    const rest = prefix ? f.folder.slice(prefix.length) : f.folder;
+    const name = rest.split(SEP.value)[0];
+    if (name && !names.has(name)) names.set(name, prefix + name);
+  }
+  return [...names.entries()]
+    .map(([name, path]) => ({ name, path, count: filesUnder(path).length }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+});
+const filesHere = computed(() =>
+  drillIn.value
+    ? files.value.filter((f) => f.folder === currentFolder.value)
+    : [],
+);
+const displayGroups = computed(() =>
+  drillIn.value
+    ? filesHere.value.length
+      ? [["", filesHere.value] as [string, LibraryFile[]]]
+      : []
+    : groups.value,
+);
+function goFolder(path: string) {
+  currentFolder.value = path;
+}
+function goUp() {
+  currentFolder.value = crumbs.value.slice(0, -1).join(SEP.value);
+}
+watch(view, () => (currentFolder.value = ""));
+watch(
+  () => props.filesDir,
+  () => (currentFolder.value = ""),
+);
+// If the folder we are in disappears (deleted/renamed), walk up to the
+// nearest ancestor that still exists.
+watch(files, () => {
+  let cur = currentFolder.value;
+  while (
+    cur &&
+    !files.value.some(
+      (f) => f.folder === cur || f.folder.startsWith(cur + SEP.value),
+    )
+  ) {
+    cur = cur.split(SEP.value).slice(0, -1).join(SEP.value);
+  }
+  if (cur !== currentFolder.value) currentFolder.value = cur;
 });
 
 async function refresh() {
@@ -459,8 +534,92 @@ onUnmounted(() => unlisten?.());
       <p class="text-sm">Use <strong>Add files</strong>, <strong>Add folder</strong>, or drag &amp; drop files here — they'll be moved in and categorized.</p>
     </div>
     <div v-else class="space-y-6">
-      <section v-for="[group, items] in groups" :key="group">
-        <div class="mb-2 flex items-center justify-between gap-2">
+      <template v-if="drillIn">
+        <nav class="on-bg flex flex-wrap items-center gap-1 text-sm">
+          <button class="crumb" :class="!currentFolder ? 'crumb-active' : ''" @click="goFolder('')">
+            <Library class="h-4 w-4" /> Library
+          </button>
+          <template v-for="(seg, i) in crumbs" :key="i">
+            <ChevronRight class="h-4 w-4 shrink-0 text-neutral-400" />
+            <button class="crumb" :class="i === crumbs.length - 1 ? 'crumb-active' : ''" @click="goFolder(crumbPath(i))">
+              {{ seg }}
+            </button>
+          </template>
+          <span class="ml-auto flex items-center gap-1">
+            <button v-if="currentFolder" class="file-action" title="Go up one level" @click="goUp">
+              <ArrowUp class="h-4 w-4" />
+            </button>
+            <button
+              v-if="currentFolder"
+              class="file-action file-action-danger"
+              :title="`Delete folder ${currentFolder} and everything in it`"
+              @click="askDeleteFolderPath(currentFolder)"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+          </span>
+        </nav>
+
+        <ul
+          v-if="layout === 'grid' && childFolders.length"
+          class="grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8"
+        >
+          <li
+            v-for="folder in childFolders"
+            :key="folder.path"
+            class="group relative flex cursor-pointer flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
+            :title="`Open folder ${folder.name}`"
+            @click="goFolder(folder.path)"
+          >
+            <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
+              <button
+                class="file-action-sm file-action-danger"
+                title="Delete this folder and everything in it"
+                @click.stop="askDeleteFolderPath(folder.path)"
+              >
+                <Trash2 class="h-3.5 w-3.5" />
+              </button>
+            </span>
+            <Folder class="h-16 w-16 text-amber-500" />
+            <span class="mt-2 line-clamp-2 max-w-full break-words text-xs leading-snug" :title="folder.name">{{ folder.name }}</span>
+            <span class="mt-0.5 text-[11px] text-neutral-500">{{ folder.count }} item{{ folder.count === 1 ? "" : "s" }}</span>
+          </li>
+        </ul>
+
+        <div
+          v-if="layout === 'table' && childFolders.length"
+          class="card-glass overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+        >
+          <div
+            v-for="folder in childFolders"
+            :key="folder.path"
+            class="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+            @click="goFolder(folder.path)"
+          >
+            <Folder class="h-5 w-5 shrink-0 text-amber-500" />
+            <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
+            <span class="shrink-0 text-xs text-neutral-500">{{ folder.count }} item{{ folder.count === 1 ? "" : "s" }}</span>
+            <button
+              class="file-action-sm file-action-danger shrink-0"
+              title="Delete this folder and everything in it"
+              @click.stop="askDeleteFolderPath(folder.path)"
+            >
+              <Trash2 class="h-3.5 w-3.5" />
+            </button>
+            <ChevronRight class="h-4 w-4 shrink-0 text-neutral-400" />
+          </div>
+        </div>
+
+        <p v-if="!childFolders.length && !filesHere.length" class="py-10 text-center text-sm text-neutral-500">
+          This folder is empty.
+          <button class="ml-1 font-medium text-blue-600 hover:underline" @click="goFolder('')">
+            Back to the library root
+          </button>
+        </p>
+      </template>
+
+      <section v-for="[group, items] in displayGroups" :key="group">
+        <div v-if="!drillIn" class="mb-2 flex items-center justify-between gap-2">
           <h3 class="on-bg text-sm font-semibold uppercase tracking-wide text-neutral-500">
             {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
           </h3>
@@ -468,7 +627,7 @@ onUnmounted(() => unlisten?.());
             v-if="view === 'folder' && items[0]?.folder"
             class="file-action file-action-danger"
             :title="`Delete folder ${items[0]?.folder ?? ''} and everything in it`"
-            @click="askDeleteFolder(items)"
+            @click="askDeleteFolderPath(items[0]?.folder ?? '')"
           >
             <Trash2 class="h-4 w-4" />
           </button>
@@ -742,6 +901,12 @@ onUnmounted(() => unlisten?.());
 }
 .file-action-danger {
   @apply hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-300;
+}
+.crumb {
+  @apply flex items-center gap-1 rounded-lg px-2 py-1 font-medium hover:bg-neutral-200/70 dark:hover:bg-neutral-800;
+}
+.crumb-active {
+  @apply text-blue-600 dark:text-blue-400;
 }
 .status-badge {
   @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium;
