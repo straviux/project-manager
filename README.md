@@ -75,6 +75,12 @@ npm install
 npm run tauri dev
 ```
 
+App icons are generated automatically the first time you run a Tauri
+command: the repo stores them base64-encoded in `src-tauri/icons/base64/`
+and a `pretauri` hook (`scripts/ensure-icons.mjs`) materializes
+`icon.ico` / `icon.png` / `icon.icns` into `src-tauri/icons/`. To use your
+own logo instead, run `npm run tauri icon path/to/your-logo.png`.
+
 ### Build
 
 ```bash
