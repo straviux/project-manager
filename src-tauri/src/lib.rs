@@ -52,22 +52,23 @@ struct LibraryFile {
 fn spawn_terminal(cwd: Option<&Path>, command: Option<&str>) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        let mut inner = String::new();
+        // Set the working directory on the child process itself instead of
+        // embedding `cd /d "<path>"` into a `cmd /K` string: nested quotes
+        // get mangled by cmd's quote-stripping (and `start` reads the first
+        // quoted chunk as a window title), so the cd silently never ran.
+        // Spawning cmd directly still gets a fresh console window, so the
+        // `start` wrapper is not needed either.
+        let mut c = Command::new("cmd");
+        c.arg("/K");
         if let Some(dir) = cwd {
-            inner.push_str(&format!("cd /d \"{}\"", dir.display()));
+            c.current_dir(dir);
         }
         if let Some(cmd) = command {
-            if !inner.is_empty() {
-                inner.push_str(" && ");
-            }
-            inner.push_str(cmd);
+            // One argument after /K: Rust passes it as a single quoted
+            // string, cmd strips those quotes and runs it (documented case).
+            c.arg(cmd);
         }
-        if inner.is_empty() {
-            inner.push_str("cmd");
-        }
-        Command::new("cmd")
-            .args(["/C", "start", "cmd", "/K", &inner])
-            .spawn()
+        c.spawn()
             .map_err(|e| format!("Failed to open terminal: {e}"))?;
         return Ok(());
     }
