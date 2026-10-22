@@ -240,12 +240,12 @@ html.dark[data-bg="ink"] body {
   color: rgb(37 99 235);
   font-weight: 700;
   text-shadow:
-    0 0 14px rgb(59 130 246 / 0.55),
-    0 0 4px rgb(59 130 246 / 0.4);
+    0 0 8px rgb(59 130 246 / 0.32),
+    0 0 2px rgb(59 130 246 / 0.22);
 }
 .dark .switch-active {
   color: rgb(147 197 253);
   text-shadow:
-    0 0 14px rgb(96 165 250 / 0.7),
-    0 0 4px rgb(96 165 250 / 0.5);
+    0 0 8px rgb(96 165 250 / 0.42),
+    0 0 2px rgb(96 165 250 / 0.28);
 }

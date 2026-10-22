@@ -91,7 +91,7 @@ const MODES: { id: ThemeMode; label: string; hint: string }[] = [
 .option-btn-active {
   @apply font-semibold text-blue-700 ring-2 ring-blue-500 dark:text-blue-300;
   text-shadow:
-    0 0 12px rgb(59 130 246 / 0.35),
-    0 0 3px rgb(59 130 246 / 0.3);
+    0 0 7px rgb(59 130 246 / 0.2),
+    0 0 2px rgb(59 130 246 / 0.16);
 }
 </style>

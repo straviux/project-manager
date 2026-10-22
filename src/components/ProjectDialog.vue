@@ -265,7 +265,7 @@ async function save() {
 .icon-mode-active {
   @apply font-bold text-blue-700 ring-2 ring-blue-500 hover:ring-blue-500 dark:text-blue-300;
   text-shadow:
-    0 0 12px rgb(59 130 246 / 0.4),
-    0 0 3px rgb(59 130 246 / 0.35);
+    0 0 7px rgb(59 130 246 / 0.24),
+    0 0 2px rgb(59 130 246 / 0.18);
 }
 </style>
