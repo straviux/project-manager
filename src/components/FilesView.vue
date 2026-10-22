@@ -453,10 +453,10 @@ onUnmounted(() => unlisten?.());
       <button class="toolbar-btn" @click="showAddFolder = true">
         <FolderPlus class="h-4 w-4" /> Add folder
       </button>
-      <button class="toolbar-btn" title="Refresh the list" @click="refresh">
+      <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Refresh the list" @click="refresh">
         <RefreshCw class="h-4 w-4" />
       </button>
-      <button class="toolbar-btn" :title="`Library folder: ${filesDir}`" @click="chooseFolder">
+      <button class="toolbar-btn tooltip tooltip-bottom" :data-tip="`Library folder: ${filesDir}`" @click="chooseFolder">
         <FolderCog class="h-4 w-4" />
       </button>
     </div>
@@ -516,7 +516,7 @@ onUnmounted(() => unlisten?.());
             </button>
           </template>
           <span class="ml-auto flex items-center gap-1">
-            <button v-if="currentFolder" class="file-action" title="Go up one level" @click="goUp">
+            <button v-if="currentFolder" class="file-action tooltip tooltip-bottom" data-tip="Go up one level" @click="goUp">
               <ArrowUp class="h-4 w-4" />
             </button>
             <button

@@ -82,17 +82,17 @@ watch(() => props.statusKey, loadStatus);
       </h3>
       <div class="flex shrink-0 gap-1">
         <button
-          class="rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          class="tooltip tooltip-left rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           :class="project.pinned ? 'text-amber-500' : ''"
-          :title="project.pinned ? 'Unpin' : 'Pin to top'"
+          :data-tip="project.pinned ? 'Unpin' : 'Pin to top'"
           @click="emit('pin')"
         >
           <Pin class="h-4 w-4" />
         </button>
         <div class="relative">
           <button
-            class="rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            title="More actions"
+            class="tooltip tooltip-left rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            data-tip="More actions"
             @click="menuOpen = !menuOpen"
           >
             <MoreVertical class="h-4 w-4" />

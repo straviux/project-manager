@@ -344,10 +344,10 @@ function openEdit(project: Project) {
           </nav>
 
           <div class="ml-auto flex items-center gap-2 min-[1600px]:absolute min-[1600px]:right-6 min-[1600px]:top-1/2 min-[1600px]:ml-0 min-[1600px]:-translate-y-1/2">
-          <button class="toolbar-btn" title="Settings" @click="showSettings = true">
+          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Settings" @click="showSettings = true">
             <Settings class="h-4 w-4" />
           </button>
-          <button class="toolbar-btn" title="Check for updates" @click="checkForUpdates(true)">
+          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Check for updates" @click="checkForUpdates(true)">
             <ArrowDownToLine class="h-4 w-4" :class="checkingUpdates ? 'animate-pulse' : ''" />
           </button>
           </div>
@@ -427,8 +427,8 @@ function openEdit(project: Project) {
             <Plus class="h-4 w-4" /> Add project
           </button>
           <button
-            class="toolbar-btn"
-            :title="`Projects folder: ${projectsDir}`"
+            class="toolbar-btn tooltip tooltip-bottom"
+            :data-tip="`Projects folder: ${projectsDir}`"
             @click="showSetup = true"
           >
             <FolderCog class="h-4 w-4" />

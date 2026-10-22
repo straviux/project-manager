@@ -131,7 +131,7 @@ async function save() {
         <span>Folder</span>
         <div class="flex gap-2">
           <input v-model="form.path" class="input" placeholder="/home/you/projects/my-awesome-app" />
-          <button class="btn-secondary shrink-0" @click="browse">
+          <button class="btn btn-sm shrink-0" @click="browse">
             <FolderOpen class="h-4 w-4" />
           </button>
         </div>
@@ -221,7 +221,7 @@ async function save() {
             <span class="min-w-0 flex-1 truncate text-sm text-neutral-500">
               {{ icoFileLabel }}
             </span>
-            <button type="button" class="btn-secondary shrink-0" @click="browseIco">
+            <button type="button" class="btn btn-sm shrink-0" @click="browseIco">
               Choose .ico…
             </button>
           </div>
@@ -234,8 +234,8 @@ async function save() {
       <p v-if="error" class="mb-3 text-sm text-red-600">{{ error }}</p>
 
       <footer class="flex justify-end gap-2">
-        <button class="btn-secondary" @click="emit('close')">Cancel</button>
-        <button class="btn-primary" :disabled="saving" @click="save">
+        <button class="btn btn-ghost btn-sm" @click="emit('close')">Cancel</button>
+        <button class="btn btn-primary btn-sm" :disabled="saving" @click="save">
           {{ saving ? "Saving…" : "Save project" }}
         </button>
       </footer>
@@ -252,12 +252,6 @@ async function save() {
 }
 .input {
   @apply w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700;
-}
-.btn-primary {
-  @apply rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40;
-}
-.btn-secondary {
-  @apply rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
 }
 .icon-mode-btn {
   @apply rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700;

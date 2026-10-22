@@ -221,10 +221,10 @@ async function remove(id: number) {
       <p v-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>
 
       <footer class="mt-4 flex justify-end gap-2">
-        <button class="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800" @click="emit('close')">
+        <button class="btn btn-ghost btn-sm" @click="emit('close')">
           Close
         </button>
-        <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white" @click="save">
+        <button class="btn btn-primary btn-sm" @click="save">
           Save profile
         </button>
       </footer>

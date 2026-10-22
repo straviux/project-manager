@@ -176,14 +176,9 @@ async function submit() {
       </p>
 
       <div class="flex justify-end gap-2">
+        <button class="btn btn-ghost btn-sm" @click="emit('close')">Cancel</button>
         <button
-          class="rounded-lg px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          @click="emit('close')"
-        >
-          Cancel
-        </button>
-        <button
-          class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          class="btn btn-primary btn-sm"
           :disabled="!canImport"
           @click="submit"
         >
