@@ -36,6 +36,7 @@ import {
   setProjectPinned,
 } from "./lib/db";
 import {
+  deleteProjectIcon,
   openInVsCode,
   openTerminal,
   scanProjects,
@@ -204,6 +205,7 @@ async function scan() {
 }
 
 async function remove(project: Project) {
+  await deleteProjectIcon(project.id).catch(() => {});
   await deleteProject(project.id);
   await refresh();
   flash(`Removed ${project.name} from the list (files untouched).`);

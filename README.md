@@ -23,6 +23,10 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
 - **Pin & reorder** — pin favorite projects to the top and drag cards to
   reorder them (order and pins persist in SQLite, with an automatic column
   migration for existing databases).
+- **Custom project icons** — per project, from the edit dialog: keep the
+  default folder icon, pick one of 24 Lucide icons, or use your own `.ico`
+  file (validated and copied into the app's storage, so it keeps working
+  if the original moves).
 - **Keyboard shortcuts** — `/` or `Ctrl+K` search, `1`/`2` switch
   Projects/Files tabs, `S` scan, `I` import, `N` new project, `Esc` closes
   the topmost dialog.

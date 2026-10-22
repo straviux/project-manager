@@ -1,4 +1,5 @@
 use serde::Serialize;
+use tauri::Manager;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -951,6 +952,65 @@ async fn list_library_files(library_dir: String) -> Result<Vec<LibraryFile>, Str
         .map_err(|e| e.to_string())?
 }
 
+
+/* ========================== project icons ============================ */
+
+fn project_icons_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("project-icons");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// Copy a user-picked .ico file into app storage for a project and return
+/// the stored path. Validates extension, size, and the ICO magic bytes so
+/// a renamed random file is rejected.
+#[tauri::command]
+fn save_project_icon(
+    app: tauri::AppHandle,
+    source: String,
+    project_id: i64,
+) -> Result<String, String> {
+    use std::io::Read;
+    let src = PathBuf::from(&source);
+    let ext_ok = src
+        .extension()
+        .map(|e| e.eq_ignore_ascii_case("ico"))
+        .unwrap_or(false);
+    if !ext_ok {
+        return Err("Please choose an .ico file.".into());
+    }
+    let meta = fs::metadata(&src).map_err(|e| format!("Could not read the file: {e}"))?;
+    if !meta.is_file() {
+        return Err("Please choose an .ico file.".into());
+    }
+    if meta.len() > 2 * 1024 * 1024 {
+        return Err("Icon file is too large (max 2 MB).".into());
+    }
+    let mut header = [0u8; 4];
+    let mut f = fs::File::open(&src).map_err(|e| e.to_string())?;
+    f.read_exact(&mut header).map_err(|e| e.to_string())?;
+    if header != [0, 0, 1, 0] {
+        return Err("That file doesn't look like a valid .ico file.".into());
+    }
+    let dest = project_icons_dir(&app)?.join(format!("{project_id}.ico"));
+    fs::copy(&src, &dest).map_err(|e| format!("Could not save the icon: {e}"))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+/// Remove a project's stored .ico file, if it has one.
+#[tauri::command]
+fn delete_project_icon(app: tauri::AppHandle, project_id: i64) -> Result<(), String> {
+    let dest = project_icons_dir(&app)?.join(format!("{project_id}.ico"));
+    if dest.exists() {
+        fs::remove_file(&dest).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -973,6 +1033,8 @@ pub fn run() {
             check_file_free,
             move_file_to_library,
             import_project_folder,
+            save_project_icon,
+            delete_project_icon,
             list_library_files,
             open_path
         ])

@@ -7,6 +7,8 @@ export interface Project {
   stacks: string[];
   pinned: boolean;
   sortOrder: number;
+  iconKind: "lucide" | "ico" | null;
+  iconValue: string | null;
   createdAt: string;
   updatedAt: string;
 }

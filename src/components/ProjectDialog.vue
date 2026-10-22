@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { chromeDark } from "../lib/theme";
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { FolderOpen, X } from "@lucide/vue";
-import { createProject, updateProject } from "../lib/db";
-import { detectStacks } from "../lib/api";
+import { createProject, setProjectIcon, updateProject } from "../lib/db";
+import { deleteProjectIcon, detectStacks, saveProjectIcon } from "../lib/api";
+import { PROJECT_ICONS, PROJECT_ICON_NAMES } from "../lib/projectIcons";
 import { KNOWN_STACKS, type Project, type ProjectDraft } from "../types";
 
 const props = defineProps<{ project: Project | null }>();
@@ -19,6 +21,32 @@ const form = reactive<ProjectDraft>({
 });
 const error = ref<string | null>(null);
 const saving = ref(false);
+
+/* ------------------------------- icon ------------------------------- */
+const iconKind = ref<"none" | "lucide" | "ico">(
+  props.project?.iconKind ?? "none",
+);
+const iconName = ref<string>(
+  props.project?.iconKind === "lucide"
+    ? (props.project.iconValue ?? "Folder")
+    : "Folder",
+);
+const icoStored = ref<string | null>(
+  props.project?.iconKind === "ico" ? props.project.iconValue : null,
+);
+const icoSource = ref<string | null>(null);
+const icoFileLabel = computed(() => {
+  const p = icoSource.value ?? icoStored.value;
+  return p ? (p.split(/[\\/]/).pop() ?? p) : "No file chosen";
+});
+
+async function browseIco() {
+  const picked = await open({
+    multiple: false,
+    filters: [{ name: "Icon", extensions: ["ico"] }],
+  });
+  if (typeof picked === "string") icoSource.value = picked;
+}
 
 async function browse() {
   const picked = await open({ directory: true, multiple: false });
@@ -49,8 +77,30 @@ async function save() {
       stacks: [...form.stacks],
     };
     if (!draft.name || !draft.path) throw new Error("Name and path are required.");
-    if (props.project) await updateProject(props.project.id, draft);
-    else await createProject(draft);
+    let id: number;
+    if (props.project) {
+      await updateProject(props.project.id, draft);
+      id = props.project.id;
+    } else {
+      id = await createProject(draft);
+    }
+    // Icon: resolve after the project exists so a custom .ico can be
+    // stored under its id.
+    if (iconKind.value === "lucide") {
+      if (icoStored.value) await deleteProjectIcon(id).catch(() => {});
+      await setProjectIcon(id, "lucide", iconName.value);
+    } else if (iconKind.value === "ico") {
+      if (icoSource.value) {
+        const stored = await saveProjectIcon(icoSource.value, id);
+        await setProjectIcon(id, "ico", stored);
+      } else if (!icoStored.value) {
+        await setProjectIcon(id, null, null);
+      }
+      // Otherwise the previously stored .ico stays as-is.
+    } else {
+      if (icoStored.value) await deleteProjectIcon(id).catch(() => {});
+      await setProjectIcon(id, null, null);
+    }
     emit("saved");
   } catch (e) {
     error.value = String(e);
@@ -62,7 +112,7 @@ async function save() {
 
 <template>
   <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }" @click.self="emit('close')">
-    <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900">
+    <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 max-h-[90vh] overflow-y-auto">
       <header class="mb-4 flex items-center justify-between">
         <h2 class="text-lg font-semibold">{{ project ? "Edit project" : "Add project" }}</h2>
         <button class="rounded p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800" @click="emit('close')">
@@ -113,6 +163,72 @@ async function save() {
         </div>
       </div>
 
+      <div class="field">
+        <span>Icon</span>
+        <div class="mb-2 flex gap-1.5">
+          <button
+            type="button"
+            class="icon-mode-btn"
+            :class="iconKind === 'none' ? 'icon-mode-active' : ''"
+            @click="iconKind = 'none'"
+          >
+            Default
+          </button>
+          <button
+            type="button"
+            class="icon-mode-btn"
+            :class="iconKind === 'lucide' ? 'icon-mode-active' : ''"
+            @click="iconKind = 'lucide'"
+          >
+            Lucide
+          </button>
+          <button
+            type="button"
+            class="icon-mode-btn"
+            :class="iconKind === 'ico' ? 'icon-mode-active' : ''"
+            @click="iconKind = 'ico'"
+          >
+            .ico file
+          </button>
+        </div>
+
+        <div v-if="iconKind === 'lucide'" class="grid grid-cols-8 gap-1.5">
+          <button
+            v-for="name in PROJECT_ICON_NAMES"
+            :key="name"
+            type="button"
+            :title="name"
+            class="flex items-center justify-center rounded-lg p-2 ring-1"
+            :class="iconName === name
+              ? 'bg-blue-600 text-white ring-blue-600'
+              : 'ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700'"
+            @click="iconName = name"
+          >
+            <component :is="PROJECT_ICONS[name]" class="h-5 w-5" />
+          </button>
+        </div>
+
+        <div v-else-if="iconKind === 'ico'">
+          <div class="flex items-center gap-3">
+            <img
+              v-if="!icoSource && icoStored"
+              :src="convertFileSrc(icoStored)"
+              alt=""
+              class="h-10 w-10 shrink-0 rounded"
+            />
+            <span class="min-w-0 flex-1 truncate text-sm text-neutral-500">
+              {{ icoFileLabel }}
+            </span>
+            <button type="button" class="btn-secondary shrink-0" @click="browseIco">
+              Choose .ico…
+            </button>
+          </div>
+          <p v-if="icoSource" class="mt-1 text-xs text-neutral-500">
+            The file will be copied into the app's storage when you save.
+          </p>
+        </div>
+      </div>
+
       <p v-if="error" class="mb-3 text-sm text-red-600">{{ error }}</p>
 
       <footer class="flex justify-end gap-2">
@@ -140,5 +256,11 @@ async function save() {
 }
 .btn-secondary {
   @apply rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
+}
+.icon-mode-btn {
+  @apply rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700;
+}
+.icon-mode-active {
+  @apply bg-blue-600 text-white ring-blue-600 hover:ring-blue-600;
 }
 </style>

@@ -115,3 +115,13 @@ export function importProjectFolder(
 ): Promise<ImportResult> {
   return invoke("import_project_folder", { source, name, mode, projectsDir });
 }
+
+/** Copy a user-picked .ico into app storage for a project; returns the stored path. */
+export function saveProjectIcon(source: string, projectId: number): Promise<string> {
+  return invoke("save_project_icon", { source, projectId });
+}
+
+/** Delete a project's stored .ico file (if any). */
+export function deleteProjectIcon(projectId: number): Promise<void> {
+  return invoke("delete_project_icon", { projectId });
+}

@@ -49,6 +49,12 @@ function loadDb(): Promise<Database> {
           "ALTER TABLE projects ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
         );
       }
+      if (!colNames.has("icon_kind")) {
+        await db.execute("ALTER TABLE projects ADD COLUMN icon_kind TEXT");
+      }
+      if (!colNames.has("icon_value")) {
+        await db.execute("ALTER TABLE projects ADD COLUMN icon_value TEXT");
+      }
       // NOTE: SSH passwords are intentionally NOT stored here.
       // Profiles hold connection details only; auth uses SSH keys.
       await db.execute(`
@@ -101,6 +107,8 @@ interface ProjectRow {
   description: string | null;
   pinned: number;
   sort_order: number;
+  icon_kind: string | null;
+  icon_value: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -125,6 +133,8 @@ export async function listProjects(): Promise<Project[]> {
       stacks: stackRows.map((s) => s.stack),
       pinned: row.pinned === 1,
       sortOrder: row.sort_order,
+      iconKind: (row.icon_kind as Project["iconKind"]) ?? null,
+      iconValue: row.icon_value,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
@@ -148,7 +158,7 @@ async function replaceStacks(
   }
 }
 
-export async function createProject(draft: ProjectDraft): Promise<void> {
+export async function createProject(draft: ProjectDraft): Promise<number> {
   const db = await loadDb();
   const result = await db.execute(
     "INSERT INTO projects (name, path, repo_url, description) VALUES ($1, $2, $3, $4)",
@@ -157,6 +167,19 @@ export async function createProject(draft: ProjectDraft): Promise<void> {
   if (result.lastInsertId != null) {
     await replaceStacks(db, result.lastInsertId, draft.stacks);
   }
+  return result.lastInsertId ?? 0;
+}
+
+export async function setProjectIcon(
+  id: number,
+  kind: Project["iconKind"],
+  value: string | null,
+): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "UPDATE projects SET icon_kind = $1, icon_value = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3",
+    [kind, value, id],
+  );
 }
 
 export async function updateProject(

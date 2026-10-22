@@ -17,6 +17,8 @@ import {
   Trash2,
 } from "@lucide/vue";
 import { getGitStatus } from "../lib/api";
+import { PROJECT_ICONS } from "../lib/projectIcons";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { GitStatus, Project } from "../types";
 
 const props = defineProps<{
@@ -60,7 +62,18 @@ watch(() => props.statusKey, loadStatus);
           v-if="reorderEnabled"
           class="h-4 w-4 shrink-0 cursor-grab text-neutral-400"
         />
-        <Folder class="h-5 w-5 shrink-0 text-amber-500" />
+        <img
+          v-if="project.iconKind === 'ico' && project.iconValue"
+          :src="convertFileSrc(project.iconValue)"
+          alt=""
+          class="h-6 w-6 shrink-0 rounded"
+        />
+        <component
+          v-else-if="project.iconKind === 'lucide' && project.iconValue && PROJECT_ICONS[project.iconValue]"
+          :is="PROJECT_ICONS[project.iconValue]"
+          class="h-5 w-5 shrink-0 text-blue-500"
+        />
+        <Folder v-else class="h-5 w-5 shrink-0 text-amber-500" />
         <span class="truncate">{{ project.name }}</span>
       </h3>
       <div class="flex shrink-0 gap-1">
