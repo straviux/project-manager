@@ -555,11 +555,6 @@ onUnmounted(() => unlisten?.());
       </button>
     </div>
 
-    <p class="on-bg mb-4 text-xs text-neutral-500">
-      Library: <span class="font-mono">{{ filesDir }}</span> — drop files
-      anywhere here to add them.
-    </p>
-
     <div v-if="notice" class="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
       {{ notice }}
     </div>

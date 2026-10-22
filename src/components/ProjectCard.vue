@@ -44,10 +44,17 @@ const emit = defineEmits<{
 
 const status = ref<GitStatus | null>(null);
 const menuOpen = ref(false);
-// Dragging is armed only while the left button is held: a permanently
-// draggable card makes right-clicks laggy (the browser treats them as a
-// potential drag), which made the context menu feel slow in Projects.
-const dragArmed = ref(false);
+// Dragging is armed synchronously on the DOM element during mousedown.
+// Toggling it through Vue's reactive binding was too slow: the browser
+// had already decided the card was not draggable, so drags never started.
+// Arming only on a left-button press also keeps right-clicks instant.
+function armDrag(event: MouseEvent) {
+  (event.currentTarget as HTMLElement).draggable =
+    event.button === 0 && props.reorderEnabled;
+}
+function disarmDrag(event: MouseEvent) {
+  (event.currentTarget as HTMLElement).draggable = false;
+}
 
 async function loadStatus() {
   status.value = await getGitStatus(props.project.path).catch(() => null);
@@ -60,10 +67,9 @@ watch(() => props.statusKey, loadStatus);
   <article
     class="card-glass flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
     :class="project.pinned ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''"
-    :draggable="reorderEnabled && dragArmed"
-    @mousedown="dragArmed = $event.button === 0"
-    @mouseup="dragArmed = false"
-    @dragend="dragArmed = false"
+    @mousedown="armDrag"
+    @mouseup="disarmDrag"
+    @dragend="disarmDrag"
     @contextmenu.prevent.stop="menuOpen = false; emit('context', $event)"
     @dragstart="emit('dragStart')"
     @dragover.prevent

@@ -591,15 +591,12 @@ function openEdit(project: Project) {
             <span class="shrink-0">Projects folder:</span>
             <span class="truncate font-mono" :title="projectsDir ?? ''">{{ projectsDir }}</span>
           </span>
-          <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-neutral-400">
-            <span class="font-medium text-neutral-500 dark:text-neutral-400">Shortcuts:</span>
-            <span class="whitespace-nowrap">/ or Ctrl+K search</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">1 Projects</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">2 Files</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">S scan</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">I import</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">N new project</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">Esc close</span>
-          </span>
           </template>
           <template v-else>
             <span class="flex min-w-0 items-baseline gap-1.5">
-              <span class="shrink-0">Library folder:</span>
+              <span class="shrink-0">Library:</span>
               <span class="truncate font-mono" :title="filesDir ?? ''">{{ filesDir }}</span>
+              <span class="shrink-0">— drop files anywhere here to add them.</span>
             </span>
             <span v-if="filesStats" class="ml-auto shrink-0 whitespace-nowrap">{{ filesStats }}</span>
           </template>
