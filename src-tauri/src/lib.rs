@@ -261,8 +261,7 @@ fn folder_name_from_url(url: &str) -> String {
         .to_string()
 }
 
-#[tauri::command]
-fn git_clone(
+fn git_clone_impl(
     repo_url: String,
     parent_dir: String,
     folder_name: Option<String>,
@@ -304,8 +303,7 @@ fn parse_count(info: &str, key: &str) -> u32 {
 
 /// Working-tree status for the project card: branch, dirty state,
 /// number of changed files, and ahead/behind counts vs upstream.
-#[tauri::command]
-fn git_status(path: String) -> GitStatus {
+fn git_status_impl(path: String) -> GitStatus {
     let not_repo = GitStatus {
         is_repo: false,
         branch: None,
@@ -465,8 +463,7 @@ fn detect_stacks_for(dir: &Path) -> Vec<String> {
     stacks
 }
 
-#[tauri::command]
-fn detect_stacks(path: String) -> Vec<String> {
+fn detect_stacks_impl(path: String) -> Vec<String> {
     detect_stacks_for(Path::new(&path))
 }
 
@@ -483,8 +480,7 @@ fn find_readme(dir: &Path) -> Option<PathBuf> {
     None
 }
 
-#[tauri::command]
-fn scan_projects(parent_dir: String) -> Result<Vec<ScannedProject>, String> {
+fn scan_projects_impl(parent_dir: String) -> Result<Vec<ScannedProject>, String> {
     let parent = PathBuf::from(&parent_dir);
     let entries = fs::read_dir(&parent)
         .map_err(|e| format!("Cannot read projects directory: {e}"))?;
@@ -542,7 +538,7 @@ fn categorize_file(path: &Path) -> &'static str {
 
 /// Is `path` safe to move right now? A file is NOT free when it is locked,
 /// open in another process, or is a currently running executable.
-fn check_file_free_impl(path: &Path) -> FileCheck {
+fn file_free_check(path: &Path) -> FileCheck {
     if !path.is_file() {
         return FileCheck {
             free: false,
@@ -631,17 +627,15 @@ fn check_file_free_impl(path: &Path) -> FileCheck {
     }
 }
 
-#[tauri::command]
-fn check_file_free(path: String) -> FileCheck {
-    check_file_free_impl(Path::new(&path))
+fn check_file_free_impl(path: String) -> FileCheck {
+    file_free_check(Path::new(&path))
 }
 
 /// Move `source` into `<library_dir>/<Category>/`, refusing while the file
 /// is in use. Duplicate names are suffixed ("name (1).ext") — never overwritten.
-#[tauri::command]
-fn move_file_to_library(source: String, library_dir: String) -> Result<String, String> {
+fn move_file_to_library_impl(source: String, library_dir: String) -> Result<String, String> {
     let src = PathBuf::from(&source);
-    let check = check_file_free_impl(&src);
+    let check = file_free_check(&src);
     if !check.free {
         return Err(check
             .reason
@@ -731,8 +725,7 @@ fn collect_library_files(dir: &Path, base: &Path, out: &mut Vec<LibraryFile>) {
 }
 
 /// List every file inside the managed library folder (recursively).
-#[tauri::command]
-fn list_library_files(library_dir: String) -> Result<Vec<LibraryFile>, String> {
+fn list_library_files_impl(library_dir: String) -> Result<Vec<LibraryFile>, String> {
     let base = PathBuf::from(&library_dir);
     if !base.is_dir() {
         return Err(format!("Library folder does not exist: {library_dir}"));
@@ -773,6 +766,190 @@ fn open_path(path: String) -> Result<(), String> {
 /* ================================= run ================================== */
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+
+/* ========================= import project folder ========================= */
+
+#[derive(Serialize)]
+struct ImportResult {
+    path: String,
+    warning: Option<String>,
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
+    fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+        let meta = fs::symlink_metadata(&from).map_err(|e| e.to_string())?;
+        if meta.is_dir() {
+            copy_dir_recursive(&from, &to)?;
+        } else {
+            // fs::copy follows symlinks, so links become regular files.
+            fs::copy(&from, &to)
+                .map_err(|e| format!("Could not copy {}: {e}", from.display()))?;
+        }
+    }
+    Ok(())
+}
+
+fn do_import_project_folder(
+    source: String,
+    name: String,
+    mode: String,
+    projects_dir: String,
+) -> Result<ImportResult, String> {
+    let src = PathBuf::from(&source);
+    if !src.is_dir() {
+        return Err("The source folder does not exist.".into());
+    }
+    let trimmed = name.trim().trim_matches(|c| c == '/' || c == '\\');
+    if trimmed.is_empty()
+        || trimmed == "."
+        || trimmed == ".."
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+    {
+        return Err("Invalid folder name.".into());
+    }
+    let parent = PathBuf::from(&projects_dir);
+    if !parent.is_dir() {
+        return Err("The projects folder does not exist.".into());
+    }
+    let dest = parent.join(trimmed);
+    if dest.exists() {
+        return Err(format!(
+            "A folder named '{trimmed}' already exists in your projects folder."
+        ));
+    }
+    let src_c = src.canonicalize().map_err(|e| e.to_string())?;
+    let parent_c = parent.canonicalize().map_err(|e| e.to_string())?;
+    if src_c.starts_with(&parent_c) {
+        return Err(
+            "That folder is already inside your projects folder — use Scan instead.".into(),
+        );
+    }
+    if parent_c.starts_with(&src_c) {
+        return Err(
+            "Cannot import the projects folder itself or one of its parent folders.".into(),
+        );
+    }
+    let dest_str = dest.to_string_lossy().to_string();
+    match mode.as_str() {
+        "copy" => {
+            copy_dir_recursive(&src, &dest)?;
+            Ok(ImportResult { path: dest_str, warning: None })
+        }
+        "move" => match fs::rename(&src, &dest) {
+            Ok(()) => Ok(ImportResult { path: dest_str, warning: None }),
+            Err(_) => {
+                // Different drive, or the folder is in use: copy, then remove.
+                copy_dir_recursive(&src, &dest)?;
+                match fs::remove_dir_all(&src) {
+                    Ok(()) => Ok(ImportResult { path: dest_str, warning: None }),
+                    Err(e) => Ok(ImportResult {
+                        path: dest_str,
+                        warning: Some(format!(
+                            "Copied into your projects folder, but the original could not be fully removed ({e}). Some files may be open in another program."
+                        )),
+                    }),
+                }
+            }
+        },
+        _ => Err("Unknown import mode.".into()),
+    }
+}
+
+/// Move or copy an existing folder into the projects parent folder.
+#[tauri::command]
+async fn import_project_folder(
+    source: String,
+    name: String,
+    mode: String,
+    projects_dir: String,
+) -> Result<ImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        do_import_project_folder(source, name, mode, projects_dir)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+
+/* ===== async command wrappers: blocking git/fs work runs on a worker
+   thread (spawn_blocking) instead of the UI thread, so invoking these
+   can never freeze the window. ===== */
+
+#[tauri::command]
+async fn git_clone(
+    repo_url: String,
+    parent_dir: String,
+    folder_name: Option<String>,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git_clone_impl(repo_url, parent_dir, folder_name)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn git_status(path: String) -> GitStatus {
+    tauri::async_runtime::spawn_blocking(move || git_status_impl(path))
+        .await
+        .unwrap_or(GitStatus {
+            is_repo: false,
+            branch: None,
+            dirty: false,
+            changed_files: 0,
+            ahead: 0,
+            behind: 0,
+        })
+}
+
+#[tauri::command]
+async fn detect_stacks(path: String) -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(move || detect_stacks_impl(path))
+        .await
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+async fn scan_projects(parent_dir: String) -> Result<Vec<ScannedProject>, String> {
+    tauri::async_runtime::spawn_blocking(move || scan_projects_impl(parent_dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn check_file_free(path: String) -> FileCheck {
+    tauri::async_runtime::spawn_blocking(move || check_file_free_impl(path))
+        .await
+        .unwrap_or(FileCheck {
+            free: false,
+            reason: Some("Could not check the file.".into()),
+        })
+}
+
+#[tauri::command]
+async fn move_file_to_library(
+    source: String,
+    library_dir: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        move_file_to_library_impl(source, library_dir)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn list_library_files(library_dir: String) -> Result<Vec<LibraryFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || list_library_files_impl(library_dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -792,6 +969,7 @@ pub fn run() {
             read_readme,
             check_file_free,
             move_file_to_library,
+            import_project_folder,
             list_library_files,
             open_path
         ])

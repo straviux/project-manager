@@ -24,13 +24,16 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   reorder them (order and pins persist in SQLite, with an automatic column
   migration for existing databases).
 - **Keyboard shortcuts** — `/` or `Ctrl+K` search, `1`/`2` switch
-  Projects/Files tabs, `S` scan, `N` new project, `Esc` closes the topmost
-  dialog.
+  Projects/Files tabs, `S` scan, `I` import, `N` new project, `Esc` closes
+  the topmost dialog.
 - **Add projects three ways**
   - Scan the parent directory (auto-detects stacks and git remotes)
   - Add manually
   - **Git clone** — paste a repository URL and it clones into the parent
     directory, detects the stacks and registers the project
+  - **Import a folder** — move or copy an existing project folder from
+    anywhere on disk into the parent directory (stacks and git remote are
+    picked up automatically by the follow-up scan)
 - **SSH profiles** — save host, user, port and identity file per project.
   Passwords are never stored in the database: they go to your **OS keychain**
   (Windows Credential Manager / macOS Keychain / Linux Secret Service), and

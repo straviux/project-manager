@@ -100,3 +100,18 @@ export function listLibraryFiles(libraryDir: string): Promise<LibraryFile[]> {
 export function openPath(path: string): Promise<void> {
   return invoke("open_path", { path });
 }
+
+export interface ImportResult {
+  path: string;
+  warning: string | null;
+}
+
+/** Move or copy an existing folder into the projects parent folder. */
+export function importProjectFolder(
+  source: string,
+  name: string,
+  mode: "move" | "copy",
+  projectsDir: string,
+): Promise<ImportResult> {
+  return invoke("import_project_folder", { source, name, mode, projectsDir });
+}

@@ -4,6 +4,7 @@ import {
   Download,
   Files,
   FolderCog,
+  FolderInput,
   LayoutGrid,
   Plus,
   RefreshCw,
@@ -13,6 +14,7 @@ import SetupWizard from "./components/SetupWizard.vue";
 import ProjectCard from "./components/ProjectCard.vue";
 import ProjectDialog from "./components/ProjectDialog.vue";
 import CloneDialog from "./components/CloneDialog.vue";
+import ImportDialog from "./components/ImportDialog.vue";
 import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
 import FilesView from "./components/FilesView.vue";
@@ -49,6 +51,7 @@ const showSetup = ref(false);
 const editingProject = ref<Project | null>(null);
 const showProjectDialog = ref(false);
 const showClone = ref(false);
+const showImport = ref(false);
 const sshProject = ref<Project | null>(null);
 const readmeProject = ref<Project | null>(null);
 
@@ -130,6 +133,12 @@ async function remove(project: Project) {
   flash(`Removed ${project.name} from the list (files untouched).`);
 }
 
+async function onImported(warning: string | null) {
+  showImport.value = false;
+  await scan();
+  if (warning) error.value = warning;
+}
+
 function openNewProject() {
   editingProject.value = null;
   showProjectDialog.value = true;
@@ -180,6 +189,7 @@ function focusSearch() {
 function closeTopmost() {
   if (readmeProject.value) readmeProject.value = null;
   else if (sshProject.value) sshProject.value = null;
+  else if (showImport.value) showImport.value = false;
   else if (showClone.value) showClone.value = false;
   else if (showProjectDialog.value) showProjectDialog.value = false;
   else if (showSetup.value) showSetup.value = false;
@@ -206,6 +216,8 @@ function onKeydown(e: KeyboardEvent) {
     tab.value = "files";
   } else if (e.key.toLowerCase() === "s" && tab.value === "projects" && projectsDir.value) {
     scan();
+  } else if (e.key.toLowerCase() === "i" && tab.value === "projects" && projectsDir.value) {
+    showImport.value = true;
   } else if (e.key.toLowerCase() === "n" && tab.value === "projects") {
     openNewProject();
   }
@@ -263,6 +275,9 @@ function openEdit(project: Project) {
           <button v-if="tab === 'projects'" class="toolbar-btn" title="Scan the projects folder for new projects" @click="scan">
             <RefreshCw class="h-4 w-4" /> Scan
           </button>
+          <button v-if="tab === 'projects'" class="toolbar-btn" title="Move or copy an existing folder into your projects folder" @click="showImport = true">
+            <FolderInput class="h-4 w-4" /> Import
+          </button>
           <button v-if="tab === 'projects'" class="toolbar-btn" @click="showClone = true">
             <Download class="h-4 w-4" /> Clone
           </button>
@@ -281,7 +296,7 @@ function openEdit(project: Project) {
         <p v-if="tab === 'projects'" class="mx-auto max-w-6xl px-6 pb-3 text-xs text-neutral-500">
           Projects folder: <span class="font-mono">{{ projectsDir }}</span>
           <span class="ml-3 text-neutral-400">
-            Shortcuts: / or Ctrl+K search · 1 Projects · 2 Files · S scan · N new project · Esc close
+            Shortcuts: / or Ctrl+K search · 1 Projects · 2 Files · S scan · I import · N new project · Esc close
           </span>
         </p>
       </header>
@@ -300,8 +315,9 @@ function openEdit(project: Project) {
       </div>
 
       <main class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-6 py-6">
+        <div v-show="tab === 'projects'">
         <div
-          v-if="tab === 'projects' && filtered.length"
+          v-if="filtered.length"
           class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
         >
           <ProjectCard
@@ -321,17 +337,20 @@ function openEdit(project: Project) {
             @remove="remove(project)"
           />
         </div>
-        <div v-if="tab === 'projects' && !filtered.length" class="py-20 text-center text-neutral-500">
+        <div v-if="!filtered.length" class="py-20 text-center text-neutral-500">
           <p class="mb-2 text-lg font-medium">No projects yet</p>
           <p class="text-sm">
-            Use <strong>Scan</strong> to import the folders inside your projects
-            directory, <strong>Clone</strong> a repository, or
+            Use <strong>Scan</strong> to pick up the folders inside your projects
+            directory, <strong>Import</strong> to move or copy one in from
+            elsewhere, <strong>Clone</strong> a repository, or
             <strong>Add project</strong> manually.
           </p>
         </div>
+        </div>
         <FilesView
-          v-if="tab === 'files'"
+          v-show="tab === 'files'"
           :files-dir="filesDir"
+          :active="tab === 'files'"
           @dir-changed="(d) => (filesDir = d)"
         />
       </main>
@@ -348,6 +367,12 @@ function openEdit(project: Project) {
       :projects-dir="projectsDir"
       @close="showClone = false"
       @cloned="showClone = false; refresh(); flash('Repository cloned and added.')"
+    />
+    <ImportDialog
+      v-if="showImport && projectsDir"
+      :projects-dir="projectsDir"
+      @close="showImport = false"
+      @imported="onImported"
     />
     <SshDialog v-if="sshProject" :project="sshProject" @close="sshProject = null" />
     <ReadmeDialog

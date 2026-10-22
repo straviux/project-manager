@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
@@ -28,7 +28,7 @@ import {
 } from "../lib/api";
 import { FILE_CATEGORIES, type LibraryFile } from "../types";
 
-const props = defineProps<{ filesDir: string | null }>();
+const props = defineProps<{ filesDir: string | null; active: boolean }>();
 const emit = defineEmits<{ dirChanged: [dir: string] }>();
 
 const files = ref<LibraryFile[]>([]);
@@ -111,6 +111,15 @@ async function refresh() {
 }
 onMounted(refresh);
 
+// The view stays mounted while hidden (v-show in App), so refresh the
+// listing whenever the Files tab becomes active again.
+watch(
+  () => props.active,
+  (a) => {
+    if (a) refresh();
+  },
+);
+
 async function chooseFolder() {
   const picked = await open({ directory: true, multiple: false });
   if (typeof picked === "string") {
@@ -174,7 +183,11 @@ let unlisten: (() => void) | null = null;
 onMounted(async () => {
   try {
     unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
-      if (event.payload.type === "drop" && event.payload.paths.length) {
+      if (
+        props.active &&
+        event.payload.type === "drop" &&
+        event.payload.paths.length
+      ) {
         await addFiles(event.payload.paths);
       }
     });
