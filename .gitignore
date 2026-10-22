@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Generated app icons (run `npm run tauri icon <logo.png>`)
+src-tauri/icons/*.png
+src-tauri/icons/*.ico
+src-tauri/icons/*.icns
+!src-tauri/icons/.gitkeep
+
+# Local database
+*.db
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example

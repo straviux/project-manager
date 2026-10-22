@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  @apply bg-neutral-100 text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100;
+}
+
+/* Rendered README content */
+.readme-body h1,
+.readme-body h2,
+.readme-body h3 {
+  @apply mb-2 mt-4 font-semibold;
+}
+.readme-body h1 {
+  @apply text-2xl;
+}
+.readme-body h2 {
+  @apply text-xl;
+}
+.readme-body h3 {
+  @apply text-lg;
+}
+.readme-body p {
+  @apply my-2 leading-relaxed;
+}
+.readme-body code {
+  @apply rounded bg-neutral-200 px-1 py-0.5 text-sm dark:bg-neutral-800;
+}
+.readme-body pre {
+  @apply my-3 overflow-x-auto rounded-lg bg-neutral-900 p-4 text-sm text-neutral-100;
+}
+.readme-body pre code {
+  @apply bg-transparent p-0;
+}
+.readme-body ul {
+  @apply my-2 list-inside list-disc;
+}
+.readme-body a {
+  @apply text-blue-600 underline dark:text-blue-400;
+}
