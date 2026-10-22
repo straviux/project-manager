@@ -621,7 +621,7 @@ onUnmounted(() => unlisten?.());
         <input
           v-model="customStatus"
           class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
-          placeholder="Type your own\u2026"
+          placeholder="Type your own…"
           @keyup.enter="customStatus.trim() && applyStatus(customStatus.trim())"
         />
         <button
@@ -666,7 +666,7 @@ onUnmounted(() => unlisten?.());
         v-model="notesDraft"
         rows="4"
         class="w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
-        placeholder="Write a note about this file\u2026"
+        placeholder="Write a note about this file…"
       ></textarea>
       <div class="mt-4 flex justify-end gap-2">
         <button
@@ -691,7 +691,7 @@ onUnmounted(() => unlisten?.());
     :message="
       confirmDelete.kind === 'file'
         ? `${confirmDelete.file.name} will be permanently deleted from the library folder. This cannot be undone.`
-        : `The folder \u201c${confirmDelete.folder}\u201d and the ${confirmDelete.count} file(s) in this view will be permanently deleted. This cannot be undone.`
+        : `The folder “${confirmDelete.folder}” and the ${confirmDelete.count} file(s) in this view will be permanently deleted. This cannot be undone.`
     "
     confirm-label="Delete"
     @confirm="doDelete"

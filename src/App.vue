@@ -411,7 +411,7 @@ function openEdit(project: Project) {
               ref="searchInput"
               v-model="search"
               class="on-bg w-full rounded-lg border border-neutral-300 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
-              placeholder="Search by name or stack\u2026  ( / )"
+              placeholder="Search by name or stack…  ( / )"
             />
           </div>
           <button class="toolbar-btn" title="Scan the projects folder for new projects" @click="scan">
@@ -480,9 +480,13 @@ function openEdit(project: Project) {
         :class="{ dark: chromeDark }"
       >
         <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-1">
-          <span>Projects folder: <span class="font-mono">{{ projectsDir }}</span></span>
-          <span class="text-neutral-400">
-            Shortcuts: / or Ctrl+K search \u00b7 1 Projects \u00b7 2 Files \u00b7 S scan \u00b7 I import \u00b7 N new project \u00b7 Esc close
+          <span class="flex min-w-0 items-baseline gap-1.5">
+            <span class="shrink-0">Projects folder:</span>
+            <span class="truncate font-mono" :title="projectsDir ?? ''">{{ projectsDir }}</span>
+          </span>
+          <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-neutral-400">
+            <span class="font-medium text-neutral-500 dark:text-neutral-400">Shortcuts:</span>
+            <span class="whitespace-nowrap">/ or Ctrl+K search</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">1 Projects</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">2 Files</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">S scan</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">I import</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">N new project</span><span aria-hidden="true">·</span><span class="whitespace-nowrap">Esc close</span>
           </span>
         </div>
       </footer>
