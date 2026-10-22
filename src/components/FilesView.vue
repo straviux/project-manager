@@ -409,6 +409,35 @@ function openFileCtx(event: MouseEvent, file: LibraryFile) {
     ],
   };
 }
+function openContainerCtx(event: MouseEvent) {
+  // Leave the normal text menu alone inside form fields.
+  if ((event.target as HTMLElement).closest("input, textarea, select")) return;
+  event.preventDefault();
+  const items: ContextMenuItem[] = [
+    { label: "Add files", icon: FilePlus2, action: () => pickFiles() },
+    {
+      label: "Import folder",
+      icon: FolderPlus,
+      action: () => (showAddFolder.value = true),
+    },
+    { label: "Refresh list", icon: RefreshCw, action: () => refresh() },
+    {
+      label: "Open library folder",
+      icon: FolderOpen,
+      action: () => {
+        if (props.filesDir) void openPath(props.filesDir);
+      },
+    },
+  ];
+  if (currentFolder.value) {
+    items.unshift({
+      label: "Go up one level",
+      icon: ArrowUp,
+      action: () => goUp(),
+    });
+  }
+  ctx.value = { x: event.clientX, y: event.clientY, items };
+}
 function openFolderCtx(event: MouseEvent, folder: { path: string }) {
   ctx.value = {
     x: event.clientX,
@@ -469,7 +498,7 @@ onUnmounted(() => unlisten?.());
     </div>
   </div>
 
-  <div v-else>
+  <div v-else @contextmenu="openContainerCtx">
     <!-- Toolbar -->
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <div class="relative min-w-52 flex-1 sm:max-w-md">
@@ -593,7 +622,7 @@ onUnmounted(() => unlisten?.());
             class="group relative flex cursor-pointer flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
             :title="`Open folder ${folder.name}`"
             @click="goFolder(folder.path)"
-            @contextmenu.prevent="openFolderCtx($event, folder)"
+            @contextmenu.prevent.stop="openFolderCtx($event, folder)"
           >
             <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
               <button
@@ -619,7 +648,7 @@ onUnmounted(() => unlisten?.());
             :key="folder.path"
             class="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
             @click="goFolder(folder.path)"
-            @contextmenu.prevent="openFolderCtx($event, folder)"
+            @contextmenu.prevent.stop="openFolderCtx($event, folder)"
           >
             <Folder class="h-5 w-5 shrink-0 text-amber-500" />
             <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
@@ -679,7 +708,7 @@ onUnmounted(() => unlisten?.());
               </tr>
             </thead>
             <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
-              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" @contextmenu.prevent="openFileCtx($event, file)">
+              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" @contextmenu.prevent.stop="openFileCtx($event, file)">
                 <td class="max-w-0 px-4 py-2.5">
                   <span class="flex min-w-0 items-center gap-2.5">
                     <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0 text-blue-600" />
@@ -730,7 +759,7 @@ onUnmounted(() => unlisten?.());
             class="group relative flex flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
             title="Double-click to open"
             @dblclick="openPath(file.path)"
-            @contextmenu.prevent="openFileCtx($event, file)"
+            @contextmenu.prevent.stop="openFileCtx($event, file)"
           >
             <span
               class="absolute right-1 top-1 z-10 flex gap-0.5 opacity-0 transition group-hover:opacity-100"

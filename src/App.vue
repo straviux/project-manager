@@ -284,7 +284,24 @@ const projectCtxItems = computed<ContextMenuItem[]>(() => {
   ];
 });
 function onProjectContext(event: MouseEvent, project: Project) {
+  containerCtx.value = null;
   projectCtx.value = { x: event.clientX, y: event.clientY, project };
+}
+
+/* Right-clicking empty space in the Projects pane: the "add" actions. */
+const containerCtx = ref<{ x: number; y: number } | null>(null);
+const containerCtxItems: ContextMenuItem[] = [
+  { label: "Add project", icon: Plus, action: () => openNewProject() },
+  { label: "Scan for new projects", icon: RefreshCw, action: () => scan() },
+  { label: "Import folder", icon: FolderInput, action: () => (showImport.value = true) },
+  { label: "Clone repository", icon: Download, action: () => (showClone.value = true) },
+];
+function onContainerContext(event: MouseEvent) {
+  // Leave the normal text menu alone inside form fields.
+  if ((event.target as HTMLElement).closest("input, textarea, select")) return;
+  event.preventDefault();
+  projectCtx.value = null;
+  containerCtx.value = { x: event.clientX, y: event.clientY };
 }
 
 function onDragStart(id: number) {
@@ -374,6 +391,13 @@ function openEdit(project: Project) {
 <template>
   <div class="flex h-full flex-col">
     <!-- First-run setup -->
+  <ContextMenu
+    v-if="containerCtx"
+    :x="containerCtx.x"
+    :y="containerCtx.y"
+    :items="containerCtxItems"
+    @close="containerCtx = null"
+  />
   <ContextMenu
     v-if="projectCtx"
     :x="projectCtx.x"
@@ -469,7 +493,7 @@ function openEdit(project: Project) {
       </div>
 
       <main class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-6 py-6">
-        <div v-show="tab === 'projects'">
+        <div v-show="tab === 'projects'" @contextmenu="onContainerContext">
         <div class="mb-4 flex flex-wrap items-center gap-2">
           <div class="relative min-w-52 flex-1 sm:max-w-md">
             <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
