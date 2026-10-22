@@ -456,18 +456,18 @@ onUnmounted(() => unlisten?.());
         <button
           class="toggle-btn"
           :class="layout === 'table' ? 'switch-active' : ''"
-          title="Table view"
+          title="Show files as a list"
           @click="setLayout('table')"
         >
-          <List class="h-4 w-4" />
+          <List class="h-4 w-4" /> List
         </button>
         <button
           class="toggle-btn"
           :class="layout === 'grid' ? 'switch-active' : ''"
-          title="Explorer grid view"
+          title="Show files as big icons, like Windows Explorer"
           @click="setLayout('grid')"
         >
-          <LayoutGrid class="h-4 w-4" />
+          <LayoutGrid class="h-4 w-4" /> Icons
         </button>
       </div>
 
