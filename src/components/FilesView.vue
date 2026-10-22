@@ -29,6 +29,7 @@ import {
 } from "@lucide/vue";
 import { FILES_DIR_KEY, setSetting } from "../lib/db";
 import {
+  allowAssetDir,
   checkFileFree,
   deleteLibraryFile,
   deleteLibraryFolder,
@@ -38,6 +39,7 @@ import {
   openPath,
 } from "../lib/api";
 import ImportDialog from "./ImportDialog.vue";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { FILE_CATEGORIES, type FileMeta, LibraryFile } from "../types";
 import { deleteFileMeta, getAllFileMeta, setFileMeta } from "../lib/db";
 import { chromeDark } from "../lib/theme";
@@ -238,6 +240,7 @@ async function refresh() {
   loading.value = true;
   try {
     files.value = await listLibraryFiles(props.filesDir);
+    void allowAssetDir(props.filesDir).catch(() => {});
     await loadMeta();
   } catch (e) {
     error.value = String(e);
@@ -386,7 +389,7 @@ onUnmounted(() => unlisten?.());
         <button
           class="toggle-btn"
           :class="layout === 'grid' ? 'bg-blue-600 text-white' : ''"
-          title="Grid view"
+          title="Explorer grid view"
           @click="setLayout('grid')"
         >
           <LayoutGrid class="h-4 w-4" />
@@ -536,48 +539,66 @@ onUnmounted(() => unlisten?.());
             </tbody>
           </table>
         </div>
-        <ul v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <ul v-else class="grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
           <li
             v-for="file in items"
             :key="file.path"
-            class="card-glass flex flex-col gap-2 rounded-xl bg-white p-4 ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+            class="group relative flex flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
+            title="Double-click to open"
+            @dblclick="openPath(file.path)"
           >
-            <component :is="iconFor(file.category)" class="h-8 w-8 text-blue-600" />
-            <span class="min-w-0">
-              <span class="flex items-center gap-1.5">
-                <span class="truncate text-sm font-medium" :title="file.name">{{ file.name }}</span>
-                <span
-                  v-if="metaOf(file).notes"
-                  class="shrink-0 cursor-default text-blue-500 dark:text-blue-400"
-                  @mouseenter="notePreview = metaOf(file).notes"
-                  @mouseleave="notePreview = ''"
-                >
-                  <StickyNote class="h-3.5 w-3.5" />
-                </span>
-              </span>
-              <span class="block truncate text-xs text-neutral-500">
-                {{ view === 'type' ? file.folder || 'Library root' : file.category }} · {{ formatSize(file.size) }}
-              </span>
-              <span v-if="metaOf(file).status" class="status-badge mt-0.5" :class="statusClasses(metaOf(file).status)">{{ metaOf(file).status }}</span>
-              <span v-if="metaOf(file).notes" class="mt-0.5 block truncate text-xs italic text-neutral-400" :title="metaOf(file).notes">{{ metaOf(file).notes }}</span>
-            </span>
-            <span class="mt-auto flex flex-wrap gap-1 pt-1">
-              <button class="file-action" title="Set status" @click="openStatus(file)">
-                <Tag class="h-4 w-4" />
+            <span
+              class="absolute right-1 top-1 z-10 flex gap-0.5 opacity-0 transition group-hover:opacity-100"
+              @dblclick.stop
+            >
+              <button class="file-action-sm" title="Set status" @click="openStatus(file)">
+                <Tag class="h-3.5 w-3.5" />
               </button>
-              <button class="file-action" :title="metaOf(file).notes ? 'Edit note' : 'Add a note'" @click="openNotes(file)">
-                <StickyNote class="h-4 w-4" :class="metaOf(file).notes ? 'text-blue-600 dark:text-blue-400' : ''" />
+              <button class="file-action-sm" :title="metaOf(file).notes ? 'Edit note' : 'Add a note'" @click="openNotes(file)">
+                <StickyNote class="h-3.5 w-3.5" :class="metaOf(file).notes ? 'text-blue-600 dark:text-blue-400' : ''" />
               </button>
-              <button class="file-action" title="Open the folder containing this file" @click="openFolder(file)">
-                <FolderOpen class="h-4 w-4" />
+              <button class="file-action-sm" title="Open the folder containing this file" @click="openFolder(file)">
+                <FolderOpen class="h-3.5 w-3.5" />
               </button>
-              <button class="file-action" title="Open this file" @click="openPath(file.path)">
-                <ExternalLink class="h-4 w-4" />
+              <button class="file-action-sm" title="Open this file" @click="openPath(file.path)">
+                <ExternalLink class="h-3.5 w-3.5" />
               </button>
-              <button class="file-action file-action-danger" title="Delete this file" @click="confirmDelete = { kind: 'file', file }">
-                <Trash2 class="h-4 w-4" />
+              <button class="file-action-sm file-action-danger" title="Delete this file" @click="confirmDelete = { kind: 'file', file }">
+                <Trash2 class="h-3.5 w-3.5" />
               </button>
             </span>
+            <span class="flex h-20 items-center justify-center">
+              <img
+                v-if="file.category === 'Images'"
+                :src="convertFileSrc(file.path)"
+                class="max-h-20 max-w-full rounded object-contain shadow"
+                alt=""
+                loading="lazy"
+              />
+              <video
+                v-else-if="file.category === 'Videos'"
+                :src="convertFileSrc(file.path)"
+                class="max-h-20 max-w-full rounded object-contain shadow"
+                muted
+                preload="metadata"
+              ></video>
+              <component v-else :is="iconFor(file.category)" class="h-16 w-16 text-blue-600" />
+            </span>
+            <span class="mt-2 flex max-w-full items-start justify-center gap-1">
+              <span class="line-clamp-2 break-words text-xs leading-snug" :title="file.name">{{ file.name }}</span>
+              <span
+                v-if="metaOf(file).notes"
+                class="mt-px shrink-0 cursor-default text-blue-500 dark:text-blue-400"
+                @mouseenter="notePreview = metaOf(file).notes"
+                @mouseleave="notePreview = ''"
+              >
+                <StickyNote class="h-3.5 w-3.5" />
+              </span>
+            </span>
+            <span class="mt-0.5 text-[11px] text-neutral-500">
+              {{ view === 'type' ? file.folder || 'Library root' : file.category }} · {{ formatSize(file.size) }}
+            </span>
+            <span v-if="metaOf(file).status" class="status-badge mt-1" :class="statusClasses(metaOf(file).status)">{{ metaOf(file).status }}</span>
           </li>
         </ul>
       </section>
@@ -715,6 +736,9 @@ onUnmounted(() => unlisten?.());
 }
 .file-action {
   @apply flex items-center rounded-lg bg-neutral-100 p-2 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
+}
+.file-action-sm {
+  @apply flex items-center rounded-md bg-white/90 p-1.5 shadow ring-1 ring-neutral-300/70 hover:bg-white dark:bg-neutral-900/90 dark:ring-neutral-700 dark:hover:bg-neutral-900;
 }
 .file-action-danger {
   @apply hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-300;

@@ -745,6 +745,15 @@ fn list_library_files_impl(library_dir: String) -> Result<Vec<LibraryFile>, Stri
 }
 
 /// Open a file or folder with the OS default application.
+/// Allow the asset protocol to serve files from a directory, so the
+/// file library can show real image/video thumbnails in grid view.
+#[tauri::command]
+fn allow_asset_dir(app: tauri::AppHandle, dir: String) -> Result<(), String> {
+    app.asset_protocol_scope()
+        .allow_directory(dir, true)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -1171,7 +1180,8 @@ pub fn run() {
             list_library_files,
             delete_library_file,
             delete_library_folder,
-            open_path
+            open_path,
+            allow_asset_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

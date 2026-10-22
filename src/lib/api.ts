@@ -101,6 +101,11 @@ export function openPath(path: string): Promise<void> {
   return invoke("open_path", { path });
 }
 
+/** Allow the asset protocol to serve this folder (library thumbnails). */
+export function allowAssetDir(dir: string): Promise<void> {
+  return invoke("allow_asset_dir", { dir });
+}
+
 /** Permanently delete a file from the library (must live inside it). */
 export function deleteLibraryFile(libraryDir: string, path: string): Promise<void> {
   return invoke("delete_library_file", { libraryDir, path });
