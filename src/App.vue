@@ -405,7 +405,7 @@ function openEdit(project: Project) {
             <ArrowDownToLine class="h-4 w-4" :class="checkingUpdates ? 'animate-pulse' : ''" />
           </button>
         </div>
-        <p v-if="tab === 'projects'" class="px-6 pb-3 text-xs text-neutral-500">
+        <p v-if="tab === 'projects'" class="mx-auto w-full max-w-6xl px-6 pb-3 text-xs text-neutral-500">
           Projects folder: <span class="font-mono">{{ projectsDir }}</span>
           <span class="ml-3 text-neutral-400">
             Shortcuts: / or Ctrl+K search · 1 Projects · 2 Files · S scan · I import · N new project · Esc close
@@ -415,7 +415,7 @@ function openEdit(project: Project) {
 
       <div
         v-if="pendingUpdate"
-        class="mx-6 mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100"
+        class="mx-auto mt-4 flex w-full max-w-6xl flex-wrap items-center gap-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100"
       >
         <ArrowDownToLine class="h-4 w-4 shrink-0" />
         <span class="min-w-0 flex-1">
@@ -450,18 +450,18 @@ function openEdit(project: Project) {
       </div>
       <div
         v-if="notice"
-        class="mx-6 mt-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
+        class="mx-auto mt-4 w-full max-w-6xl rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
       >
         {{ notice }}
       </div>
       <div
         v-if="error"
-        class="mx-6 mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+        class="mx-auto mt-4 w-full max-w-6xl rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
       >
         {{ error }}
       </div>
 
-      <main class="w-full flex-1 overflow-y-auto px-6 py-6">
+      <main class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-6 py-6">
         <div v-show="tab === 'projects'">
         <div
           v-if="filtered.length"
@@ -494,12 +494,13 @@ function openEdit(project: Project) {
           </p>
         </div>
         </div>
-        <FilesView
-          v-show="tab === 'files'"
-          :files-dir="filesDir"
-          :active="tab === 'files'"
-          @dir-changed="(d) => (filesDir = d)"
-        />
+        <div v-show="tab === 'files'">
+          <FilesView
+            :files-dir="filesDir"
+            :active="tab === 'files'"
+            @dir-changed="(d) => (filesDir = d)"
+          />
+        </div>
       </main>
     </template>
 

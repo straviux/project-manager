@@ -55,8 +55,10 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   folder, then add files by picker or drag & drop, or add a whole folder
   (copy or move, internal structure preserved). Files are *moved* in and
   categorized (Images, Videos, Audio, Documents, Archives, Code, Other),
-  browsable **by type** or **by folder** — but only after a safety check
-  verifies each file isn't running or open in another app. Busy files are
+  browsable **by type** or **by folder**, in a **table or grid** layout,
+  with per-file actions to open the file, open its containing folder, or
+  check its in-use status — but only after a safety check
+  verifies each file isn't running or open in another app when it's added. Busy files are
   skipped with the reason shown and a Retry button, never forced.
   Spec: [docs/file-manager.md](docs/file-manager.md)
 
