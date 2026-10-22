@@ -21,6 +21,25 @@ export function openSshTerminal(config: SshConfig): Promise<void> {
   });
 }
 
+/* SSH passwords live only in the OS keychain — these never return the
+   password to the frontend. */
+export function sshSetPassword(configId: number, password: string): Promise<void> {
+  return invoke("ssh_set_password", { configId, password });
+}
+
+export function sshHasPassword(configId: number): Promise<boolean> {
+  return invoke("ssh_has_password", { configId });
+}
+
+export function sshDeletePassword(configId: number): Promise<void> {
+  return invoke("ssh_delete_password", { configId });
+}
+
+/** Copy the saved password to the clipboard (done inside Rust). */
+export function sshCopyPassword(configId: number): Promise<void> {
+  return invoke("ssh_copy_password", { configId });
+}
+
 /**
  * Clone `repoUrl` into `parentDir` (folder name derived from the URL when
  * omitted). Resolves to the new project's absolute path.

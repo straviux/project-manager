@@ -26,8 +26,10 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   - **Git clone** — paste a repository URL and it clones into the parent
     directory, detects the stacks and registers the project
 - **SSH profiles** — save host, user, port and identity file per project.
-  Passwords are never stored in the database; authentication uses SSH keys,
-  and secrets belong in your OS keychain (keychain storage is on the roadmap).
+  Passwords are never stored in the database: they go to your **OS keychain**
+  (Windows Credential Manager / macOS Keychain / Linux Secret Service), and
+  on connect the password is copied to your clipboard so you can paste it at
+  the ssh prompt. The secret never passes through the frontend.
 - **Local-first** — all data lives in a local SQLite database. No account, no
   cloud, no telemetry.
 - **File Manager** — a managed file library in the Files tab: pick a library
@@ -96,7 +98,6 @@ When scanning a folder or after a clone, the app inspects marker files:
 - **File Manager extras** — SQLite index for instant search, hash-based
   dedupe, watch folder, image thumbnails.
   Spec: [docs/file-manager.md](docs/file-manager.md)
-- Store SSH secrets in the OS keychain (`keyring`)
 - "Open remote" and copy-clone-URL actions
 - Global search & keyboard shortcuts
 - Drag-to-reorder / pin favorite projects

@@ -199,6 +199,56 @@ fn open_ssh_terminal(
     spawn_terminal(None, Some(&ssh))
 }
 
+/* ============================ ssh keychain ==============================
+   Passwords live ONLY in the OS keychain (Windows Credential Manager,
+   macOS Keychain, Linux Secret Service) — never in SQLite, never in the
+   frontend. Copying fetches the secret inside Rust and writes it straight
+   to the clipboard. */
+
+const KEYRING_SERVICE: &str = "dev.straviux.projectmanager";
+
+fn ssh_entry(config_id: i64) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYRING_SERVICE, &format!("ssh-config-{config_id}"))
+        .map_err(|e| format!("Keychain unavailable: {e}"))
+}
+
+#[tauri::command]
+fn ssh_set_password(config_id: i64, password: String) -> Result<(), String> {
+    ssh_entry(config_id)?
+        .set_password(&password)
+        .map_err(|e| format!("Could not save password to keychain: {e}"))
+}
+
+#[tauri::command]
+fn ssh_has_password(config_id: i64) -> bool {
+    match ssh_entry(config_id) {
+        Ok(entry) => entry.get_password().is_ok(),
+        Err(_) => false,
+    }
+}
+
+#[tauri::command]
+fn ssh_delete_password(config_id: i64) -> Result<(), String> {
+    match ssh_entry(config_id)?.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(format!("Could not delete password: {e}")),
+    }
+}
+
+#[tauri::command]
+fn ssh_copy_password(config_id: i64) -> Result<(), String> {
+    let password = ssh_entry(config_id)?
+        .get_password()
+        .map_err(|e| format!("Could not read password from keychain: {e}"))?;
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| format!("Clipboard unavailable: {e}"))?;
+    clipboard
+        .set_text(password)
+        .map_err(|e| format!("Could not copy password: {e}"))?;
+    Ok(())
+}
+
 /* ================================ git ================================== */
 
 fn folder_name_from_url(url: &str) -> String {
@@ -731,6 +781,10 @@ pub fn run() {
             open_in_vscode,
             open_terminal,
             open_ssh_terminal,
+            ssh_set_password,
+            ssh_has_password,
+            ssh_delete_password,
+            ssh_copy_password,
             git_clone,
             git_status,
             scan_projects,
