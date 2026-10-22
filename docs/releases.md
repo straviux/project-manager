@@ -11,8 +11,11 @@ update signed with any other key is rejected.
 ## One-time: create the signing keypair
 
 ```powershell
-npm run tauri signer generate -w "$env:USERPROFILE\.tauri\project-manager.key"
+npm run tauri -- signer generate -w "$env:USERPROFILE\.tauri\project-manager.key"
 ```
+
+(The `--` matters: without it, npm swallows `-w` as its own `--workspace`
+flag instead of passing it to the Tauri CLI.)
 
 This prints a **public key** and writes the **private key** to that path
 (plus a password you choose). Then:
