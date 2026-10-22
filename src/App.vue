@@ -2,19 +2,17 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import {
   ArrowDownToLine,
-  Contrast,
   Download,
   Files,
   FolderCog,
   FolderInput,
   LayoutGrid,
-  Moon,
   Plus,
   RefreshCw,
   Search,
-  Sun,
+  Settings,
 } from "@lucide/vue";
-import { chromeDark, setThemeMode, themeMode } from "./lib/theme";
+import { chromeDark } from "./lib/theme";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import SetupWizard from "./components/SetupWizard.vue";
@@ -24,6 +22,7 @@ import CloneDialog from "./components/CloneDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
+import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
 import {
   createProject,
@@ -62,6 +61,7 @@ const editingProject = ref<Project | null>(null);
 const showProjectDialog = ref(false);
 const showClone = ref(false);
 const showImport = ref(false);
+const showSettings = ref(false);
 const sshProject = ref<Project | null>(null);
 const readmeProject = ref<Project | null>(null);
 
@@ -267,7 +267,8 @@ function focusSearch() {
 }
 
 function closeTopmost() {
-  if (readmeProject.value) readmeProject.value = null;
+  if (showSettings.value) showSettings.value = false;
+  else if (readmeProject.value) readmeProject.value = null;
   else if (sshProject.value) sshProject.value = null;
   else if (showImport.value) showImport.value = false;
   else if (showClone.value) showClone.value = false;
@@ -343,36 +344,9 @@ function openEdit(project: Project) {
           </nav>
 
           <div class="ml-auto flex items-center gap-2">
-          <div
-            class="flex items-center gap-0.5 rounded-lg bg-neutral-100 p-0.5 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:ring-neutral-700"
-            role="group"
-            aria-label="Theme"
-          >
-            <button
-              class="theme-btn"
-              :class="themeMode === 'light' ? 'theme-btn-active' : ''"
-              title="Light theme"
-              @click="setThemeMode('light')"
-            >
-              <Sun class="h-4 w-4" />
-            </button>
-            <button
-              class="theme-btn"
-              :class="themeMode === 'dark' ? 'theme-btn-active' : ''"
-              title="Dark theme"
-              @click="setThemeMode('dark')"
-            >
-              <Moon class="h-4 w-4" />
-            </button>
-            <button
-              class="theme-btn"
-              :class="themeMode === 'mix' ? 'theme-btn-active' : ''"
-              title="Mix theme — dark nav, menus and dialogs over light content"
-              @click="setThemeMode('mix')"
-            >
-              <Contrast class="h-4 w-4" />
-            </button>
-          </div>
+          <button class="toolbar-btn" title="Settings" @click="showSettings = true">
+            <Settings class="h-4 w-4" />
+          </button>
           <button class="toolbar-btn" title="Check for updates" @click="checkForUpdates(true)">
             <ArrowDownToLine class="h-4 w-4" :class="checkingUpdates ? 'animate-pulse' : ''" />
           </button>
@@ -520,6 +494,7 @@ function openEdit(project: Project) {
       @close="showProjectDialog = false"
       @saved="showProjectDialog = false; refresh()"
     />
+    <SettingsDialog v-if="showSettings" @close="showSettings = false" />
     <CloneDialog
       v-if="showClone && projectsDir"
       :projects-dir="projectsDir"

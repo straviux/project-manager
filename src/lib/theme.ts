@@ -33,3 +33,74 @@ watch(
 export function setThemeMode(mode: ThemeMode) {
   themeMode.value = mode;
 }
+
+/* ------------------- Explorer background ("eye candy") ------------------- */
+
+export type BgTheme = "none" | "dawn" | "ocean" | "forest" | "lavender" | "sand";
+
+export interface BgThemeDef {
+  id: BgTheme;
+  label: string;
+  hint: string;
+  /** Light-scheme gradient, used for the settings swatch preview. */
+  preview: string;
+}
+
+/** Soft, low-contrast gradients meant to be easy on the eyes. The actual
+ *  page gradients (light + dark variants) live in index.css, keyed by the
+ *  `data-bg` attribute these definitions set on <html>. */
+export const BG_THEMES: BgThemeDef[] = [
+  { id: "none", label: "None", hint: "Plain background", preview: "" },
+  {
+    id: "dawn",
+    label: "Dawn",
+    hint: "Warm peach & lilac",
+    preview: "linear-gradient(135deg,#fdeee3,#fbe4e6 48%,#ece5fb)",
+  },
+  {
+    id: "ocean",
+    label: "Ocean",
+    hint: "Calm blue & mint",
+    preview: "linear-gradient(135deg,#e2f2f5,#ddf0ec 48%,#e1e9fb)",
+  },
+  {
+    id: "forest",
+    label: "Forest",
+    hint: "Soft green & straw",
+    preview: "linear-gradient(135deg,#e9f5e3,#e2f2e6 48%,#faf3da)",
+  },
+  {
+    id: "lavender",
+    label: "Lavender",
+    hint: "Gentle violet & rose",
+    preview: "linear-gradient(135deg,#efe8fc,#fbe7f1 48%,#e5eefc)",
+  },
+  {
+    id: "sand",
+    label: "Sand",
+    hint: "Warm neutral beige",
+    preview: "linear-gradient(135deg,#faf2df,#f6e8d4 48%,#f1eee2)",
+  },
+];
+
+const BG_STORAGE_KEY = "pm-bg";
+
+function initialBg(): BgTheme {
+  const saved = localStorage.getItem(BG_STORAGE_KEY);
+  return BG_THEMES.some((t) => t.id === saved) ? (saved as BgTheme) : "none";
+}
+
+export const bgTheme = ref<BgTheme>(initialBg());
+
+watch(
+  bgTheme,
+  (bg) => {
+    localStorage.setItem(BG_STORAGE_KEY, bg);
+    document.documentElement.dataset.bg = bg;
+  },
+  { immediate: true },
+);
+
+export function setBgTheme(bg: BgTheme) {
+  bgTheme.value = bg;
+}

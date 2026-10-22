@@ -51,7 +51,7 @@ watch(() => props.statusKey, loadStatus);
 
 <template>
   <article
-    class="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+    class="card-glass flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
     :class="project.pinned ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''"
     :draggable="reorderEnabled"
     @dragstart="emit('dragStart')"

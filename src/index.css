@@ -85,3 +85,51 @@ footer.dark {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Explorer backgrounds ("eye candy"): soft gradients behind the content,
+   selected in Settings and keyed by the data-bg attribute on <html>.
+   Dark variants apply in full Dark mode; Mix keeps the light gradient
+   behind its light content. Cards (.card-glass) turn translucent so the
+   backdrop shows through them softly. */
+html[data-bg="dawn"] body {
+  background-image: linear-gradient(135deg, #fdeee3 0%, #fbe4e6 48%, #ece5fb 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="dawn"] body {
+  background-image: linear-gradient(135deg, #221a14 0%, #26171c 48%, #1a1626 100%);
+}
+html[data-bg="ocean"] body {
+  background-image: linear-gradient(135deg, #e2f2f5 0%, #ddf0ec 48%, #e1e9fb 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="ocean"] body {
+  background-image: linear-gradient(135deg, #0a171d 0%, #0a1f1c 48%, #0d1526 100%);
+}
+html[data-bg="forest"] body {
+  background-image: linear-gradient(135deg, #e9f5e3 0%, #e2f2e6 48%, #faf3da 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="forest"] body {
+  background-image: linear-gradient(135deg, #101a0e 0%, #0f2016 48%, #211d0f 100%);
+}
+html[data-bg="lavender"] body {
+  background-image: linear-gradient(135deg, #efe8fc 0%, #fbe7f1 48%, #e5eefc 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="lavender"] body {
+  background-image: linear-gradient(135deg, #191327 0%, #231226 48%, #101a29 100%);
+}
+html[data-bg="sand"] body {
+  background-image: linear-gradient(135deg, #faf2df 0%, #f6e8d4 48%, #f1eee2 100%);
+  background-attachment: fixed;
+}
+html.dark[data-bg="sand"] body {
+  background-image: linear-gradient(135deg, #1e1a11 0%, #251e12 48%, #191914 100%);
+}
+html[data-bg]:not([data-bg="none"]) .card-glass {
+  background-color: rgb(255 255 255 / 0.78);
+  backdrop-filter: blur(8px);
+}
+html.dark[data-bg]:not([data-bg="none"]) .card-glass {
+  background-color: rgb(23 23 23 / 0.78);
+}

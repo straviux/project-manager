@@ -383,7 +383,7 @@ onUnmounted(() => unlisten?.());
         </h3>
         <div
           v-if="layout === 'table'"
-          class="overflow-x-auto rounded-xl bg-white ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+          class="card-glass overflow-x-auto rounded-xl bg-white ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
         >
           <table class="w-full text-sm">
             <thead>
@@ -434,7 +434,7 @@ onUnmounted(() => unlisten?.());
           <li
             v-for="file in items"
             :key="file.path"
-            class="flex flex-col gap-2 rounded-xl bg-white p-4 ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+            class="card-glass flex flex-col gap-2 rounded-xl bg-white p-4 ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
           >
             <component :is="iconFor(file.category)" class="h-8 w-8 text-blue-600" />
             <span class="min-w-0">
