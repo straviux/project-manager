@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chromeDark } from "../lib/theme";
 import { computed, onMounted, ref } from "vue";
 import { marked } from "marked";
 import { FileText, X } from "@lucide/vue";
@@ -27,7 +28,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" @click.self="emit('close')">
+  <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }" @click.self="emit('close')">
     <div class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl dark:bg-neutral-900">
       <header class="flex items-center justify-between border-b border-neutral-200 p-4 dark:border-neutral-800">
         <h2 class="flex items-center gap-2 font-semibold">

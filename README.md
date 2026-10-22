@@ -41,6 +41,9 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   the ssh prompt. The secret never passes through the frontend.
 - **Local-first** — all data lives in a local SQLite database. No account, no
   cloud, no telemetry.
+- **Themes** — Light, Dark, or **Mix** (dark header/nav, dialogs and menus
+  over light content), switchable from the header and remembered between
+  launches. First run follows your OS setting.
 - **File Manager** — a managed file library in the Files tab: pick a library
   folder, then add files by picker or drag & drop. Files are *moved* in and
   categorized (Images, Videos, Audio, Documents, Archives, Code, Other),

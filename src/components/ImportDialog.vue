@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chromeDark } from "../lib/theme";
 import { computed, ref } from "vue";
 import { Copy, FolderInput, FolderOpen, Move, X } from "@lucide/vue";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -62,6 +63,7 @@ async function submit() {
 <template>
   <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    :class="{ dark: chromeDark }"
     @click.self="emit('close')"
   >
     <div

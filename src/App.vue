@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import {
+  Contrast,
   Download,
   Files,
   FolderCog,
   FolderInput,
   LayoutGrid,
+  Moon,
   Plus,
   RefreshCw,
   Search,
+  Sun,
 } from "@lucide/vue";
+import { chromeDark, setThemeMode, themeMode } from "./lib/theme";
 import SetupWizard from "./components/SetupWizard.vue";
 import ProjectCard from "./components/ProjectCard.vue";
 import ProjectDialog from "./components/ProjectDialog.vue";
@@ -239,7 +243,7 @@ function openEdit(project: Project) {
     <SetupWizard v-else-if="showSetup" @done="onSetupDone" />
 
     <template v-else-if="ready">
-      <header class="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <header class="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900" :class="{ dark: chromeDark }">
         <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-6 py-4">
           <h1 class="flex items-center gap-2 text-xl font-bold">
             <LayoutGrid class="h-6 w-6 text-blue-600" /> Project Manager
@@ -292,6 +296,36 @@ function openEdit(project: Project) {
           >
             <FolderCog class="h-4 w-4" />
           </button>
+          <div
+            class="flex items-center gap-0.5 rounded-lg bg-neutral-100 p-0.5 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:ring-neutral-700"
+            role="group"
+            aria-label="Theme"
+          >
+            <button
+              class="theme-btn"
+              :class="themeMode === 'light' ? 'theme-btn-active' : ''"
+              title="Light theme"
+              @click="setThemeMode('light')"
+            >
+              <Sun class="h-4 w-4" />
+            </button>
+            <button
+              class="theme-btn"
+              :class="themeMode === 'dark' ? 'theme-btn-active' : ''"
+              title="Dark theme"
+              @click="setThemeMode('dark')"
+            >
+              <Moon class="h-4 w-4" />
+            </button>
+            <button
+              class="theme-btn"
+              :class="themeMode === 'mix' ? 'theme-btn-active' : ''"
+              title="Mix theme — dark nav, menus and dialogs over light content"
+              @click="setThemeMode('mix')"
+            >
+              <Contrast class="h-4 w-4" />
+            </button>
+          </div>
         </div>
         <p v-if="tab === 'projects'" class="mx-auto max-w-6xl px-6 pb-3 text-xs text-neutral-500">
           Projects folder: <span class="font-mono">{{ projectsDir }}</span>
@@ -386,5 +420,11 @@ function openEdit(project: Project) {
 <style scoped>
 .toolbar-btn {
   @apply flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
+}
+.theme-btn {
+  @apply rounded-md p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100;
+}
+.theme-btn-active {
+  @apply bg-white text-neutral-900 shadow-sm dark:bg-neutral-950 dark:text-neutral-100;
 }
 </style>

@@ -46,6 +46,16 @@ body {
   @apply text-blue-600 underline dark:text-blue-400;
 }
 
+/* Mix mode: the header carries `.dark` itself, so style it directly —
+   Tailwind's dark: variants only apply to descendants of a `.dark` element.
+   Color values mirror dark:bg-neutral-900 / dark:border-neutral-800 /
+   dark:text-neutral-100. */
+header.dark {
+  background-color: rgb(23 23 23);
+  border-color: rgb(38 38 38);
+  color: rgb(245 245 245);
+}
+
 /* Thin scrollbars everywhere */
 * {
   scrollbar-width: thin;

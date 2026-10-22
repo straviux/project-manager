@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chromeDark } from "../lib/theme";
 import { ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, HardDriveDownload } from "@lucide/vue";
@@ -31,7 +32,7 @@ loadCurrent();
 </script>
 
 <template>
-  <div class="flex h-full items-center justify-center p-6">
+  <div class="flex h-full items-center justify-center p-6" :class="{ dark: chromeDark }">
     <div class="w-full max-w-lg rounded-2xl bg-white p-8 shadow dark:bg-neutral-900">
       <div class="mb-4 flex items-center gap-3">
         <HardDriveDownload class="h-8 w-8 text-blue-600" />

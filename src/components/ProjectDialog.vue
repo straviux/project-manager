@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chromeDark } from "../lib/theme";
 import { reactive, ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, X } from "@lucide/vue";
@@ -60,7 +61,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" @click.self="emit('close')">
+  <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }" @click.self="emit('close')">
     <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900">
       <header class="mb-4 flex items-center justify-between">
         <h2 class="text-lg font-semibold">{{ project ? "Edit project" : "Add project" }}</h2>
