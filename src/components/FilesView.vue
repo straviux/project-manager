@@ -105,6 +105,7 @@ function statusClasses(status: string): string {
   );
 }
 
+const notePreview = ref("");
 const statusTarget = ref<LibraryFile | null>(null);
 const customStatus = ref("");
 function openStatus(file: LibraryFile) {
@@ -473,7 +474,14 @@ onUnmounted(() => unlisten?.());
           v-if="layout === 'table'"
           class="card-glass overflow-x-auto rounded-xl bg-white ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
         >
-          <table class="w-full text-sm">
+          <table class="w-full table-fixed text-sm">
+            <colgroup>
+              <col style="width: 46%" />
+              <col style="width: 16%" />
+              <col style="width: 9%" />
+              <col style="width: 13%" />
+              <col style="width: 16%" />
+            </colgroup>
             <thead>
               <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
                 <th class="px-4 py-2 font-medium">Name</th>
@@ -489,6 +497,14 @@ onUnmounted(() => unlisten?.());
                   <span class="flex min-w-0 items-center gap-2.5">
                     <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0 text-blue-600" />
                     <span class="truncate font-medium">{{ file.name }}</span>
+                    <span
+                        v-if="metaOf(file).notes"
+                        class="shrink-0 cursor-default text-blue-500 dark:text-blue-400"
+                        @mouseenter="notePreview = metaOf(file).notes"
+                        @mouseleave="notePreview = ''"
+                      >
+                        <StickyNote class="h-3.5 w-3.5" />
+                      </span>
                   </span>
                 </td>
                 <td class="whitespace-nowrap px-4 py-2.5 text-neutral-500">{{ view === 'type' ? file.folder || 'Library root' : file.category }}</td>
@@ -528,7 +544,17 @@ onUnmounted(() => unlisten?.());
           >
             <component :is="iconFor(file.category)" class="h-8 w-8 text-blue-600" />
             <span class="min-w-0">
-              <span class="block truncate text-sm font-medium" :title="file.name">{{ file.name }}</span>
+              <span class="flex items-center gap-1.5">
+                <span class="truncate text-sm font-medium" :title="file.name">{{ file.name }}</span>
+                <span
+                  v-if="metaOf(file).notes"
+                  class="shrink-0 cursor-default text-blue-500 dark:text-blue-400"
+                  @mouseenter="notePreview = metaOf(file).notes"
+                  @mouseleave="notePreview = ''"
+                >
+                  <StickyNote class="h-3.5 w-3.5" />
+                </span>
+              </span>
               <span class="block truncate text-xs text-neutral-500">
                 {{ view === 'type' ? file.folder || 'Library root' : file.category }} · {{ formatSize(file.size) }}
               </span>
@@ -556,6 +582,16 @@ onUnmounted(() => unlisten?.());
         </ul>
       </section>
     </div>
+  </div>
+
+  <div
+    v-if="notePreview"
+    class="pointer-events-none fixed bottom-6 left-1/2 z-40 w-full max-w-md -translate-x-1/2 rounded-xl bg-neutral-900/95 px-4 py-3 text-sm text-neutral-100 shadow-xl ring-1 ring-neutral-700"
+  >
+    <p class="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+      <StickyNote class="h-3.5 w-3.5" /> Note preview
+    </p>
+    <p class="whitespace-pre-wrap leading-relaxed">{{ notePreview }}</p>
   </div>
 
   <div
