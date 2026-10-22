@@ -341,36 +341,7 @@ function openEdit(project: Project) {
             </button>
           </nav>
 
-          <div v-if="tab === 'projects'" class="relative ml-auto min-w-52 flex-1 sm:max-w-xs">
-            <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
-            <input
-              ref="searchInput"
-              v-model="search"
-              class="w-full rounded-lg border border-neutral-300 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
-              placeholder="Search by name or stack…  ( / )"
-            />
-          </div>
-
-          <button v-if="tab === 'projects'" class="toolbar-btn" title="Scan the projects folder for new projects" @click="scan">
-            <RefreshCw class="h-4 w-4" /> Scan
-          </button>
-          <button v-if="tab === 'projects'" class="toolbar-btn" title="Move or copy an existing folder into your projects folder" @click="showImport = true">
-            <FolderInput class="h-4 w-4" /> Import
-          </button>
-          <button v-if="tab === 'projects'" class="toolbar-btn" @click="showClone = true">
-            <Download class="h-4 w-4" /> Clone
-          </button>
-          <button v-if="tab === 'projects'" class="toolbar-btn" @click="openNewProject">
-            <Plus class="h-4 w-4" /> Add project
-          </button>
-          <button
-            v-if="tab === 'projects'"
-            class="toolbar-btn"
-            :title="`Projects folder: ${projectsDir}`"
-            @click="showSetup = true"
-          >
-            <FolderCog class="h-4 w-4" />
-          </button>
+          <div class="ml-auto flex items-center gap-2">
           <div
             class="flex items-center gap-0.5 rounded-lg bg-neutral-100 p-0.5 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:ring-neutral-700"
             role="group"
@@ -404,13 +375,8 @@ function openEdit(project: Project) {
           <button class="toolbar-btn" title="Check for updates" @click="checkForUpdates(true)">
             <ArrowDownToLine class="h-4 w-4" :class="checkingUpdates ? 'animate-pulse' : ''" />
           </button>
+          </div>
         </div>
-        <p v-if="tab === 'projects'" class="mx-auto w-full max-w-6xl px-6 pb-3 text-xs text-neutral-500">
-          Projects folder: <span class="font-mono">{{ projectsDir }}</span>
-          <span class="ml-3 text-neutral-400">
-            Shortcuts: / or Ctrl+K search · 1 Projects · 2 Files · S scan · I import · N new project · Esc close
-          </span>
-        </p>
       </header>
 
       <div
@@ -463,6 +429,36 @@ function openEdit(project: Project) {
 
       <main class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-6 py-6">
         <div v-show="tab === 'projects'">
+        <div class="mb-4 flex flex-wrap items-center gap-2">
+          <div class="relative min-w-52 flex-1 sm:max-w-md">
+            <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
+            <input
+              ref="searchInput"
+              v-model="search"
+              class="w-full rounded-lg border border-neutral-300 bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
+              placeholder="Search by name or stack\u2026  ( / )"
+            />
+          </div>
+          <button class="toolbar-btn" title="Scan the projects folder for new projects" @click="scan">
+            <RefreshCw class="h-4 w-4" /> Scan
+          </button>
+          <button class="toolbar-btn" title="Move or copy an existing folder into your projects folder" @click="showImport = true">
+            <FolderInput class="h-4 w-4" /> Import
+          </button>
+          <button class="toolbar-btn" @click="showClone = true">
+            <Download class="h-4 w-4" /> Clone
+          </button>
+          <button class="toolbar-btn" @click="openNewProject">
+            <Plus class="h-4 w-4" /> Add project
+          </button>
+          <button
+            class="toolbar-btn"
+            :title="`Projects folder: ${projectsDir}`"
+            @click="showSetup = true"
+          >
+            <FolderCog class="h-4 w-4" />
+          </button>
+        </div>
         <div
           v-if="filtered.length"
           class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
@@ -502,6 +498,18 @@ function openEdit(project: Project) {
           />
         </div>
       </main>
+      <footer
+        v-if="tab === 'projects'"
+        class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
+        :class="{ dark: chromeDark }"
+      >
+        <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-1">
+          <span>Projects folder: <span class="font-mono">{{ projectsDir }}</span></span>
+          <span class="text-neutral-400">
+            Shortcuts: / or Ctrl+K search \u00b7 1 Projects \u00b7 2 Files \u00b7 S scan \u00b7 I import \u00b7 N new project \u00b7 Esc close
+          </span>
+        </div>
+      </footer>
     </template>
 
     <ProjectDialog
