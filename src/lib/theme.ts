@@ -38,19 +38,14 @@ export function setThemeMode(mode: ThemeMode) {
 
 export type BgTheme =
   | "none"
-  | "dawn"
-  | "ocean"
-  | "forest"
-  | "lavender"
-  | "sand"
-  | "dusk"
-  | "midnight"
-  | "starlight"
-  | "aurora"
-  | "graphite"
   | "sonoma"
   | "sequoia"
-  | "monterey";
+  | "monterey"
+  | "sky"
+  | "mint"
+  | "blush"
+  | "butter"
+  | "ink";
 
 export interface BgThemeDef {
   id: BgTheme;
@@ -69,75 +64,6 @@ export interface BgThemeDef {
  *  `data-bg` attribute these definitions set on <html>. */
 export const BG_THEMES: BgThemeDef[] = [
   { id: "none", label: "None", hint: "Plain background", preview: "" },
-  {
-    id: "dawn",
-    label: "Dawn",
-    hint: "Warm peach & lilac",
-    preview: "linear-gradient(135deg,#fdeee3,#fbe4e6 48%,#ece5fb)",
-  },
-  {
-    id: "ocean",
-    label: "Ocean",
-    hint: "Calm blue & mint",
-    preview: "linear-gradient(135deg,#e2f2f5,#ddf0ec 48%,#e1e9fb)",
-  },
-  {
-    id: "forest",
-    label: "Forest",
-    hint: "Soft green & straw",
-    preview: "linear-gradient(135deg,#e9f5e3,#e2f2e6 48%,#faf3da)",
-  },
-  {
-    id: "lavender",
-    label: "Lavender",
-    hint: "Gentle violet & rose",
-    preview: "linear-gradient(135deg,#efe8fc,#fbe7f1 48%,#e5eefc)",
-  },
-  {
-    id: "sand",
-    label: "Sand",
-    hint: "Warm neutral beige",
-    preview: "linear-gradient(135deg,#faf2df,#f6e8d4 48%,#f1eee2)",
-  },
-  {
-    id: "dusk",
-    label: "Dusk",
-    hint: "Violet into ember",
-    preview: "linear-gradient(135deg,#463763,#71486b 52%,#9c665e)",
-    dark: true,
-  },
-  {
-    id: "midnight",
-    label: "Midnight",
-    hint: "Deep indigo night",
-    preview: "linear-gradient(135deg,#1b2340,#232a52 48%,#141a33)",
-    dark: true,
-  },
-  {
-    id: "starlight",
-    label: "Starlight",
-    hint: "Night sky & stars",
-    preview:
-      "radial-gradient(1.5px 1.5px at 15% 25%, rgb(255 255 255 / 0.9), transparent),radial-gradient(1px 1px at 35% 65%, rgb(255 255 255 / 0.7), transparent),radial-gradient(1.5px 1.5px at 55% 15%, rgb(255 255 255 / 0.8), transparent),radial-gradient(1px 1px at 72% 45%, rgb(255 255 255 / 0.6), transparent),radial-gradient(1px 1px at 85% 75%, rgb(255 255 255 / 0.75), transparent),radial-gradient(1.5px 1.5px at 92% 20%, rgb(255 255 255 / 0.85), transparent),radial-gradient(1px 1px at 45% 85%, rgb(255 255 255 / 0.6), transparent),radial-gradient(1px 1px at 8% 80%, rgb(255 255 255 / 0.7), transparent)," +
-      "linear-gradient(150deg,#131c3f,#1d1440 52%,#0b1030)",
-    dark: true,
-  },
-  {
-    id: "aurora",
-    label: "Aurora",
-    hint: "Northern-lights glow",
-    preview:
-      "radial-gradient(55% 45% at 75% 0%, rgb(52 211 153 / 0.28), transparent 70%),radial-gradient(40% 35% at 20% 10%, rgb(45 212 191 / 0.18), transparent 70%)," +
-      "linear-gradient(160deg,#081826,#07231f 48%,#0a2e2a)",
-    dark: true,
-  },
-  {
-    id: "graphite",
-    label: "Graphite",
-    hint: "Calm dark slate",
-    preview: "linear-gradient(135deg,#3a4150,#2e3442 48%,#232833)",
-    dark: true,
-  },
   {
     id: "sonoma",
     label: "Sonoma",
@@ -161,6 +87,37 @@ export const BG_THEMES: BgThemeDef[] = [
     preview: "radial-gradient(50% 40% at 25% 15%, rgb(99 102 241 / 0.45), transparent 70%),radial-gradient(45% 40% at 80% 30%, rgb(34 211 238 / 0.35), transparent 70%),radial-gradient(60% 50% at 60% 95%, rgb(217 70 239 / 0.28), transparent 70%),linear-gradient(160deg, #070b1f 0%, #0d1440 55%, #131038 100%)",
     dark: true,
     glass: true,
+  },
+  {
+    id: "sky",
+    label: "Sky",
+    hint: "Flat color \u00b7 sky blue",
+    preview: "linear-gradient(#dbeeff,#dbeeff)",
+  },
+  {
+    id: "mint",
+    label: "Mint",
+    hint: "Flat color \u00b7 mint green",
+    preview: "linear-gradient(#dcf2e3,#dcf2e3)",
+  },
+  {
+    id: "blush",
+    label: "Blush",
+    hint: "Flat color \u00b7 blush pink",
+    preview: "linear-gradient(#fbe3e8,#fbe3e8)",
+  },
+  {
+    id: "butter",
+    label: "Butter",
+    hint: "Flat color \u00b7 butter cream",
+    preview: "linear-gradient(#fdf3d8,#fdf3d8)",
+  },
+  {
+    id: "ink",
+    label: "Ink",
+    hint: "Flat color \u00b7 ink charcoal",
+    preview: "linear-gradient(#23272f,#23272f)",
+    dark: true,
   },
 ];
 

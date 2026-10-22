@@ -54,10 +54,9 @@ const MODES: { id: ThemeMode; label: string; hint: string }[] = [
 
       <h3 class="mb-1 text-sm font-semibold">Background</h3>
       <p class="mb-2 text-xs text-neutral-500">
-        A soft, eye-soothing backdrop for the explorer — it sits behind your
-        projects and files, and cards turn slightly translucent over it.
-        The last three are iOS/macOS-style glass themes: vivid wallpapers
-        with true frosted-glass cards. Changes apply immediately.
+        Sonoma, Sequoia and Monterey are iOS/macOS-style glass themes:
+        vivid wallpapers with true frosted-glass cards. The rest are flat
+        colors with softly translucent cards. Changes apply immediately.
       </p>
       <div class="grid grid-cols-3 gap-2">
         <button
@@ -90,6 +89,9 @@ const MODES: { id: ThemeMode; label: string; hint: string }[] = [
   @apply flex flex-col items-center gap-1 rounded-xl px-2 py-3 ring-1 ring-neutral-300 hover:bg-neutral-50 dark:ring-neutral-700 dark:hover:bg-neutral-800;
 }
 .option-btn-active {
-  @apply bg-blue-50 ring-2 ring-blue-500 hover:bg-blue-50 dark:bg-blue-950 dark:hover:bg-blue-950;
+  @apply font-semibold text-blue-700 ring-2 ring-blue-500 dark:text-blue-300;
+  text-shadow:
+    0 0 12px rgb(59 130 246 / 0.35),
+    0 0 3px rgb(59 130 246 / 0.3);
 }
 </style>

@@ -156,7 +156,7 @@ async function save() {
             type="button"
             class="rounded-full px-2.5 py-1 text-xs font-medium ring-1"
             :class="form.stacks.includes(stack)
-              ? 'bg-blue-600 text-white ring-blue-600'
+              ? 'switch-active ring-blue-500'
               : 'bg-transparent ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700'"
             @click="toggleStack(stack)"
           >
@@ -202,7 +202,7 @@ async function save() {
             :title="name"
             class="flex items-center justify-center rounded-lg p-2 ring-1"
             :class="iconName === name
-              ? 'bg-blue-600 text-white ring-blue-600'
+              ? 'switch-active ring-blue-500'
               : 'ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700'"
             @click="iconName = name"
           >
@@ -263,6 +263,9 @@ async function save() {
   @apply rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700;
 }
 .icon-mode-active {
-  @apply bg-blue-600 text-white ring-blue-600 hover:ring-blue-600;
+  @apply font-bold text-blue-700 ring-2 ring-blue-500 hover:ring-blue-500 dark:text-blue-300;
+  text-shadow:
+    0 0 12px rgb(59 130 246 / 0.4),
+    0 0 3px rgb(59 130 246 / 0.35);
 }
 </style>

@@ -329,14 +329,14 @@ function openEdit(project: Project) {
           <nav class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
             <button
               class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'projects' ? 'bg-blue-600 text-white' : ''"
+              :class="tab === 'projects' ? 'switch-active' : ''"
               @click="tab = 'projects'"
             >
               <LayoutGrid class="h-4 w-4" /> Projects
             </button>
             <button
               class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'files' ? 'bg-blue-600 text-white' : ''"
+              :class="tab === 'files' ? 'switch-active' : ''"
               @click="tab = 'files'"
             >
               <Files class="h-4 w-4" /> Files
@@ -525,7 +525,7 @@ function openEdit(project: Project) {
 
 <style scoped>
 .toolbar-btn {
-  @apply flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700;
+  @apply flex items-center gap-1.5 rounded-lg bg-blue-100/80 px-3 py-2 text-sm font-medium text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/70;
 }
 .theme-btn {
   @apply rounded-md p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100;
