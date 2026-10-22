@@ -2,6 +2,7 @@
 import { chromeDark } from "../lib/theme";
 import { ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
+import { pickerDefaultPath } from "../lib/paths";
 import { FolderOpen, HardDriveDownload } from "@lucide/vue";
 import { getSetting, setSetting, PROJECTS_DIR_KEY } from "../lib/db";
 
@@ -10,7 +11,7 @@ const selected = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 async function browse() {
-  const picked = await open({ directory: true, multiple: false });
+  const picked = await open({ directory: true, multiple: false, defaultPath: await pickerDefaultPath() });
   if (typeof picked === "string") selected.value = picked;
 }
 

@@ -52,7 +52,8 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   launch (or via the header button) and can download and install signed
   updates on restart. Release process: [docs/releases.md](docs/releases.md).
 - **File Manager** — a managed file library in the Files tab: pick a library
-  folder, then add files by picker or drag & drop. Files are *moved* in and
+  folder, then add files by picker or drag & drop, or add a whole folder
+  (copy or move, internal structure preserved). Files are *moved* in and
   categorized (Images, Videos, Audio, Documents, Archives, Code, Other),
   browsable **by type** or **by folder** — but only after a safety check
   verifies each file isn't running or open in another app. Busy files are

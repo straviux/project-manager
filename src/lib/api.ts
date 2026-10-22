@@ -125,3 +125,13 @@ export function saveProjectIcon(source: string, projectId: number): Promise<stri
 export function deleteProjectIcon(projectId: number): Promise<void> {
   return invoke("delete_project_icon", { projectId });
 }
+
+/** Move or copy a folder into the file library, keeping its structure. */
+export function importFolderToLibrary(
+  source: string,
+  name: string,
+  mode: "move" | "copy",
+  libraryDir: string,
+): Promise<ImportResult> {
+  return invoke("import_folder_to_library", { source, name, mode, libraryDir });
+}

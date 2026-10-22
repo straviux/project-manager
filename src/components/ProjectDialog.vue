@@ -2,6 +2,7 @@
 import { chromeDark } from "../lib/theme";
 import { computed, reactive, ref } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
+import { pickerDefaultPath } from "../lib/paths";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { FolderOpen, X } from "@lucide/vue";
 import { createProject, setProjectIcon, updateProject } from "../lib/db";
@@ -43,13 +44,14 @@ const icoFileLabel = computed(() => {
 async function browseIco() {
   const picked = await open({
     multiple: false,
+    defaultPath: await pickerDefaultPath(),
     filters: [{ name: "Icon", extensions: ["ico"] }],
   });
   if (typeof picked === "string") icoSource.value = picked;
 }
 
 async function browse() {
-  const picked = await open({ directory: true, multiple: false });
+  const picked = await open({ directory: true, multiple: false, defaultPath: await pickerDefaultPath() });
   if (typeof picked === "string") {
     form.path = picked;
     if (!form.name) form.name = picked.split(/[\\/]/).pop() ?? "";

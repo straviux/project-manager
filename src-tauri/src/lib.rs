@@ -541,6 +541,12 @@ fn categorize_file(path: &Path) -> &'static str {
 /// Is `path` safe to move right now? A file is NOT free when it is locked,
 /// open in another process, or is a currently running executable.
 fn file_free_check(path: &Path) -> FileCheck {
+    if path.is_dir() {
+        return FileCheck {
+            free: false,
+            reason: Some("That's a folder - use Add folder instead.".into()),
+        };
+    }
     if !path.is_file() {
         return FileCheck {
             free: false,
@@ -953,6 +959,85 @@ async fn list_library_files(library_dir: String) -> Result<Vec<LibraryFile>, Str
 }
 
 
+fn do_import_folder_to_library(
+    source: String,
+    name: String,
+    mode: String,
+    library_dir: String,
+) -> Result<ImportResult, String> {
+    let src = PathBuf::from(&source);
+    if !src.is_dir() {
+        return Err("The source folder does not exist.".into());
+    }
+    let trimmed = name.trim().trim_matches(|c| c == '/' || c == '\\');
+    if trimmed.is_empty()
+        || trimmed == "."
+        || trimmed == ".."
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+    {
+        return Err("Invalid folder name.".into());
+    }
+    let parent = PathBuf::from(&library_dir);
+    if !parent.is_dir() {
+        return Err("The file library folder does not exist.".into());
+    }
+    let dest = parent.join(trimmed);
+    if dest.exists() {
+        return Err(format!(
+            "A folder named '{trimmed}' already exists in your file library."
+        ));
+    }
+    let src_c = src.canonicalize().map_err(|e| e.to_string())?;
+    let parent_c = parent.canonicalize().map_err(|e| e.to_string())?;
+    if src_c.starts_with(&parent_c) {
+        return Err("That folder is already inside your file library.".into());
+    }
+    if parent_c.starts_with(&src_c) {
+        return Err(
+            "Cannot import the library folder itself or one of its parent folders.".into(),
+        );
+    }
+    let dest_str = dest.to_string_lossy().to_string();
+    match mode.as_str() {
+        "copy" => {
+            copy_dir_recursive(&src, &dest)?;
+            Ok(ImportResult { path: dest_str, warning: None })
+        }
+        "move" => match fs::rename(&src, &dest) {
+            Ok(()) => Ok(ImportResult { path: dest_str, warning: None }),
+            Err(_) => {
+                copy_dir_recursive(&src, &dest)?;
+                match fs::remove_dir_all(&src) {
+                    Ok(()) => Ok(ImportResult { path: dest_str, warning: None }),
+                    Err(e) => Ok(ImportResult {
+                        path: dest_str,
+                        warning: Some(format!(
+                            "Copied into your file library, but the original could not be fully removed ({e}). Some files may be open in another program."
+                        )),
+                    }),
+                }
+            }
+        },
+        _ => Err("Unknown import mode.".into()),
+    }
+}
+
+/// Move or copy a folder into the file library, keeping its structure.
+#[tauri::command]
+async fn import_folder_to_library(
+    source: String,
+    name: String,
+    mode: String,
+    library_dir: String,
+) -> Result<ImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        do_import_folder_to_library(source, name, mode, library_dir)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /* ========================== project icons ============================ */
 
 fn project_icons_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -1033,6 +1118,7 @@ pub fn run() {
             check_file_free,
             move_file_to_library,
             import_project_folder,
+            import_folder_to_library,
             save_project_icon,
             delete_project_icon,
             list_library_files,

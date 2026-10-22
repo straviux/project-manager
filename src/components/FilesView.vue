@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
+import { pickerDefaultPath } from "../lib/paths";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   Archive,
@@ -10,6 +11,7 @@ import {
   FilePlus2,
   FileText,
   FolderCog,
+  FolderPlus,
   FolderTree,
   Image,
   Music,
@@ -22,10 +24,12 @@ import {
 import { FILES_DIR_KEY, setSetting } from "../lib/db";
 import {
   checkFileFree,
+  importFolderToLibrary,
   listLibraryFiles,
   moveFileToLibrary,
   openPath,
 } from "../lib/api";
+import ImportDialog from "./ImportDialog.vue";
 import { FILE_CATEGORIES, type LibraryFile } from "../types";
 
 const props = defineProps<{ filesDir: string | null; active: boolean }>();
@@ -44,6 +48,14 @@ interface BusyItem {
   reason: string;
 }
 const busyItems = ref<BusyItem[]>([]);
+const showAddFolder = ref(false);
+
+async function onFolderImported(warning: string | null) {
+  showAddFolder.value = false;
+  await refresh();
+  if (warning) error.value = warning;
+  else notice.value = "Folder added to the library.";
+}
 
 const CATEGORY_ICONS: Record<string, unknown> = {
   Images: Image,
@@ -121,7 +133,7 @@ watch(
 );
 
 async function chooseFolder() {
-  const picked = await open({ directory: true, multiple: false });
+  const picked = await open({ directory: true, multiple: false, defaultPath: await pickerDefaultPath() });
   if (typeof picked === "string") {
     await setSetting(FILES_DIR_KEY, picked);
     emit("dirChanged", picked);
@@ -165,7 +177,7 @@ async function addFiles(paths: string[]) {
 }
 
 async function pickFiles() {
-  const picked = await open({ multiple: true });
+  const picked = await open({ multiple: true, defaultPath: await pickerDefaultPath() });
   if (Array.isArray(picked)) await addFiles(picked);
 }
 
@@ -247,6 +259,9 @@ onUnmounted(() => unlisten?.());
       <button class="toolbar-btn" @click="pickFiles">
         <FilePlus2 class="h-4 w-4" /> Add files
       </button>
+      <button class="toolbar-btn" @click="showAddFolder = true">
+        <FolderPlus class="h-4 w-4" /> Add folder
+      </button>
       <button class="toolbar-btn" @click="refresh">
         <RefreshCw class="h-4 w-4" /> Refresh
       </button>
@@ -295,7 +310,7 @@ onUnmounted(() => unlisten?.());
     <p v-if="loading" class="py-10 text-center text-sm text-neutral-500">Loading…</p>
     <div v-else-if="!filtered.length" class="py-16 text-center text-neutral-500">
       <p class="mb-1 text-lg font-medium">The library is empty</p>
-      <p class="text-sm">Use <strong>Add files</strong> or drag &amp; drop files here — they'll be moved in and categorized.</p>
+      <p class="text-sm">Use <strong>Add files</strong>, <strong>Add folder</strong>, or drag &amp; drop files here — they'll be moved in and categorized.</p>
     </div>
     <div v-else class="space-y-6">
       <section v-for="[group, items] in groups" :key="group">
@@ -322,6 +337,16 @@ onUnmounted(() => unlisten?.());
       </section>
     </div>
   </div>
+
+  <ImportDialog
+    v-if="showAddFolder && filesDir"
+    :parent-dir="filesDir"
+    title="Add folder to library"
+    parent-label="file library"
+    :importer="importFolderToLibrary"
+    @close="showAddFolder = false"
+    @imported="onFolderImported"
+  />
 </template>
 
 <style scoped>

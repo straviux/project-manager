@@ -3,9 +3,22 @@ import { chromeDark } from "../lib/theme";
 import { computed, ref } from "vue";
 import { Copy, FolderInput, FolderOpen, Move, X } from "@lucide/vue";
 import { open } from "@tauri-apps/plugin-dialog";
-import { importProjectFolder } from "../lib/api";
+import { pickerDefaultPath } from "../lib/paths";
+import type { ImportResult } from "../lib/api";
 
-const props = defineProps<{ projectsDir: string }>();
+export type FolderImporter = (
+  source: string,
+  name: string,
+  mode: "move" | "copy",
+  parentDir: string,
+) => Promise<ImportResult>;
+
+const props = defineProps<{
+  parentDir: string;
+  title: string;
+  parentLabel: string;
+  importer: FolderImporter;
+}>();
 const emit = defineEmits<{
   close: [];
   imported: [warning: string | null];
@@ -17,12 +30,12 @@ const mode = ref<"copy" | "move">("copy");
 const busy = ref(false);
 const error = ref("");
 
-const sep = computed(() => (props.projectsDir.includes("\\") ? "\\" : "/"));
+const sep = computed(() => (props.parentDir.includes("\\") ? "\\" : "/"));
 const destPreview = computed(() => {
   const n = name.value.trim();
   return n
-    ? `${props.projectsDir}${sep.value}${n}`
-    : `${props.projectsDir}${sep.value}…`;
+    ? `${props.parentDir}${sep.value}${n}`
+    : `${props.parentDir}${sep.value}…`;
 });
 const canImport = computed(
   () => !!source.value && !!name.value.trim() && !busy.value,
@@ -32,7 +45,8 @@ async function pick() {
   const picked = await open({
     directory: true,
     multiple: false,
-    title: "Choose a project folder to import",
+    defaultPath: await pickerDefaultPath(),
+    title: "Choose a folder to import",
   });
   if (typeof picked === "string") {
     source.value = picked;
@@ -46,11 +60,11 @@ async function submit() {
   busy.value = true;
   error.value = "";
   try {
-    const res = await importProjectFolder(
+    const res = await props.importer(
       source.value,
       name.value.trim(),
       mode.value,
-      props.projectsDir,
+      props.parentDir,
     );
     emit("imported", res.warning);
   } catch (e) {
@@ -71,7 +85,7 @@ async function submit() {
     >
       <div class="mb-4 flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
-          <FolderInput class="h-5 w-5" /> Import project folder
+          <FolderInput class="h-5 w-5" /> {{ title }}
         </h2>
         <button
           class="rounded p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -98,11 +112,11 @@ async function submit() {
       </div>
 
       <label class="mb-1 block text-sm font-medium">
-        Folder name in your projects folder
+        Folder name in your {{ parentLabel }}
       </label>
       <input
         v-model="name"
-        placeholder="my-project"
+        placeholder="folder-name"
         class="mb-1 w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
       />
       <p class="mb-4 truncate text-xs text-neutral-500">
