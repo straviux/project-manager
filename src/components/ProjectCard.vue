@@ -1,17 +1,23 @@
 <script setup lang="ts">
+import { onMounted, ref, watch } from "vue";
 import {
+  ArrowDown,
+  ArrowUp,
+  CircleCheck,
   Code,
   ExternalLink,
   FileText,
   Folder,
+  GitBranch,
   Pencil,
   Server,
   Terminal,
   Trash2,
 } from "@lucide/vue";
-import type { Project } from "../types";
+import { getGitStatus } from "../lib/api";
+import type { GitStatus, Project } from "../types";
 
-defineProps<{ project: Project }>();
+const props = defineProps<{ project: Project; statusKey?: number }>();
 const emit = defineEmits<{
   vscode: [];
   terminal: [];
@@ -20,6 +26,14 @@ const emit = defineEmits<{
   edit: [];
   remove: [];
 }>();
+
+const status = ref<GitStatus | null>(null);
+
+async function loadStatus() {
+  status.value = await getGitStatus(props.project.path).catch(() => null);
+}
+onMounted(loadStatus);
+watch(() => props.statusKey, loadStatus);
 </script>
 
 <template>
@@ -56,6 +70,32 @@ const emit = defineEmits<{
       >
         {{ stack }}
       </span>
+    </div>
+
+    <div class="mb-3 flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <template v-if="status?.isRepo">
+        <span class="flex items-center gap-1 font-medium">
+          <GitBranch class="h-3.5 w-3.5" />
+          {{ status.branch ?? "detached HEAD" }}
+        </span>
+        <span
+          v-if="status.dirty"
+          class="flex items-center gap-1.5 text-amber-600 dark:text-amber-400"
+        >
+          <span class="h-2 w-2 rounded-full bg-amber-500" />
+          {{ status.changedFiles }} uncommitted change{{ status.changedFiles === 1 ? "" : "s" }}
+        </span>
+        <span v-else class="flex items-center gap-1 text-green-600 dark:text-green-400">
+          <CircleCheck class="h-3.5 w-3.5" /> Clean
+        </span>
+        <span v-if="status.ahead" class="flex items-center gap-0.5" title="Commits to push">
+          <ArrowUp class="h-3.5 w-3.5" />{{ status.ahead }}
+        </span>
+        <span v-if="status.behind" class="flex items-center gap-0.5" title="Commits to pull">
+          <ArrowDown class="h-3.5 w-3.5" />{{ status.behind }}
+        </span>
+      </template>
+      <span v-else-if="status" class="text-neutral-400">Not a git repository</span>
     </div>
 
     <a

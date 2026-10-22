@@ -26,6 +26,16 @@ export interface ScannedProject {
   hasReadme: boolean;
 }
 
+/** Working-tree status shown on a project card. */
+export interface GitStatus {
+  isRepo: boolean;
+  branch: string | null;
+  dirty: boolean;
+  changedFiles: number;
+  ahead: number;
+  behind: number;
+}
+
 export interface SshConfig {
   id: number;
   projectId: number | null;

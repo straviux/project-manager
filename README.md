@@ -17,6 +17,9 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   - Open a **terminal** already `cd`'d into the project root
   - Open an **SSH terminal** using a saved connection profile
   - Open and read the project's **README.md** (rendered Markdown)
+- **Git status at a glance** — every project card shows its current branch,
+  whether the working tree is clean or how many uncommitted changes it has,
+  and ahead/behind counts versus its upstream.
 - **Add projects three ways**
   - Scan the parent directory (auto-detects stacks and git remotes)
   - Add manually
@@ -94,7 +97,6 @@ When scanning a folder or after a clone, the app inspects marker files:
   dedupe, watch folder, image thumbnails.
   Spec: [docs/file-manager.md](docs/file-manager.md)
 - Store SSH secrets in the OS keychain (`keyring`)
-- Git status at a glance (branch, dirty, ahead/behind) on each project card
 - "Open remote" and copy-clone-URL actions
 - Global search & keyboard shortcuts
 - Drag-to-reorder / pin favorite projects

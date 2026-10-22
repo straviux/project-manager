@@ -32,6 +32,7 @@ import {
 import type { Project } from "./types";
 
 const ready = ref(false);
+const statusKey = ref(0);
 const tab = ref<"projects" | "files">("projects");
 const projectsDir = ref<string | null>(null);
 const filesDir = ref<string | null>(null);
@@ -59,6 +60,7 @@ const filtered = computed(() => {
 
 async function refresh() {
   projects.value = await listProjects();
+  statusKey.value++;
 }
 
 async function boot() {
@@ -219,6 +221,7 @@ function openEdit(project: Project) {
             v-for="project in filtered"
             :key="project.id"
             :project="project"
+            :status-key="statusKey"
             @vscode="runAction(() => openInVsCode(project.path), 'Could not open VS Code')"
             @terminal="runAction(() => openTerminal(project.path), 'Could not open terminal')"
             @ssh="sshProject = project"

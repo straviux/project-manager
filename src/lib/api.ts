@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FileCheck, LibraryFile, ScannedProject, SshConfig } from "../types";
+import type { FileCheck, GitStatus, LibraryFile, ScannedProject, SshConfig } from "../types";
 
 /** Open the project folder in VS Code. */
 export function openInVsCode(path: string): Promise<void> {
@@ -36,6 +36,11 @@ export function gitClone(
 /** Scan the parent directory for project folders. */
 export function scanProjects(parentDir: string): Promise<ScannedProject[]> {
   return invoke("scan_projects", { parentDir });
+}
+
+/** Branch, dirty state and ahead/behind counts for a project folder. */
+export function getGitStatus(path: string): Promise<GitStatus> {
+  return invoke("git_status", { path });
 }
 
 /** Detect the stacks used by the project at `path`. */

@@ -19,6 +19,17 @@ struct ScannedProject {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct GitStatus {
+    is_repo: bool,
+    branch: Option<String>,
+    dirty: bool,
+    changed_files: u32,
+    ahead: u32,
+    behind: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct FileCheck {
     free: bool,
     reason: Option<String>,
@@ -229,6 +240,77 @@ fn git_clone(
         ));
     }
     Ok(dest.display().to_string())
+}
+
+fn parse_count(info: &str, key: &str) -> u32 {
+    // Extracts N from "... [ahead N, behind M]" style branch info.
+    if let Some(pos) = info.find(key) {
+        let rest = &info[pos + key.len()..];
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        return digits.parse().unwrap_or(0);
+    }
+    0
+}
+
+/// Working-tree status for the project card: branch, dirty state,
+/// number of changed files, and ahead/behind counts vs upstream.
+#[tauri::command]
+fn git_status(path: String) -> GitStatus {
+    let not_repo = GitStatus {
+        is_repo: false,
+        branch: None,
+        dirty: false,
+        changed_files: 0,
+        ahead: 0,
+        behind: 0,
+    };
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(&path)
+        .args(["status", "--porcelain=v1", "--branch"])
+        .output();
+    let output = match output {
+        Ok(o) if o.status.success() => o,
+        _ => return not_repo,
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut branch: Option<String> = None;
+    let mut ahead = 0;
+    let mut behind = 0;
+    let mut changed: u32 = 0;
+    for line in stdout.lines() {
+        if let Some(info) = line.strip_prefix("## ") {
+            ahead = parse_count(info, "ahead ");
+            behind = parse_count(info, "behind ");
+            if let Some(rest) = info.strip_prefix("No commits yet on ") {
+                branch = Some(rest.trim().to_string());
+            } else if info.starts_with("HEAD") {
+                branch = None; // detached HEAD
+            } else {
+                let name = info
+                    .split("...")
+                    .next()
+                    .unwrap_or("")
+                    .split(' ')
+                    .next()
+                    .unwrap_or("")
+                    .trim();
+                if !name.is_empty() {
+                    branch = Some(name.to_string());
+                }
+            }
+        } else if !line.trim().is_empty() {
+            changed += 1;
+        }
+    }
+    GitStatus {
+        is_repo: true,
+        branch,
+        dirty: changed > 0,
+        changed_files: changed,
+        ahead,
+        behind,
+    }
 }
 
 fn read_git_remote(project: &Path) -> Option<String> {
@@ -650,6 +732,7 @@ pub fn run() {
             open_terminal,
             open_ssh_terminal,
             git_clone,
+            git_status,
             scan_projects,
             detect_stacks,
             read_readme,
