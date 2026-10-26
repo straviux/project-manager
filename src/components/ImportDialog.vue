@@ -21,7 +21,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   close: [];
-  imported: [warning: string | null];
+  imported: [warning: string | null, path?: string];
 }>();
 
 const source = ref("");
@@ -66,7 +66,7 @@ async function submit() {
       mode.value,
       props.parentDir,
     );
-    emit("imported", res.warning);
+    emit("imported", res.warning, res.path);
   } catch (e) {
     error.value = String(e);
     busy.value = false;

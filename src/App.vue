@@ -33,6 +33,7 @@ import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
+import Toasts from "./components/Toasts.vue";
 import ContextMenu, {
   type ContextMenuItem,
 } from "./components/ContextMenu.vue";
@@ -697,6 +698,7 @@ function openEdit(project: Project) {
       :project="readmeProject"
       @close="readmeProject = null"
     />
+    <Toasts />
   </div>
 </template>
 

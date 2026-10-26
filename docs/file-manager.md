@@ -77,3 +77,11 @@ CREATE TABLE files (
    (the folder is the source of truth).
 4. Extras: SQLite index for instant search, hash dedupe, watch folder,
    thumbnails for images.
+
+## Action feedback (2026-10-26)
+- Move actions (add files, import folder, drag-move between folders) report
+  via app-wide toast notifications (bottom-right; success auto-dismisses,
+  errors stay until dismissed) instead of the inline banner.
+- Every addition, import, move, and deletion is recorded in a SQLite
+  `action_history` table (latest 500) and reviewable from the Files toolbar's
+  History button, which also offers clearing the log.

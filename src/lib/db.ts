@@ -42,6 +42,13 @@ function loadDb(): Promise<Database> {
           notes   TEXT NOT NULL DEFAULT '',
           starred INTEGER NOT NULL DEFAULT 0
         )`);
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS action_history (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          kind       TEXT NOT NULL,
+          detail     TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )`);
       // Migrations for existing databases (columns added after v0.1).
       const cols = await db.select<{ name: string }[]>(
         "PRAGMA table_info(projects)",
@@ -335,4 +342,44 @@ export async function setFileMeta(path: string, meta: FileMeta): Promise<void> {
 export async function deleteFileMeta(path: string): Promise<void> {
   const db = await loadDb();
   await db.execute("DELETE FROM file_meta WHERE path = $1", [path]);
+}
+
+/* ------------------------- action history ------------------------- */
+export interface ActionHistoryEntry {
+  id: number;
+  createdAt: string;
+  kind: string;
+  detail: string;
+}
+
+/** Record a file action (added/imported/moved/deleted) for the history view. */
+export async function logAction(kind: string, detail: string): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "INSERT INTO action_history (kind, detail, created_at) VALUES ($1, $2, $3)",
+    [kind, detail, new Date().toISOString()],
+  );
+  // Keep the log bounded: latest 500 entries.
+  await db.execute(
+    "DELETE FROM action_history WHERE id NOT IN " +
+      "(SELECT id FROM action_history ORDER BY id DESC LIMIT 500)",
+  );
+}
+
+export async function getActionHistory(): Promise<ActionHistoryEntry[]> {
+  const db = await loadDb();
+  const rows = await db.select<
+    { id: number; kind: string; detail: string; created_at: string }[]
+  >("SELECT id, kind, detail, created_at FROM action_history ORDER BY id DESC");
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    detail: r.detail,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function clearActionHistory(): Promise<void> {
+  const db = await loadDb();
+  await db.execute("DELETE FROM action_history");
 }
