@@ -99,10 +99,11 @@ CREATE TABLE files (
   to the original as "name - Copy.ext" (then " - Copy (2)", …) and carries
   status/notes/star along to the new path.
 
-## Hold-to-select (2026-10-26)
-- Checkboxes are hidden until selection mode: press and hold a file or
-  folder for 3 seconds to enter it (that item becomes selected). In
-  selection mode every file and folder shows a checkbox, clicks toggle
-  selection instead of opening/navigating, and deselecting the last item
-  exits the mode. Batch actions (move, duplicate, delete) cover folders as
-  well as files; Star stays files-only.
+## Select mode (2026-10-26)
+- Checkboxes are hidden until selection mode, switched on by the toolbar's
+  Select button (it reads Done while active; Done exits the mode and
+  clears the selection). In selection mode every file and folder shows a
+  checkbox and clicks toggle selection instead of opening/navigating.
+  Batch actions (move, duplicate, delete) cover folders as well as files;
+  Star stays files-only. (An earlier 3-second hold gesture for entering
+  selection mode was removed in favour of the button.)
