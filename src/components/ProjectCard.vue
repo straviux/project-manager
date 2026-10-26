@@ -207,11 +207,10 @@ watch(() => props.statusKey, loadStatus);
               </li>
               <li>
                 <a
-                  class="tooltip tooltip-left text-error"
-                  data-tip="Remove from list (files are kept)"
+                  class="text-error"
                   @click="menuOpen = false; emit('remove')"
                 >
-                  <Trash2 class="h-4 w-4" /> Remove
+                  <Trash2 class="h-4 w-4" /> Remove from list
                 </a>
               </li>
             </ul>

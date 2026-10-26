@@ -10,6 +10,7 @@ import {
   FolderCog,
   FolderInput,
   FolderOpen,
+  Grip,
   History,
   LayoutGrid,
   Network,
@@ -90,6 +91,19 @@ const showProjectDialog = ref(false);
 const showClone = ref(false);
 const showImport = ref(false);
 const showSettings = ref(false);
+
+/* Nav actions menu: Settings, updates, and history grouped under one
+ * grid icon (the app's standard ContextMenu, which clamps to the window). */
+const navMenu = ref<{ x: number; y: number } | null>(null);
+const navMenuItems = [
+  { label: "Settings", icon: Settings, action: () => (showSettings.value = true) },
+  { label: "Check for updates", icon: ArrowDownToLine, action: () => checkForUpdates(true) },
+  { label: "Action history", icon: History, action: () => openHistory() },
+];
+function openNavMenu(event: MouseEvent) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  navMenu.value = { x: rect.right - 224, y: rect.bottom + 4 };
+}
 
 /* ------------------------- action history ------------------------- */
 const showHistory = ref(false);
@@ -541,14 +555,8 @@ function openEdit(project: Project) {
           </nav>
 
           <div class="ml-auto flex items-center gap-2 min-[1600px]:absolute min-[1600px]:right-6 min-[1600px]:top-1/2 min-[1600px]:ml-0 min-[1600px]:-translate-y-1/2">
-          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Settings" @click="showSettings = true">
-            <Settings class="h-4 w-4" />
-          </button>
-          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Check for updates" @click="checkForUpdates(true)">
-            <ArrowDownToLine class="h-4 w-4" :class="checkingUpdates ? 'animate-pulse' : ''" />
-          </button>
-          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Action history" @click="openHistory">
-            <History class="h-4 w-4" />
+          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Actions" @click="openNavMenu">
+            <Grip class="h-4 w-4" />
           </button>
           </div>
         </div>
@@ -783,6 +791,14 @@ function openEdit(project: Project) {
       confirm-label="Clear"
       @confirm="doClearHistory"
       @cancel="confirmClearHistory = false"
+    />
+
+    <ContextMenu
+      v-if="navMenu"
+      :x="navMenu.x"
+      :y="navMenu.y"
+      :items="navMenuItems"
+      @close="navMenu = null"
     />
 
     <Toasts />
