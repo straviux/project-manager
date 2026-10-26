@@ -522,6 +522,19 @@ onUnmounted(() => unlisten?.());
         />
       </div>
 
+      <button class="toolbar-btn" @click="pickFiles">
+        <FilePlus2 class="h-4 w-4" /> Add files
+      </button>
+      <button class="toolbar-btn" @click="showAddFolder = true">
+        <FolderPlus class="h-4 w-4" /> Import folder
+      </button>
+      <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Refresh the list" @click="refresh">
+        <RefreshCw class="h-4 w-4" />
+      </button>
+      <button class="toolbar-btn tooltip tooltip-bottom" :data-tip="`Library folder: ${filesDir}`" @click="chooseFolder">
+        <FolderCog class="h-4 w-4" />
+      </button>
+
       <div class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
         <button
           class="toggle-btn"
@@ -540,19 +553,6 @@ onUnmounted(() => unlisten?.());
           <LayoutGrid class="h-4 w-4" /> Icons
         </button>
       </div>
-
-      <button class="toolbar-btn" @click="pickFiles">
-        <FilePlus2 class="h-4 w-4" /> Add files
-      </button>
-      <button class="toolbar-btn" @click="showAddFolder = true">
-        <FolderPlus class="h-4 w-4" /> Import folder
-      </button>
-      <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Refresh the list" @click="refresh">
-        <RefreshCw class="h-4 w-4" />
-      </button>
-      <button class="toolbar-btn tooltip tooltip-bottom" :data-tip="`Library folder: ${filesDir}`" @click="chooseFolder">
-        <FolderCog class="h-4 w-4" />
-      </button>
     </div>
 
     <div v-if="notice" class="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">

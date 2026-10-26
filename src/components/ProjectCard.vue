@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import {
   ArrowDown,
   ArrowUp,
@@ -46,6 +46,27 @@ const emit = defineEmits<{
 
 const status = ref<GitStatus | null>(null);
 const menuOpen = ref(false);
+const menuWrap = ref<HTMLElement | null>(null);
+
+// The old full-screen backdrop div did not work: the card itself carries
+// backdrop-filter under any background theme, and that makes the card a
+// containing block for fixed-position descendants — so the "fixed inset-0"
+// backdrop was clipped to the card and clicks outside it never reached it.
+// A document listener has no such trap: any click outside the menu wrapper
+// closes the menu, wherever it lands.
+function onDocClick(event: MouseEvent) {
+  if (menuWrap.value && !menuWrap.value.contains(event.target as Node)) {
+    menuOpen.value = false;
+  }
+}
+watch(menuOpen, (open) => {
+  if (open) {
+    document.addEventListener("click", onDocClick, true);
+  } else {
+    document.removeEventListener("click", onDocClick, true);
+  }
+});
+onUnmounted(() => document.removeEventListener("click", onDocClick, true));
 // Dragging is armed synchronously on the DOM element during mousedown.
 // Toggling it through Vue's reactive binding was too slow: the browser
 // had already decided the card was not draggable, so drags never started.
@@ -106,7 +127,7 @@ watch(() => props.statusKey, loadStatus);
         >
           <Star class="h-4 w-4" :fill="project.pinned ? 'currentColor' : 'none'" />
         </button>
-        <div class="relative">
+        <div ref="menuWrap" class="relative">
           <button
             class="tooltip tooltip-left rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             data-tip="More actions"
@@ -115,7 +136,6 @@ watch(() => props.statusKey, loadStatus);
             <MoreVertical class="h-4 w-4" />
           </button>
           <template v-if="menuOpen">
-            <div class="fixed inset-0 z-10" @click="menuOpen = false"></div>
             <ul
               class="menu absolute right-0 top-full z-20 mt-1 w-44 rounded-box bg-base-200 p-2 text-sm shadow-xl ring-1 ring-white/10"
             >
