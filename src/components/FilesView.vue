@@ -21,7 +21,7 @@ import {
   LayoutGrid,
   Library,
   List,
-  MoreVertical,
+  Settings2,
   Music,
   RefreshCw,
   Search,
@@ -1091,11 +1091,11 @@ onUnmounted(() => {
             </button>
             <button
               v-if="currentFolder"
-              class="file-action"
+              class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
               title="Actions"
               @click="openFolderMenu($event, { path: currentFolder, name: baseName(currentFolder) })"
             >
-              <MoreVertical class="h-4 w-4" />
+              <Settings2 class="h-4 w-4" />
             </button>
           </span>
         </nav>
@@ -1120,11 +1120,11 @@ onUnmounted(() => {
           >
             <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
               <button
-                class="file-action-sm"
+                class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
                 title="Actions"
                 @click.stop="openFolderMenu($event, folder)"
               >
-                <MoreVertical class="h-3.5 w-3.5" />
+                <Settings2 class="h-3.5 w-3.5" />
               </button>
             </span>
             <Folder class="h-16 w-16 text-amber-500" />
@@ -1154,13 +1154,12 @@ onUnmounted(() => {
             <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
             <span class="shrink-0 text-xs text-neutral-500">{{ folder.count }} item{{ folder.count === 1 ? "" : "s" }}</span>
             <button
-              class="file-action-sm shrink-0"
+              class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 shrink-0"
               title="Actions"
               @click.stop="openFolderMenu($event, folder)"
             >
-              <MoreVertical class="h-3.5 w-3.5" />
+              <Settings2 class="h-3.5 w-3.5" />
             </button>
-            <ChevronRight class="h-4 w-4 shrink-0 text-neutral-400" />
           </div>
         </div>
 
@@ -1179,11 +1178,11 @@ onUnmounted(() => {
           </h3>
           <button
             v-if="items[0]?.folder"
-            class="file-action"
+            class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
             title="Actions"
             @click="openFolderMenu($event, { path: items[0].folder, name: baseName(items[0].folder) })"
           >
-            <MoreVertical class="h-4 w-4" />
+            <Settings2 class="h-4 w-4" />
           </button>
         </div>
         <div
@@ -1237,8 +1236,8 @@ onUnmounted(() => {
                 </td>
                 <td class="px-4 py-2.5">
                   <span class="flex justify-end gap-1">
-                    <button class="file-action" title="Actions" @click="openFileMenu($event, file)">
-                      <MoreVertical class="h-4 w-4" />
+                    <button class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click="openFileMenu($event, file)">
+                      <Settings2 class="h-4 w-4" />
                     </button>
                   </span>
                 </td>
@@ -1280,8 +1279,8 @@ onUnmounted(() => {
               class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100"
               @dblclick.stop
             >
-              <button class="file-action-sm" title="Actions" @click="openFileMenu($event, file)">
-                <MoreVertical class="h-3.5 w-3.5" />
+              <button class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click="openFileMenu($event, file)">
+                <Settings2 class="h-3.5 w-3.5" />
               </button>
             </span>
             <span class="flex h-20 items-center justify-center">
