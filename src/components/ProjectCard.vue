@@ -74,7 +74,10 @@ watch(menuOpen, (open) => {
     document.removeEventListener("click", onDocClick, true);
   }
 });
-onUnmounted(() => document.removeEventListener("click", onDocClick, true));
+onUnmounted(() => {
+  document.removeEventListener("click", onDocClick, true);
+  document.body.classList.remove("select-none");
+});
 // Dragging is done with pointer events, not the browser's drag system:
 // HTML5 drag-and-drop never engaged in this webview at all (nothing ever
 // lifted, through three attempts at it). Pointer tracking has no such
@@ -101,6 +104,10 @@ function onPointerMove(event: PointerEvent) {
     if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     dragActive.value = true;
+    // Stop the browser selecting text under the cursor while dragging:
+    // without this, every drag also highlights the cards' contents.
+    document.body.classList.add("select-none");
+    window.getSelection()?.removeAllRanges();
     emit("pointerDragStart");
   }
   emit("pointerDragMove", { x: event.clientX, y: event.clientY });
@@ -112,6 +119,7 @@ function onPointerUp(event: PointerEvent) {
   const wasDragging = dragActive.value;
   dragStartPos.value = null;
   dragActive.value = false;
+  document.body.classList.remove("select-none");
   if (wasDragging) emit("pointerDragEnd");
 }
 
@@ -127,8 +135,12 @@ watch(() => props.statusKey, loadStatus);
     class="card-glass relative flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
     :data-project-id="project.id"
     :class="[
-      project.pinned ? 'ring-2 ring-amber-400 dark:ring-amber-500' : '',
-      dragActive ? 'cursor-grabbing opacity-40' : '',
+      project.pinned && !dragActive
+        ? 'ring-2 ring-amber-400 dark:ring-amber-500'
+        : '',
+      dragActive
+        ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]'
+        : '',
     ]"
     @contextmenu.prevent.stop="menuOpen = false; emit('context', $event)"
     @pointerdown="onPointerDown"
