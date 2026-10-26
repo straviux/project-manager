@@ -94,6 +94,15 @@ async function savePassword(config: SshConfig) {
   error.value = null;
   try {
     await sshSetPassword(config.id, password);
+    // The backend already read the password back, but confirm from this
+    // side too before claiming success — a stale badge is how this bug
+    // hid in the first place.
+    const verified = await sshHasPassword(config.id).catch(() => false);
+    if (!verified) {
+      throw new Error(
+        "The keychain did not confirm the saved password. It may not actually be stored — check Windows Credential Manager for an entry named like ssh-config-<id>.dev.straviux.projectmanager.",
+      );
+    }
     passwordInputs[config.id] = "";
     hasPassword.value[config.id] = true;
     openPwForm.value = null;

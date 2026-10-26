@@ -216,9 +216,25 @@ fn ssh_entry(config_id: i64) -> Result<keyring::Entry, String> {
 
 #[tauri::command]
 fn ssh_set_password(config_id: i64, password: String) -> Result<(), String> {
-    ssh_entry(config_id)?
+    let entry = ssh_entry(config_id)?;
+    entry
         .set_password(&password)
-        .map_err(|e| format!("Could not save password to keychain: {e}"))
+        .map_err(|e| format!("Could not save password to keychain: {e}"))?;
+    // Never report success without proof: read the password straight back.
+    // A write that the vault silently drops (or a read path that disagrees
+    // with the write path) used to surface later as "password not
+    // remembered" with no error anywhere. Fail loudly here instead, so the
+    // user sees the real problem at save time.
+    match entry.get_password() {
+        Ok(back) if back == password => Ok(()),
+        Ok(_) => Err(
+            "Password was written but read back differently — the keychain entry is not reliable. Check Windows Credential Manager for an entry named like ssh-config-<id>.dev.straviux.projectmanager and tell me what you find."
+                .to_string(),
+        ),
+        Err(e) => Err(format!(
+            "Password was written but could not be read back from the keychain ({e}). It may not actually be saved — check Windows Credential Manager for an entry named like ssh-config-<id>.dev.straviux.projectmanager."
+        )),
+    }
 }
 
 #[tauri::command]
