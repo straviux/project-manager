@@ -154,8 +154,8 @@ async function remove(id: number) {
                 {{ config.name }}
                 <span
                   v-if="hasPassword[config.id]"
-                  class="flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-950 dark:text-green-300"
-                  title="Password saved in OS keychain"
+                  class="tooltip tooltip-bottom flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-950 dark:text-green-300"
+                  data-tip="Password saved in OS keychain"
                 >
                   <Check class="h-3 w-3" /> keychain
                 </span>
@@ -166,16 +166,16 @@ async function remove(id: number) {
             </div>
             <div class="flex shrink-0 gap-1">
               <button
-                class="rounded p-2 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                title="Manage keychain password"
+                class="tooltip tooltip-bottom rounded p-2 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                data-tip="Manage keychain password"
                 @click="togglePwForm(config)"
               >
                 <KeyRound class="h-4 w-4" />
               </button>
-              <button class="rounded bg-blue-600 p-2 text-white" title="Connect (copies the saved password first, if any)" @click="connect(config)">
+              <button class="tooltip tooltip-bottom rounded bg-blue-600 p-2 text-white" data-tip="Connect (copies the saved password first, if any)" @click="connect(config)">
                 <Play class="h-4 w-4" />
               </button>
-              <button class="rounded p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950" title="Delete profile" @click="remove(config.id)">
+              <button class="tooltip tooltip-bottom rounded p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950" data-tip="Delete profile" @click="remove(config.id)">
                 <Trash2 class="h-4 w-4" />
               </button>
             </div>

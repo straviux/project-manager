@@ -207,8 +207,8 @@ watch(() => props.statusKey, loadStatus);
               </li>
               <li>
                 <a
-                  class="text-error"
-                  title="Remove from list (files are kept)"
+                  class="tooltip tooltip-left text-error"
+                  data-tip="Remove from list (files are kept)"
                   @click="menuOpen = false; emit('remove')"
                 >
                   <Trash2 class="h-4 w-4" /> Remove
@@ -220,7 +220,7 @@ watch(() => props.statusKey, loadStatus);
       </div>
     </header>
 
-    <p class="mb-2 truncate text-xs text-neutral-500" :title="project.path">
+    <p class="tooltip tooltip-bottom mb-2 truncate text-xs text-neutral-500" :data-tip="project.path">
       {{ project.path }}
     </p>
     <p v-if="project.description" class="mb-2 line-clamp-2 text-sm text-neutral-600 dark:text-neutral-400">
@@ -253,10 +253,10 @@ watch(() => props.statusKey, loadStatus);
         <span v-else class="flex items-center gap-1 text-green-600 dark:text-green-400">
           <CircleCheck class="h-3.5 w-3.5" /> Clean
         </span>
-        <span v-if="status.ahead" class="flex items-center gap-0.5" title="Commits to push">
+        <span v-if="status.ahead" class="tooltip tooltip-top flex items-center gap-0.5" data-tip="Commits to push">
           <ArrowUp class="h-3.5 w-3.5" />{{ status.ahead }}
         </span>
-        <span v-if="status.behind" class="flex items-center gap-0.5" title="Commits to pull">
+        <span v-if="status.behind" class="tooltip tooltip-top flex items-center gap-0.5" data-tip="Commits to pull">
           <ArrowDown class="h-3.5 w-3.5" />{{ status.behind }}
         </span>
       </template>
@@ -275,23 +275,23 @@ watch(() => props.statusKey, loadStatus);
     </a>
 
     <footer class="mt-auto grid grid-cols-5 gap-1.5">
-      <button class="action" title="Open in VS Code" @click="emit('vscode')">
+      <button class="action tooltip tooltip-top" data-tip="Open in VS Code" @click="emit('vscode')">
         <VscodeIcon class="h-4 w-4" />
         <span>VS Code</span>
       </button>
-      <button class="action" title="Open source folder" @click="emit('folder')">
+      <button class="action tooltip tooltip-top" data-tip="Open source folder" @click="emit('folder')">
         <FolderOpen class="h-4 w-4" />
         <span>Folder</span>
       </button>
-      <button class="action" title="Open terminal at project root" @click="emit('terminal')">
+      <button class="action tooltip tooltip-top" data-tip="Open terminal at project root" @click="emit('terminal')">
         <Terminal class="h-4 w-4" />
         <span>Terminal</span>
       </button>
-      <button class="action" title="SSH connections" @click="emit('ssh')">
+      <button class="action tooltip tooltip-top" data-tip="SSH connections" @click="emit('ssh')">
         <Server class="h-4 w-4" />
         <span>SSH</span>
       </button>
-      <button class="action" title="Open README.md" @click="emit('readme')">
+      <button class="action tooltip tooltip-top" data-tip="Open README.md" @click="emit('readme')">
         <FileText class="h-4 w-4" />
         <span>README</span>
       </button>

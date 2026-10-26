@@ -205,8 +205,8 @@ async function save() {
             v-for="name in PROJECT_ICON_NAMES"
             :key="name"
             type="button"
-            :title="name"
-            class="flex items-center justify-center rounded-lg p-2 ring-1"
+            :data-tip="name"
+            class="tooltip tooltip-bottom flex items-center justify-center rounded-lg p-2 ring-1"
             :class="iconName === name
               ? 'switch-active ring-blue-500'
               : 'ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700'"
@@ -226,8 +226,8 @@ async function save() {
             v-for="colorName in PROJECT_ICON_COLOR_NAMES"
             :key="colorName"
             type="button"
-            :title="colorName"
-            class="h-6 w-6 rounded-full ring-2 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900"
+            :data-tip="colorName"
+            class="tooltip tooltip-bottom h-6 w-6 rounded-full ring-2 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900"
             :class="[
               PROJECT_ICON_COLORS[colorName].dot,
               iconColor === colorName ? 'ring-blue-500' : 'ring-transparent',

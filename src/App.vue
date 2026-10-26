@@ -575,7 +575,7 @@ function openEdit(project: Project) {
               placeholder="Search by name or stack…  ( / )"
             />
           </div>
-          <button class="toolbar-btn" title="Move or copy an existing folder into your projects folder" @click="showImport = true">
+          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Move or copy an existing folder into your projects folder" @click="showImport = true">
             <FolderInput class="h-4 w-4" /> Import
           </button>
           <button class="toolbar-btn" @click="showClone = true">
@@ -654,13 +654,13 @@ function openEdit(project: Project) {
           <template v-if="tab === 'projects'">
           <span class="flex min-w-0 items-baseline gap-1.5">
             <span class="shrink-0">Projects folder:</span>
-            <span class="truncate font-mono" :title="projectsDir ?? ''">{{ projectsDir }}</span>
+            <span class="tooltip tooltip-top truncate font-mono" :data-tip="projectsDir ?? ''">{{ projectsDir }}</span>
           </span>
           </template>
           <template v-else>
             <span class="flex min-w-0 items-baseline gap-1.5">
               <span class="shrink-0">Library:</span>
-              <span class="truncate font-mono" :title="filesDir ?? ''">{{ filesDir }}</span>
+              <span class="tooltip tooltip-top truncate font-mono" :data-tip="filesDir ?? ''">{{ filesDir }}</span>
               <span class="shrink-0">— drop files anywhere here to add them.</span>
             </span>
             <span v-if="filesStats" class="ml-auto shrink-0 whitespace-nowrap">{{ filesStats }}</span>

@@ -537,17 +537,17 @@ onUnmounted(() => unlisten?.());
 
       <div class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
         <button
-          class="toggle-btn"
+          class="toggle-btn tooltip tooltip-bottom"
           :class="layout === 'table' ? 'switch-active' : ''"
-          title="Show files as a list"
+          data-tip="Show files as a list"
           @click="setLayout('table')"
         >
           <List class="h-4 w-4" /> List
         </button>
         <button
-          class="toggle-btn"
+          class="toggle-btn tooltip tooltip-bottom"
           :class="layout === 'grid' ? 'switch-active' : ''"
-          title="Show files as big icons, like Windows Explorer"
+          data-tip="Show files as big icons, like Windows Explorer"
           @click="setLayout('grid')"
         >
           <LayoutGrid class="h-4 w-4" /> Icons
