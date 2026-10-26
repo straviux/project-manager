@@ -463,8 +463,9 @@ function dismissBusy(item: BusyItem) {
 }
 
 /* ------------------------- batch selection ------------------------- */
-// Checkboxes only exist in selection mode, switched on by the toolbar's
-// Select button (Done switches it off again and clears the selection).
+// Checkboxes only exist in selection mode, switched on by the small
+// Select button below the toolbar (Done switches it off again and clears
+// the selection).
 const selected = ref(new Set<string>());
 const selectedFolders = ref(new Set<string>());
 const selecting = ref(false);
@@ -1124,15 +1125,6 @@ onUnmounted(() => {
         <FolderCog class="h-4 w-4" />
       </button>
 
-      <button
-        class="toolbar-btn tooltip tooltip-bottom"
-        :class="selecting ? 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600' : ''"
-        :data-tip="selecting ? 'Exit selection mode' : 'Show checkboxes to select files and folders'"
-        @click="toggleSelecting"
-      >
-        <Check class="h-4 w-4" /> {{ selecting ? "Done" : "Select" }}
-      </button>
-
       <div class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
         <button
           class="toggle-btn tooltip tooltip-bottom"
@@ -1151,6 +1143,17 @@ onUnmounted(() => {
           <LayoutGrid class="h-4 w-4" /> Icons
         </button>
       </div>
+    </div>
+
+    <div class="mb-3 flex items-center">
+      <button
+        class="tooltip tooltip-bottom flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        :class="selecting ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300' : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'"
+        :data-tip="selecting ? 'Exit selection mode' : 'Show checkboxes to select files and folders'"
+        @click="toggleSelecting"
+      >
+        <Check class="h-3.5 w-3.5" /> {{ selecting ? "Done" : "Select" }}
+      </button>
     </div>
 
     <div v-if="totalSelected" class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900">

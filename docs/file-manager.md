@@ -100,8 +100,8 @@ CREATE TABLE files (
   status/notes/star along to the new path.
 
 ## Select mode (2026-10-26)
-- Checkboxes are hidden until selection mode, switched on by the toolbar's
-  Select button (it reads Done while active; Done exits the mode and
+- Checkboxes are hidden until selection mode, switched on by the small Select button below the toolbar (it reads Done while active;
+  Done exits the mode and
   clears the selection). In selection mode every file and folder shows a
   checkbox and clicks toggle selection instead of opening/navigating.
   Batch actions (move, duplicate, delete) cover folders as well as files;
