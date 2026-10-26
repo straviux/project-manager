@@ -1166,6 +1166,70 @@ async fn delete_library_folder(library_dir: String, folder: String) -> Result<()
         .map_err(|e| e.to_string())?
 }
 
+/// Move a file or folder already inside the library into another library
+/// folder ("" = the library root). Same canonical inside-library guards as
+/// the delete commands; never overwrites, never escapes the library, and a
+/// folder can never be moved into itself. Returns the new absolute path.
+fn move_library_item_impl(
+    library_dir: String,
+    source: String,
+    dest_folder: String,
+) -> Result<String, String> {
+    let lib = PathBuf::from(&library_dir)
+        .canonicalize()
+        .map_err(|e| format!("Library folder not found: {e}"))?;
+    let src = PathBuf::from(&source)
+        .canonicalize()
+        .map_err(|e| format!("That file or folder was not found: {e}"))?;
+    if src == lib || !src.starts_with(&lib) {
+        return Err("That item is not inside the library folder.".into());
+    }
+    let dest_dir = if dest_folder.is_empty() {
+        lib.clone()
+    } else {
+        lib.join(&dest_folder)
+            .canonicalize()
+            .map_err(|e| format!("Destination folder not found: {e}"))?
+    };
+    if dest_dir != lib && !dest_dir.starts_with(&lib) {
+        return Err("The destination folder is not inside the library folder.".into());
+    }
+    if src.is_dir() && (dest_dir == src || dest_dir.starts_with(&src)) {
+        return Err("Cannot move a folder into itself.".into());
+    }
+    let name = src
+        .file_name()
+        .ok_or("That item has no name.")?
+        .to_string_lossy()
+        .to_string();
+    let dest = dest_dir.join(&name);
+    if dest.exists() {
+        return Err(format!(
+            "A file or folder named '{name}' already exists in that folder."
+        ));
+    }
+    if let Some(parent) = src.parent() {
+        if parent == dest_dir {
+            return Err("That item is already in that folder.".into());
+        }
+    }
+    fs::rename(&src, &dest).map_err(|e| format!("Could not move the item: {e}"))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn move_library_item(
+    library_dir: String,
+    source: String,
+    dest_folder: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        move_library_item_impl(library_dir, source, dest_folder)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 
 fn do_import_folder_to_library(
     source: String,
@@ -1333,6 +1397,7 @@ pub fn run() {
             list_library_files,
             delete_library_file,
             delete_library_folder,
+            move_library_item,
             open_path,
             allow_asset_dir
         ])

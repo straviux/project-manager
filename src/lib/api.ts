@@ -121,6 +121,16 @@ export function deleteLibraryFolder(libraryDir: string, folder: string): Promise
   return invoke("delete_library_folder", { libraryDir, folder });
 }
 
+/** Move a file or folder inside the library into another library folder
+ *  ("" = the library root). Returns the new absolute path. */
+export function moveLibraryItem(
+  libraryDir: string,
+  source: string,
+  destFolder: string,
+): Promise<string> {
+  return invoke("move_library_item", { libraryDir, source, destFolder });
+}
+
 export interface ImportResult {
   path: string;
   warning: string | null;

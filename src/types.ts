@@ -71,6 +71,7 @@ export interface FileCheck {
 export interface FileMeta {
   status: string;
   notes: string;
+  starred: boolean;
 }
 
 export interface LibraryFile {

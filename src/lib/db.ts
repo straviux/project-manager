@@ -37,9 +37,10 @@ function loadDb(): Promise<Database> {
         )`);
       await db.execute(`
         CREATE TABLE IF NOT EXISTS file_meta (
-          path   TEXT PRIMARY KEY,
-          status TEXT NOT NULL DEFAULT '',
-          notes  TEXT NOT NULL DEFAULT ''
+          path    TEXT PRIMARY KEY,
+          status  TEXT NOT NULL DEFAULT '',
+          notes   TEXT NOT NULL DEFAULT '',
+          starred INTEGER NOT NULL DEFAULT 0
         )`);
       // Migrations for existing databases (columns added after v0.1).
       const cols = await db.select<{ name: string }[]>(
@@ -64,6 +65,14 @@ function loadDb(): Promise<Database> {
       }
       if (!colNames.has("icon_color")) {
         await db.execute("ALTER TABLE projects ADD COLUMN icon_color TEXT");
+      }
+      const metaCols = await db.select<{ name: string }[]>(
+        "PRAGMA table_info(file_meta)",
+      );
+      if (!new Set(metaCols.map((c) => c.name)).has("starred")) {
+        await db.execute(
+          "ALTER TABLE file_meta ADD COLUMN starred INTEGER NOT NULL DEFAULT 0",
+        );
       }
       // NOTE: SSH passwords are intentionally NOT stored here.
       // Profiles hold connection details only; auth uses SSH keys.
@@ -305,20 +314,21 @@ export async function deleteSshConfig(id: number): Promise<void> {
 
 export async function getAllFileMeta(): Promise<Record<string, FileMeta>> {
   const db = await loadDb();
-  const rows = await db.select<{ path: string; status: string; notes: string }[]>(
-    "SELECT path, status, notes FROM file_meta",
-  );
+  const rows = await db.select<
+    { path: string; status: string; notes: string; starred: number }[]
+  >("SELECT path, status, notes, starred FROM file_meta");
   const out: Record<string, FileMeta> = {};
-  for (const r of rows) out[r.path] = { status: r.status, notes: r.notes };
+  for (const r of rows)
+    out[r.path] = { status: r.status, notes: r.notes, starred: r.starred === 1 };
   return out;
 }
 
 export async function setFileMeta(path: string, meta: FileMeta): Promise<void> {
   const db = await loadDb();
   await db.execute(
-    "INSERT INTO file_meta (path, status, notes) VALUES ($1, $2, $3) " +
-      "ON CONFLICT(path) DO UPDATE SET status = excluded.status, notes = excluded.notes",
-    [path, meta.status, meta.notes],
+    "INSERT INTO file_meta (path, status, notes, starred) VALUES ($1, $2, $3, $4) " +
+      "ON CONFLICT(path) DO UPDATE SET status = excluded.status, notes = excluded.notes, starred = excluded.starred",
+    [path, meta.status, meta.notes, meta.starred ? 1 : 0],
   );
 }
 

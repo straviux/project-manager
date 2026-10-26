@@ -23,6 +23,7 @@ import {
   Music,
   RefreshCw,
   Search,
+  Star,
   StickyNote,
   Tag,
   Trash2,
@@ -39,6 +40,7 @@ import {
   importFolderToLibrary,
   listLibraryFiles,
   moveFileToLibrary,
+  moveLibraryItem,
   openPath,
 } from "../lib/api";
 import ImportDialog from "./ImportDialog.vue";
@@ -88,7 +90,21 @@ async function loadMeta() {
   meta.value = await getAllFileMeta().catch(() => meta.value);
 }
 function metaOf(file: LibraryFile): FileMeta {
-  return meta.value[file.path] ?? { status: "", notes: "" };
+  return meta.value[file.path] ?? { status: "", notes: "", starred: false };
+}
+
+async function toggleStar(file: LibraryFile) {
+  try {
+    await saveMeta(file, { ...metaOf(file), starred: !metaOf(file).starred });
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
+// Starred files float to the top of their folder, keeping their relative
+// order otherwise (Array.sort is stable).
+function starredFirst(a: LibraryFile, b: LibraryFile): number {
+  return (metaOf(a).starred ? 0 : 1) - (metaOf(b).starred ? 0 : 1);
 }
 async function saveMeta(file: LibraryFile, next: FileMeta) {
   await setFileMeta(file.path, next);
@@ -226,6 +242,7 @@ const groups = computed(() => {
   }
   const entries = [...map.entries()];
   entries.sort((a, b) => a[0].localeCompare(b[0]));
+  for (const [, items] of entries) items.sort(starredFirst);
   return entries;
 });
 
@@ -264,7 +281,9 @@ const childFolders = computed(() => {
 });
 const filesHere = computed(() =>
   drillIn.value
-    ? files.value.filter((f) => f.folder === currentFolder.value)
+    ? files.value
+        .filter((f) => f.folder === currentFolder.value)
+        .sort(starredFirst)
     : [],
 );
 const displayGroups = computed(() =>
@@ -412,6 +431,11 @@ function openFileCtx(event: MouseEvent, file: LibraryFile) {
         action: () => openNotes(file),
       },
       {
+        label: metaOf(file).starred ? "Remove star" : "Star",
+        icon: Star,
+        action: () => toggleStar(file),
+      },
+      {
         label: "Delete",
         icon: Trash2,
         danger: true,
@@ -470,7 +494,169 @@ function openFolderCtx(event: MouseEvent, folder: { path: string }) {
   };
 }
 
-/* Drag & drop: dropping files anywhere on this view adds them. */
+/* ---- drag & drop: move files/folders between library folders ----
+ * HTML5 drag & drop never engages in this WebView (same story as the
+ * project cards), so this is pointer-based like the card reorder: press,
+ * move past 5px, drop onto a folder tile/row, a breadcrumb, or a search
+ * group header. Dropping anywhere else is a no-op. */
+interface DragSource {
+  kind: "file" | "folder";
+  /** absolute disk path of the item being dragged */
+  fullPath: string;
+  /** library-relative folder the item currently lives in ("" = root) */
+  fromFolder: string;
+  /** template-side key: file.path for files, folder.path for folders */
+  key: string;
+  name: string;
+}
+const dragSource = ref<DragSource | null>(null);
+const dragTarget = ref<string | null>(null);
+const dragMoved = ref(false);
+let dragStart: { x: number; y: number } | null = null;
+// Set once a real drag starts, so the click that follows pointerup doesn't
+// navigate into a folder tile that was only a drag source. Cleared by the
+// next pointerdown (every click starts with one) — never by a timer.
+let suppressClick = false;
+
+function parentFolderOf(relPath: string): string {
+  const i = Math.max(relPath.lastIndexOf("\\"), relPath.lastIndexOf("/"));
+  return i > 0 ? relPath.slice(0, i) : "";
+}
+function dragSourceForFile(file: LibraryFile): DragSource {
+  return {
+    kind: "file",
+    fullPath: file.path,
+    fromFolder: file.folder,
+    key: file.path,
+    name: file.name,
+  };
+}
+function dragSourceForFolder(folder: { path: string; name: string }): DragSource {
+  const base = (props.filesDir ?? "").replace(/[\\/]+$/, "");
+  const sep = folder.path.includes("\\") ? "\\" : "/";
+  return {
+    kind: "folder",
+    fullPath: base + sep + folder.path,
+    fromFolder: parentFolderOf(folder.path),
+    key: folder.path,
+    name: folder.name,
+  };
+}
+function isDragged(key: string): boolean {
+  return dragMoved.value && dragSource.value?.key === key;
+}
+function isDropTarget(path: string): boolean {
+  return dragTarget.value === path;
+}
+function isValidDropTarget(target: string, source: DragSource): boolean {
+  if (target === source.fromFolder) return false;
+  if (source.kind === "folder") {
+    // The folder's own relative path, rebuilt from its parent + name.
+    const sep = source.fullPath.includes("\\") ? "\\" : "/";
+    const own = source.fromFolder
+      ? source.fromFolder + sep + source.name
+      : source.name;
+    if (target === own || target.startsWith(own + sep)) return false;
+  }
+  return true;
+}
+function onDragPointerDown(event: PointerEvent, source: DragSource) {
+  if (event.button !== 0) return;
+  suppressClick = false;
+  dragStart = { x: event.clientX, y: event.clientY };
+  dragSource.value = source;
+  dragMoved.value = false;
+}
+function onDragPointerMove(event: PointerEvent) {
+  const source = dragSource.value;
+  if (!source || !dragStart) return;
+  if (!dragMoved.value) {
+    if (Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y) < 5)
+      return;
+    try {
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    } catch {
+      /* capture unavailable on this element; tracking still works over rows */
+    }
+    dragMoved.value = true;
+    suppressClick = true;
+    // Same as the project cards: no text selection while dragging.
+    document.body.classList.add("select-none");
+    window.getSelection()?.removeAllRanges();
+  }
+  const el = document
+    .elementFromPoint(event.clientX, event.clientY)
+    ?.closest("[data-drop-folder]");
+  const target = el ? el.getAttribute("data-drop-folder") : null;
+  dragTarget.value =
+    target !== null && isValidDropTarget(target, source) ? target : null;
+}
+async function onDragPointerUp() {
+  const source = dragSource.value;
+  const target = dragTarget.value;
+  const wasDragging = dragMoved.value;
+  dragSource.value = null;
+  dragTarget.value = null;
+  dragStart = null;
+  dragMoved.value = false;
+  document.body.classList.remove("select-none");
+  if (!source || !wasDragging || target === null || !props.filesDir) return;
+  error.value = null;
+  try {
+    if (source.kind === "file") {
+      const check = await checkFileFree(source.fullPath);
+      if (!check.free) {
+        error.value = `${source.name} is in use (${check.reason ?? "file is in use"}).`;
+        return;
+      }
+    }
+    const newPath = await moveLibraryItem(props.filesDir, source.fullPath, target);
+    // Meta is keyed by absolute path, so carry it along to the new path
+    // (for a folder, every file under it).
+    const sep = newPath.includes("\\") ? "\\" : "/";
+    const moves: { oldKey: string; newKey: string; value: FileMeta }[] = [];
+    for (const [key, value] of Object.entries(meta.value)) {
+      if (source.kind === "file") {
+        if (key === source.fullPath)
+          moves.push({ oldKey: key, newKey: newPath, value });
+      } else if (
+        key === source.fullPath ||
+        key.startsWith(source.fullPath + sep)
+      ) {
+        moves.push({
+          oldKey: key,
+          newKey: newPath + key.slice(source.fullPath.length),
+          value,
+        });
+      }
+    }
+    for (const m of moves) {
+      await setFileMeta(m.newKey, m.value).catch(() => {});
+      await deleteFileMeta(m.oldKey).catch(() => {});
+    }
+    if (moves.length) {
+      const next = { ...meta.value };
+      for (const m of moves) {
+        delete next[m.oldKey];
+        next[m.newKey] = m.value;
+      }
+      meta.value = next;
+    }
+    notice.value = `Moved ${source.name} to ${target || "the library root"}.`;
+    await refresh();
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+function onFolderTileClick(path: string) {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  goFolder(path);
+}
+
+/* External drag & drop: dropping files anywhere on this view adds them. */
 let unlisten: (() => void) | null = null;
 onMounted(async () => {
   try {
@@ -487,7 +673,10 @@ onMounted(async () => {
     /* drag & drop unavailable — the file picker still works */
   }
 });
-onUnmounted(() => unlisten?.());
+onUnmounted(() => {
+  unlisten?.();
+  document.body.classList.remove("select-none");
+});
 </script>
 
 <template>
@@ -595,12 +784,12 @@ onUnmounted(() => unlisten?.());
     <div v-else class="space-y-6">
       <template v-if="drillIn">
         <nav class="on-bg flex flex-wrap items-center gap-1 text-sm">
-          <button class="crumb" :class="!currentFolder ? 'crumb-active' : ''" @click="goFolder('')">
+          <button class="crumb" :class="[!currentFolder ? 'crumb-active' : '', isDropTarget('') ? 'ring-2 ring-blue-500' : '']" data-drop-folder="" @click="goFolder('')">
             <Library class="h-4 w-4" /> Library
           </button>
           <template v-for="(seg, i) in crumbs" :key="i">
             <ChevronRight class="h-4 w-4 shrink-0 text-neutral-400" />
-            <button class="crumb" :class="i === crumbs.length - 1 ? 'crumb-active' : ''" @click="goFolder(crumbPath(i))">
+            <button class="crumb" :class="[i === crumbs.length - 1 ? 'crumb-active' : '', isDropTarget(crumbPath(i)) ? 'ring-2 ring-blue-500' : '']" :data-drop-folder="crumbPath(i)" @click="goFolder(crumbPath(i))">
               {{ seg }}
             </button>
           </template>
@@ -627,8 +816,14 @@ onUnmounted(() => unlisten?.());
             v-for="folder in childFolders"
             :key="folder.path"
             class="group relative flex cursor-pointer flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
+            :class="[isDropTarget(folder.path) ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '', isDragged(folder.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : '']"
             :title="`Open folder ${folder.name}`"
-            @click="goFolder(folder.path)"
+            :data-drop-folder="folder.path"
+            @click="onFolderTileClick(folder.path)"
+            @pointerdown="onDragPointerDown($event, dragSourceForFolder(folder))"
+            @pointermove="onDragPointerMove"
+            @pointerup="onDragPointerUp"
+            @pointercancel="onDragPointerUp"
             @contextmenu.prevent.stop="openFolderCtx($event, folder)"
           >
             <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
@@ -654,7 +849,13 @@ onUnmounted(() => unlisten?.());
             v-for="folder in childFolders"
             :key="folder.path"
             class="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
-            @click="goFolder(folder.path)"
+            :class="[isDropTarget(folder.path) ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '', isDragged(folder.path) ? 'opacity-50' : '']"
+            :data-drop-folder="folder.path"
+            @click="onFolderTileClick(folder.path)"
+            @pointerdown="onDragPointerDown($event, dragSourceForFolder(folder))"
+            @pointermove="onDragPointerMove"
+            @pointerup="onDragPointerUp"
+            @pointercancel="onDragPointerUp"
             @contextmenu.prevent.stop="openFolderCtx($event, folder)"
           >
             <Folder class="h-5 w-5 shrink-0 text-amber-500" />
@@ -680,7 +881,7 @@ onUnmounted(() => unlisten?.());
       </template>
 
       <section v-for="[group, items] in displayGroups" :key="group">
-        <div v-if="!drillIn" class="mb-2 flex items-center justify-between gap-2">
+        <div v-if="!drillIn" class="mb-2 flex items-center justify-between gap-2 rounded-lg" :class="isDropTarget(items[0]?.folder ?? '') ? 'ring-2 ring-blue-500' : ''" :data-drop-folder="items[0]?.folder ?? ''">
           <h3 class="on-bg text-sm font-semibold uppercase tracking-wide text-neutral-500">
             {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
           </h3>
@@ -715,9 +916,12 @@ onUnmounted(() => unlisten?.());
               </tr>
             </thead>
             <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
-              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" @contextmenu.prevent.stop="openFileCtx($event, file)">
+              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" :class="isDragged(file.path) ? 'opacity-50' : ''" @pointerdown="onDragPointerDown($event, dragSourceForFile(file))" @pointermove="onDragPointerMove" @pointerup="onDragPointerUp" @pointercancel="onDragPointerUp" @contextmenu.prevent.stop="openFileCtx($event, file)">
                 <td class="max-w-0 px-4 py-2.5">
                   <span class="flex min-w-0 items-center gap-2.5">
+                    <button class="shrink-0 rounded p-0.5" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click="toggleStar(file)">
+                      <Star class="h-4 w-4" :class="metaOf(file).starred ? 'fill-amber-500 text-amber-500' : 'text-neutral-300 hover:text-amber-400'" />
+                    </button>
                     <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0 text-blue-600" />
                     <span class="truncate font-medium">{{ file.name }}</span>
                     <span
@@ -764,10 +968,24 @@ onUnmounted(() => unlisten?.());
             v-for="file in items"
             :key="file.path"
             class="group relative flex flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
+            :class="isDragged(file.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : ''"
             title="Double-click to open"
             @dblclick="openPath(file.path)"
+            @pointerdown="onDragPointerDown($event, dragSourceForFile(file))"
+            @pointermove="onDragPointerMove"
+            @pointerup="onDragPointerUp"
+            @pointercancel="onDragPointerUp"
             @contextmenu.prevent.stop="openFileCtx($event, file)"
           >
+            <span
+              class="absolute left-1 top-1 z-10"
+              :class="metaOf(file).starred ? '' : 'opacity-0 transition group-hover:opacity-100'"
+              @dblclick.stop
+            >
+              <button class="file-action-sm" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click="toggleStar(file)">
+                <Star class="h-3.5 w-3.5" :class="metaOf(file).starred ? 'fill-amber-500 text-amber-500' : ''" />
+              </button>
+            </span>
             <span
               class="absolute right-1 top-1 z-10 flex gap-0.5 opacity-0 transition group-hover:opacity-100"
               @dblclick.stop
