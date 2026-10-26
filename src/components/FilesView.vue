@@ -8,6 +8,7 @@ import {
   ArrowUp,
   ChevronRight,
   Code,
+  Copy,
   ExternalLink,
   File,
   FilePlus2,
@@ -20,6 +21,7 @@ import {
   LayoutGrid,
   Library,
   List,
+  MoreVertical,
   Music,
   RefreshCw,
   Search,
@@ -37,6 +39,7 @@ import {
   checkFileFree,
   deleteLibraryFile,
   deleteLibraryFolder,
+  duplicateLibraryItem,
   importFolderToLibrary,
   listLibraryFiles,
   moveFileToLibrary,
@@ -360,6 +363,14 @@ async function refresh() {
     files.value = await listLibraryFiles(props.filesDir);
     void allowAssetDir(props.filesDir).catch(() => {});
     await loadMeta();
+    // A refresh (e.g. switching back to this tab) must not wipe a
+    // selection in progress — just drop files that no longer exist.
+    if (selected.value.size) {
+      const paths = new Set(files.value.map((f) => f.path));
+      selected.value = new Set(
+        [...selected.value].filter((p) => paths.has(p)),
+      );
+    }
   } catch (e) {
     error.value = String(e);
   } finally {
@@ -440,38 +451,282 @@ function dismissBusy(item: BusyItem) {
   busyItems.value = busyItems.value.filter((b) => b.source !== item.source);
 }
 
+/* ------------------------- batch selection ------------------------- */
+// Files only: folders keep single actions (their own ⋮ menu + duplicate).
+const selected = ref(new Set<string>());
+function isSelected(path: string): boolean {
+  return selected.value.has(path);
+}
+function toggleSelect(path: string) {
+  const next = new Set(selected.value);
+  if (next.has(path)) next.delete(path);
+  else next.add(path);
+  selected.value = next;
+}
+function clearSelection() {
+  selected.value = new Set();
+}
+const visibleFiles = computed(() =>
+  displayGroups.value.flatMap(([, items]) => items),
+);
+const allVisibleSelected = computed(
+  () =>
+    visibleFiles.value.length > 0 &&
+    visibleFiles.value.every((f) => selected.value.has(f.path)),
+);
+function toggleSelectAll() {
+  const next = new Set(selected.value);
+  if (allVisibleSelected.value) {
+    for (const f of visibleFiles.value) next.delete(f.path);
+  } else {
+    for (const f of visibleFiles.value) next.add(f.path);
+  }
+  selected.value = next;
+}
+function selectedFiles(): LibraryFile[] {
+  return files.value.filter((f) => selected.value.has(f.path));
+}
+
+/* ------------------------- batch actions ------------------------- */
+const confirmBatchDelete = ref(false);
+const showBatchMove = ref(false);
+const batchMoveDest = ref("");
+const batchMoveFolders = computed(() => {
+  const names = new Set<string>();
+  for (const f of files.value) if (f.folder) names.add(f.folder);
+  return [...names].sort((a, b) => a.localeCompare(b));
+});
+async function batchDelete() {
+  const targets = selectedFiles();
+  confirmBatchDelete.value = false;
+  if (!props.filesDir || !targets.length) return;
+  let deleted = 0;
+  for (const file of targets) {
+    try {
+      await deleteLibraryFile(props.filesDir, file.path);
+      await deleteFileMeta(file.path).catch(() => {});
+      deleted++;
+    } catch (e) {
+      error.value = String(e);
+    }
+  }
+  clearSelection();
+  if (deleted) {
+    showToast(`Deleted ${deleted} file${deleted === 1 ? "" : "s"}.`);
+    await logAction(
+      "deleted",
+      `Deleted ${deleted} file${deleted === 1 ? "" : "s"}.`,
+    ).catch(() => {});
+  }
+  await refresh();
+}
+async function batchStar() {
+  const targets = selectedFiles();
+  if (!targets.length) return;
+  const allStarred = targets.every((f) => metaOf(f).starred);
+  for (const file of targets) {
+    try {
+      await saveMeta(file, { ...metaOf(file), starred: !allStarred });
+    } catch (e) {
+      error.value = String(e);
+    }
+  }
+  showToast(
+    allStarred
+      ? `Removed star from ${targets.length} files.`
+      : `Starred ${targets.length} files.`,
+  );
+  clearSelection();
+}
+async function batchDuplicate() {
+  const targets = selectedFiles();
+  if (!props.filesDir || !targets.length) return;
+  let done = 0;
+  for (const file of targets) {
+    try {
+      const newPath = await duplicateLibraryItem(props.filesDir, file.path);
+      await copyMeta(file.path, newPath);
+      done++;
+    } catch (e) {
+      error.value = String(e);
+    }
+  }
+  clearSelection();
+  if (done) {
+    showToast(`Duplicated ${done} file${done === 1 ? "" : "s"}.`);
+    await logAction(
+      "duplicated",
+      `Duplicated ${done} file${done === 1 ? "" : "s"}.`,
+    ).catch(() => {});
+  }
+  await refresh();
+}
+async function batchMove() {
+  const targets = selectedFiles();
+  const dest = batchMoveDest.value;
+  showBatchMove.value = false;
+  if (!props.filesDir || !targets.length) return;
+  let moved = 0;
+  let skipped = 0;
+  for (const file of targets) {
+    if (file.folder === dest) continue;
+    const check = await checkFileFree(file.path);
+    if (!check.free) {
+      skipped++;
+      continue;
+    }
+    try {
+      const newPath = await moveLibraryItem(props.filesDir, file.path, dest);
+      await carryMeta(file.path, newPath);
+      moved++;
+    } catch (e) {
+      error.value = String(e);
+    }
+  }
+  clearSelection();
+  if (moved) {
+    const destLabel = dest || "the library root";
+    showToast(`Moved ${moved} file${moved === 1 ? "" : "s"} to ${destLabel}.`);
+    await logAction(
+      "moved",
+      `Moved ${moved} file${moved === 1 ? "" : "s"} to ${destLabel}.`,
+    ).catch(() => {});
+  }
+  if (skipped)
+    showToast(`${skipped} file${skipped === 1 ? "" : "s"} skipped — in use.`, "error");
+  await refresh();
+}
+
+/* Carry/copy per-file meta (status/notes/star) to a new path. */
+async function carryMeta(oldPath: string, newPath: string) {
+  const m = meta.value[oldPath];
+  if (!m) return;
+  await setFileMeta(newPath, m).catch(() => {});
+  await deleteFileMeta(oldPath).catch(() => {});
+  const next = { ...meta.value };
+  delete next[oldPath];
+  next[newPath] = m;
+  meta.value = next;
+}
+async function copyMeta(oldPath: string, newPath: string) {
+  const m = meta.value[oldPath];
+  if (!m) return;
+  await setFileMeta(newPath, { ...m }).catch(() => {});
+  meta.value = { ...meta.value, [newPath]: { ...m } };
+}
+
+async function duplicateFile(file: LibraryFile) {
+  if (!props.filesDir) return;
+  try {
+    const newPath = await duplicateLibraryItem(props.filesDir, file.path);
+    await copyMeta(file.path, newPath);
+    showToast(`Duplicated ${file.name} as ${baseName(newPath)}.`);
+    await logAction(
+      "duplicated",
+      `Duplicated ${file.name} as ${baseName(newPath)}.`,
+    ).catch(() => {});
+    await refresh();
+  } catch (e) {
+    showToast(String(e), "error");
+  }
+}
+async function duplicateFolder(folder: { path: string; name: string }) {
+  if (!props.filesDir) return;
+  try {
+    const base = props.filesDir.replace(/[\\/]+$/, "");
+    const sep = folder.path.includes("\\") ? "\\" : "/";
+    const oldFull = base + sep + folder.path;
+    const newPath = await duplicateLibraryItem(props.filesDir, oldFull);
+    // Duplicated files are new paths: copy the meta of the whole subtree.
+    const next = { ...meta.value };
+    for (const [key, value] of Object.entries(meta.value)) {
+      if (key === oldFull || key.startsWith(oldFull + sep)) {
+        const nk = newPath + key.slice(oldFull.length);
+        await setFileMeta(nk, { ...value }).catch(() => {});
+        next[nk] = { ...value };
+      }
+    }
+    meta.value = next;
+    showToast(`Duplicated folder ${folder.name} as ${baseName(newPath)}.`);
+    await logAction(
+      "duplicated",
+      `Duplicated folder ${folder.name} as ${baseName(newPath)}.`,
+    ).catch(() => {});
+    await refresh();
+  } catch (e) {
+    showToast(String(e), "error");
+  }
+}
+
 /* ------------------------- context menu ------------------------- */
 const ctx = ref<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+// One menu definition shared by the right-click menu and the ⋮ button,
+// so the two never drift apart.
+function fileMenuItems(file: LibraryFile): ContextMenuItem[] {
+  return [
+    { label: "Open", icon: ExternalLink, action: () => openPath(file.path) },
+    {
+      label: "Open containing folder",
+      icon: FolderOpen,
+      action: () => openFolder(file),
+    },
+    { label: "Set status", icon: Tag, action: () => openStatus(file) },
+    {
+      label: metaOf(file).notes ? "Edit note" : "Add a note",
+      icon: StickyNote,
+      action: () => openNotes(file),
+    },
+    {
+      label: metaOf(file).starred ? "Remove star" : "Star",
+      icon: Star,
+      action: () => toggleStar(file),
+    },
+    { label: "Duplicate", icon: Copy, action: () => duplicateFile(file) },
+    {
+      label: "Delete",
+      icon: Trash2,
+      danger: true,
+      action: () => (confirmDelete.value = { kind: "file", file }),
+    },
+  ];
+}
+function folderMenuItems(folder: {
+  path: string;
+  name: string;
+}): ContextMenuItem[] {
+  return [
+    {
+      label: "Open folder",
+      icon: FolderOpen,
+      action: () => goFolder(folder.path),
+    },
+    {
+      label: "Duplicate folder",
+      icon: Copy,
+      action: () => duplicateFolder(folder),
+    },
+    {
+      label: "Delete folder",
+      icon: Trash2,
+      danger: true,
+      action: () => askDeleteFolderPath(folder.path),
+    },
+  ];
+}
 function openFileCtx(event: MouseEvent, file: LibraryFile) {
   ctx.value = {
     x: event.clientX,
     y: event.clientY,
-    items: [
-      { label: "Open", icon: ExternalLink, action: () => openPath(file.path) },
-      {
-        label: "Open containing folder",
-        icon: FolderOpen,
-        action: () => openFolder(file),
-      },
-      { label: "Set status", icon: Tag, action: () => openStatus(file) },
-      {
-        label: metaOf(file).notes ? "Edit note" : "Add a note",
-        icon: StickyNote,
-        action: () => openNotes(file),
-      },
-      {
-        label: metaOf(file).starred ? "Remove star" : "Star",
-        icon: Star,
-        action: () => toggleStar(file),
-      },
-      {
-        label: "Delete",
-        icon: Trash2,
-        danger: true,
-        action: () => (confirmDelete.value = { kind: "file", file }),
-      },
-    ],
+    items: fileMenuItems(file),
   };
+}
+function openFileMenu(event: MouseEvent, file: LibraryFile) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  ctx.value = { x: rect.right - 224, y: rect.bottom + 4, items: fileMenuItems(file) };
+}
+function openFolderMenu(event: MouseEvent, folder: { path: string; name: string }) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  ctx.value = { x: rect.right - 224, y: rect.bottom + 4, items: folderMenuItems(folder) };
 }
 function openContainerCtx(event: MouseEvent) {
   // Leave the normal text menu alone inside form fields.
@@ -503,23 +758,11 @@ function openContainerCtx(event: MouseEvent) {
   ctx.value = { x: event.clientX, y: event.clientY, items };
 }
 defineExpose({ openContainerCtx });
-function openFolderCtx(event: MouseEvent, folder: { path: string }) {
+function openFolderCtx(event: MouseEvent, folder: { path: string; name: string }) {
   ctx.value = {
     x: event.clientX,
     y: event.clientY,
-    items: [
-      {
-        label: "Open folder",
-        icon: FolderOpen,
-        action: () => goFolder(folder.path),
-      },
-      {
-        label: "Delete folder",
-        icon: Trash2,
-        danger: true,
-        action: () => askDeleteFolderPath(folder.path),
-      },
-    ],
+    items: folderMenuItems(folder),
   };
 }
 
@@ -779,6 +1022,20 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <div v-if="selected.size" class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900">
+      <span class="font-medium">{{ selected.size }} selected</span>
+      <span class="flex flex-wrap gap-1.5">
+        <button class="toolbar-btn" @click="showBatchMove = true">Move to folder</button>
+        <button class="toolbar-btn" @click="batchDuplicate">Duplicate</button>
+        <button class="toolbar-btn" @click="batchStar">{{ selectedFiles().every((f) => metaOf(f).starred) ? "Unstar" : "Star" }}</button>
+        <button class="rounded-lg bg-red-100/80 px-3 py-2 font-medium text-red-700 hover:bg-red-200 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900" @click="confirmBatchDelete = true">Delete</button>
+      </span>
+      <span class="ml-auto flex gap-3">
+        <button class="font-medium hover:underline" @click="toggleSelectAll">Select all</button>
+        <button class="font-medium hover:underline" @click="clearSelection">Clear</button>
+      </span>
+    </div>
+
     <div v-if="notice" class="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
       {{ notice }}
     </div>
@@ -834,11 +1091,11 @@ onUnmounted(() => {
             </button>
             <button
               v-if="currentFolder"
-              class="file-action file-action-danger"
-              :title="`Delete folder ${currentFolder} and everything in it`"
-              @click="askDeleteFolderPath(currentFolder)"
+              class="file-action"
+              title="Actions"
+              @click="openFolderMenu($event, { path: currentFolder, name: baseName(currentFolder) })"
             >
-              <Trash2 class="h-4 w-4" />
+              <MoreVertical class="h-4 w-4" />
             </button>
           </span>
         </nav>
@@ -863,11 +1120,11 @@ onUnmounted(() => {
           >
             <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
               <button
-                class="file-action-sm file-action-danger"
-                title="Delete this folder and everything in it"
-                @click.stop="askDeleteFolderPath(folder.path)"
+                class="file-action-sm"
+                title="Actions"
+                @click.stop="openFolderMenu($event, folder)"
               >
-                <Trash2 class="h-3.5 w-3.5" />
+                <MoreVertical class="h-3.5 w-3.5" />
               </button>
             </span>
             <Folder class="h-16 w-16 text-amber-500" />
@@ -897,11 +1154,11 @@ onUnmounted(() => {
             <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
             <span class="shrink-0 text-xs text-neutral-500">{{ folder.count }} item{{ folder.count === 1 ? "" : "s" }}</span>
             <button
-              class="file-action-sm file-action-danger shrink-0"
-              title="Delete this folder and everything in it"
-              @click.stop="askDeleteFolderPath(folder.path)"
+              class="file-action-sm shrink-0"
+              title="Actions"
+              @click.stop="openFolderMenu($event, folder)"
             >
-              <Trash2 class="h-3.5 w-3.5" />
+              <MoreVertical class="h-3.5 w-3.5" />
             </button>
             <ChevronRight class="h-4 w-4 shrink-0 text-neutral-400" />
           </div>
@@ -922,11 +1179,11 @@ onUnmounted(() => {
           </h3>
           <button
             v-if="items[0]?.folder"
-            class="file-action file-action-danger"
-            :title="`Delete folder ${items[0]?.folder ?? ''} and everything in it`"
-            @click="askDeleteFolderPath(items[0]?.folder ?? '')"
+            class="file-action"
+            title="Actions"
+            @click="openFolderMenu($event, { path: items[0].folder, name: baseName(items[0].folder) })"
           >
-            <Trash2 class="h-4 w-4" />
+            <MoreVertical class="h-4 w-4" />
           </button>
         </div>
         <div
@@ -935,7 +1192,8 @@ onUnmounted(() => {
         >
           <table class="w-full table-fixed text-sm">
             <colgroup>
-              <col style="width: 46%" />
+              <col style="width: 36px" />
+              <col style="width: 42%" />
               <col style="width: 16%" />
               <col style="width: 9%" />
               <col style="width: 13%" />
@@ -943,6 +1201,7 @@ onUnmounted(() => {
             </colgroup>
             <thead>
               <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
+                <th class="px-2 py-2"><input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="allVisibleSelected" @change="toggleSelectAll" /></th>
                 <th class="px-4 py-2 font-medium">Name</th>
                 <th class="px-4 py-2 font-medium">Category</th>
                 <th class="px-4 py-2 font-medium">Size</th>
@@ -952,6 +1211,7 @@ onUnmounted(() => {
             </thead>
             <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
               <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" :class="isDragged(file.path) ? 'opacity-50' : ''" @pointerdown="onDragPointerDown($event, dragSourceForFile(file))" @pointermove="onDragPointerMove" @pointerup="onDragPointerUp" @pointercancel="onDragPointerUp" @contextmenu.prevent.stop="openFileCtx($event, file)">
+                <td class="px-2 py-2.5"><input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="isSelected(file.path)" @change="toggleSelect(file.path)" @click.stop /></td>
                 <td class="max-w-0 px-4 py-2.5">
                   <span class="flex min-w-0 items-center gap-2.5">
                     <button class="shrink-0 rounded p-0.5" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click="toggleStar(file)">
@@ -977,20 +1237,8 @@ onUnmounted(() => {
                 </td>
                 <td class="px-4 py-2.5">
                   <span class="flex justify-end gap-1">
-                    <button class="file-action" title="Set status" @click="openStatus(file)">
-                      <Tag class="h-4 w-4" />
-                    </button>
-                    <button class="file-action" :title="metaOf(file).notes ? 'Edit note' : 'Add a note'" @click="openNotes(file)">
-                      <StickyNote class="h-4 w-4" :class="metaOf(file).notes ? 'text-blue-600 dark:text-blue-400' : ''" />
-                    </button>
-                    <button class="file-action" title="Open the folder containing this file" @click="openFolder(file)">
-                      <FolderOpen class="h-4 w-4" />
-                    </button>
-                    <button class="file-action" title="Open this file" @click="openPath(file.path)">
-                      <ExternalLink class="h-4 w-4" />
-                    </button>
-                    <button class="file-action file-action-danger" title="Delete this file" @click="confirmDelete = { kind: 'file', file }">
-                      <Trash2 class="h-4 w-4" />
+                    <button class="file-action" title="Actions" @click="openFileMenu($event, file)">
+                      <MoreVertical class="h-4 w-4" />
                     </button>
                   </span>
                 </td>
@@ -1022,23 +1270,18 @@ onUnmounted(() => {
               </button>
             </span>
             <span
-              class="absolute right-1 top-1 z-10 flex gap-0.5 opacity-0 transition group-hover:opacity-100"
+              class="absolute left-1 top-9 z-10"
+              :class="isSelected(file.path) ? '' : 'opacity-0 transition group-hover:opacity-100'"
               @dblclick.stop
             >
-              <button class="file-action-sm" title="Set status" @click="openStatus(file)">
-                <Tag class="h-3.5 w-3.5" />
-              </button>
-              <button class="file-action-sm" :title="metaOf(file).notes ? 'Edit note' : 'Add a note'" @click="openNotes(file)">
-                <StickyNote class="h-3.5 w-3.5" :class="metaOf(file).notes ? 'text-blue-600 dark:text-blue-400' : ''" />
-              </button>
-              <button class="file-action-sm" title="Open the folder containing this file" @click="openFolder(file)">
-                <FolderOpen class="h-3.5 w-3.5" />
-              </button>
-              <button class="file-action-sm" title="Open this file" @click="openPath(file.path)">
-                <ExternalLink class="h-3.5 w-3.5" />
-              </button>
-              <button class="file-action-sm file-action-danger" title="Delete this file" @click="confirmDelete = { kind: 'file', file }">
-                <Trash2 class="h-3.5 w-3.5" />
+              <input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="isSelected(file.path)" @change="toggleSelect(file.path)" @click.stop />
+            </span>
+            <span
+              class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100"
+              @dblclick.stop
+            >
+              <button class="file-action-sm" title="Actions" @click="openFileMenu($event, file)">
+                <MoreVertical class="h-3.5 w-3.5" />
               </button>
             </span>
             <span class="flex h-20 items-center justify-center">
@@ -1164,6 +1407,39 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+  <div
+    v-if="showBatchMove"
+    class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
+    :class="{ dark: chromeDark }"
+    @click.self="showBatchMove = false"
+  >
+    <div class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <h2 class="mb-1 text-lg font-semibold">Move {{ selected.size }} files</h2>
+      <p class="mb-4 text-sm text-neutral-500">Choose the folder to move them into.</p>
+      <label class="mb-1 block text-sm font-medium">Destination folder</label>
+      <select
+        v-model="batchMoveDest"
+        class="mb-5 w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-neutral-700"
+      >
+        <option value="">Library root</option>
+        <option v-for="folder in batchMoveFolders" :key="folder" :value="folder">{{ folder }}</option>
+      </select>
+      <div class="flex justify-end gap-2">
+        <button class="btn btn-ghost btn-sm" @click="showBatchMove = false">Cancel</button>
+        <button class="btn btn-primary btn-sm" @click="batchMove">Move</button>
+      </div>
+    </div>
+  </div>
+
+  <ConfirmDialog
+    v-if="confirmBatchDelete"
+    title="Delete selected files?"
+    :message="`${selected.size} file${selected.size === 1 ? '' : 's'} will be permanently deleted. This cannot be undone.`"
+    confirm-label="Delete"
+    @confirm="batchDelete"
+    @cancel="confirmBatchDelete = false"
+  />
 
   <ContextMenu
     v-if="ctx"

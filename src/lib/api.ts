@@ -131,6 +131,15 @@ export function moveLibraryItem(
   return invoke("move_library_item", { libraryDir, source, destFolder });
 }
 
+/** Duplicate a file or folder inside the library, next to the original.
+ *  Returns the new absolute path. */
+export function duplicateLibraryItem(
+  libraryDir: string,
+  source: string,
+): Promise<string> {
+  return invoke("duplicate_library_item", { libraryDir, source });
+}
+
 export interface ImportResult {
   path: string;
   warning: string | null;

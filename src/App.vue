@@ -124,12 +124,14 @@ const HISTORY_KIND_LABELS: Record<string, string> = {
   imported: "Imported",
   moved: "Moved",
   deleted: "Deleted",
+  duplicated: "Duplicated",
 };
 const HISTORY_KIND_CLASSES: Record<string, string> = {
   added: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   imported: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   moved: "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200",
   deleted: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
+  duplicated: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
 };
 const sshProject = ref<Project | null>(null);
 const readmeProject = ref<Project | null>(null);

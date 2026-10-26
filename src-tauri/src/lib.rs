@@ -1230,6 +1230,74 @@ async fn move_library_item(
     .map_err(|e| e.to_string())?
 }
 
+/// Duplicate a file or folder inside the library, next to the original,
+/// with Explorer-style naming: "name - Copy.ext", then "name - Copy (2).ext".
+/// Returns the new absolute path. The original is untouched.
+fn duplicate_library_item_impl(library_dir: String, source: String) -> Result<String, String> {
+    let lib = PathBuf::from(&library_dir)
+        .canonicalize()
+        .map_err(|e| format!("Library folder not found: {e}"))?;
+    let src = PathBuf::from(&source)
+        .canonicalize()
+        .map_err(|e| format!("That file or folder was not found: {e}"))?;
+    if src == lib || !src.starts_with(&lib) {
+        return Err("That item is not inside the library folder.".into());
+    }
+    let parent = src
+        .parent()
+        .ok_or("That item has no parent folder.")?
+        .to_path_buf();
+    let name = src
+        .file_name()
+        .ok_or("That item has no name.")?
+        .to_string_lossy()
+        .to_string();
+    let (stem, ext) = if src.is_file() {
+        let stem = src
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or(name.clone());
+        let ext = src
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+        (stem, ext)
+    } else {
+        (name, String::new())
+    };
+    let mut i = 1;
+    let dest = loop {
+        let new_name = if i == 1 {
+            format!("{stem} - Copy{ext}")
+        } else {
+            format!("{stem} - Copy ({i}){ext}")
+        };
+        let candidate = parent.join(new_name);
+        if !candidate.exists() {
+            break candidate;
+        }
+        i += 1;
+    };
+    if src.is_file() {
+        fs::copy(&src, &dest).map_err(|e| format!("Could not duplicate the file: {e}"))?;
+    } else {
+        copy_dir_recursive(&src, &dest)?;
+    }
+    Ok(dest.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn duplicate_library_item(
+    library_dir: String,
+    source: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        duplicate_library_item_impl(library_dir, source)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 
 fn do_import_folder_to_library(
     source: String,
@@ -1398,6 +1466,7 @@ pub fn run() {
             delete_library_file,
             delete_library_folder,
             move_library_item,
+            duplicate_library_item,
             open_path,
             allow_asset_dir
         ])

@@ -85,3 +85,16 @@ CREATE TABLE files (
 - Every addition, import, move, and deletion is recorded in a SQLite
   `action_history` table (latest 500) and reviewable from the Files toolbar's
   History button, which also offers clearing the log.
+
+## Batch actions, ⋮ menus, duplicate (2026-10-26)
+- Files have checkboxes (list rows + grid tiles; header checkbox selects the
+  whole current view). A batch bar appears with Move to folder, Duplicate,
+  Star/Unstar, and Delete for the selection. Selection survives tab switches
+  and refreshes (only pruned when a file no longer exists).
+- Per-file and per-folder actions are grouped into a three-dot menu (the
+  standard ContextMenu); right-click menus share the same items, so the two
+  never drift apart. The status badge in list rows still changes status
+  directly.
+- Duplicate (file or folder, from the ⋮ menu or the batch bar) copies next
+  to the original as "name - Copy.ext" (then " - Copy (2)", …) and carries
+  status/notes/star along to the new path.
