@@ -62,6 +62,9 @@ function loadDb(): Promise<Database> {
       if (!colNames.has("icon_value")) {
         await db.execute("ALTER TABLE projects ADD COLUMN icon_value TEXT");
       }
+      if (!colNames.has("icon_color")) {
+        await db.execute("ALTER TABLE projects ADD COLUMN icon_color TEXT");
+      }
       // NOTE: SSH passwords are intentionally NOT stored here.
       // Profiles hold connection details only; auth uses SSH keys.
       await db.execute(`
@@ -116,6 +119,7 @@ interface ProjectRow {
   sort_order: number;
   icon_kind: string | null;
   icon_value: string | null;
+  icon_color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -142,6 +146,7 @@ export async function listProjects(): Promise<Project[]> {
       sortOrder: row.sort_order,
       iconKind: (row.icon_kind as Project["iconKind"]) ?? null,
       iconValue: row.icon_value,
+      iconColor: row.icon_color ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
@@ -181,11 +186,13 @@ export async function setProjectIcon(
   id: number,
   kind: Project["iconKind"],
   value: string | null,
+  color?: string | null,
 ): Promise<void> {
   const db = await loadDb();
   await db.execute(
-    "UPDATE projects SET icon_kind = $1, icon_value = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3",
-    [kind, value, id],
+    "UPDATE projects SET icon_kind = $1, icon_value = $2, icon_color = $3, " +
+      "updated_at = CURRENT_TIMESTAMP WHERE id = $4",
+    [kind, value, color ?? null, id],
   );
 }
 

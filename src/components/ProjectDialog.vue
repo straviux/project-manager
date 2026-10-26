@@ -7,7 +7,12 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { FolderOpen, X } from "@lucide/vue";
 import { createProject, setProjectIcon, updateProject } from "../lib/db";
 import { deleteProjectIcon, detectStacks, saveProjectIcon } from "../lib/api";
-import { PROJECT_ICONS, PROJECT_ICON_NAMES } from "../lib/projectIcons";
+import {
+  PROJECT_ICON_COLOR_NAMES,
+  PROJECT_ICON_COLORS,
+  PROJECT_ICONS,
+  PROJECT_ICON_NAMES,
+} from "../lib/projectIcons";
 import { KNOWN_STACKS, type Project, type ProjectDraft } from "../types";
 
 const props = defineProps<{ project: Project | null }>();
@@ -32,6 +37,7 @@ const iconName = ref<string>(
     ? (props.project.iconValue ?? "Folder")
     : "Folder",
 );
+const iconColor = ref<string>(props.project?.iconColor ?? "blue");
 const icoStored = ref<string | null>(
   props.project?.iconKind === "ico" ? props.project.iconValue : null,
 );
@@ -90,18 +96,18 @@ async function save() {
     // stored under its id.
     if (iconKind.value === "lucide") {
       if (icoStored.value) await deleteProjectIcon(id).catch(() => {});
-      await setProjectIcon(id, "lucide", iconName.value);
+      await setProjectIcon(id, "lucide", iconName.value, iconColor.value);
     } else if (iconKind.value === "ico") {
       if (icoSource.value) {
         const stored = await saveProjectIcon(icoSource.value, id);
-        await setProjectIcon(id, "ico", stored);
+        await setProjectIcon(id, "ico", stored, iconColor.value);
       } else if (!icoStored.value) {
-        await setProjectIcon(id, null, null);
+        await setProjectIcon(id, null, null, iconColor.value);
       }
       // Otherwise the previously stored .ico stays as-is.
     } else {
       if (icoStored.value) await deleteProjectIcon(id).catch(() => {});
-      await setProjectIcon(id, null, null);
+      await setProjectIcon(id, null, null, iconColor.value);
     }
     emit("saved");
   } catch (e) {
@@ -206,8 +212,28 @@ async function save() {
               : 'ring-neutral-300 hover:ring-blue-400 dark:ring-neutral-700'"
             @click="iconName = name"
           >
-            <component :is="PROJECT_ICONS[name]" class="h-5 w-5" />
+            <component
+              :is="PROJECT_ICONS[name]"
+              class="h-5 w-5"
+              :class="(PROJECT_ICON_COLORS[iconColor] ?? PROJECT_ICON_COLORS.blue).text"
+            />
           </button>
+        </div>
+
+        <div v-if="iconKind === 'lucide'" class="mt-2 flex items-center gap-2">
+          <span class="text-xs font-medium text-neutral-500">Color</span>
+          <button
+            v-for="colorName in PROJECT_ICON_COLOR_NAMES"
+            :key="colorName"
+            type="button"
+            :title="colorName"
+            class="h-6 w-6 rounded-full ring-2 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900"
+            :class="[
+              PROJECT_ICON_COLORS[colorName].dot,
+              iconColor === colorName ? 'ring-blue-500' : 'ring-transparent',
+            ]"
+            @click="iconColor = colorName"
+          />
         </div>
 
         <div v-else-if="iconKind === 'ico'">

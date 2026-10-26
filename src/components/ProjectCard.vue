@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   ArrowDown,
   ArrowUp,
@@ -20,7 +20,7 @@ import {
 } from "@lucide/vue";
 import VscodeIcon from "./VscodeIcon.vue";
 import { getGitStatus } from "../lib/api";
-import { PROJECT_ICONS } from "../lib/projectIcons";
+import { PROJECT_ICON_COLORS, PROJECT_ICONS } from "../lib/projectIcons";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { GitStatus, Project } from "../types";
 
@@ -45,6 +45,11 @@ const emit = defineEmits<{
 }>();
 
 const status = ref<GitStatus | null>(null);
+const iconColorClass = computed(
+  () =>
+    (PROJECT_ICON_COLORS[props.project.iconColor ?? "blue"] ??
+      PROJECT_ICON_COLORS.blue).text,
+);
 const menuOpen = ref(false);
 const menuWrap = ref<HTMLElement | null>(null);
 
@@ -113,7 +118,8 @@ watch(() => props.statusKey, loadStatus);
         <component
           v-else-if="project.iconKind === 'lucide' && project.iconValue && PROJECT_ICONS[project.iconValue]"
           :is="PROJECT_ICONS[project.iconValue]"
-          class="h-5 w-5 shrink-0 text-blue-500"
+          class="h-5 w-5 shrink-0"
+          :class="iconColorClass"
         />
         <Folder v-else class="h-5 w-5 shrink-0 text-amber-500" />
         <span class="truncate">{{ project.name }}</span>

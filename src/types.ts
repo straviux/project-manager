@@ -9,6 +9,7 @@ export interface Project {
   sortOrder: number;
   iconKind: "lucide" | "ico" | null;
   iconValue: string | null;
+  iconColor: string | null;
   createdAt: string;
   updatedAt: string;
 }
