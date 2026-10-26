@@ -11,7 +11,7 @@ import {
   FolderOpen,
   GitBranch,
   GripVertical,
-  MoreVertical,
+  Settings2,
   Pencil,
   Star,
   Server,
@@ -189,7 +189,7 @@ watch(() => props.statusKey, loadStatus);
             data-tip="More actions"
             @click="menuOpen = !menuOpen"
           >
-            <MoreVertical class="h-4 w-4" />
+            <Settings2 class="h-4 w-4" />
           </button>
           <template v-if="menuOpen">
             <ul

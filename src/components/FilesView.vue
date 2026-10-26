@@ -914,17 +914,22 @@ let suppressClick = false;
 // Checkboxes only render in selection mode — never on hover.
 let longPressTimer: number | null = null;
 let longPressItem: { kind: "file" | "folder"; key: string } | null = null;
+// The item currently being held: it highlights while the 3s counts down,
+// so a hold is visibly different from a plain press.
+const longPressKey = ref<string | null>(null);
 function clearLongPress() {
   if (longPressTimer !== null) {
     clearTimeout(longPressTimer);
     longPressTimer = null;
   }
   longPressItem = null;
+  longPressKey.value = null;
 }
 function fireLongPress() {
   const item = longPressItem;
   longPressItem = null;
   longPressTimer = null;
+  longPressKey.value = null;
   if (!item) return;
   suppressClick = true; // swallow the click that follows release
   if (item.kind === "file") {
@@ -993,6 +998,7 @@ function onDragPointerDown(event: PointerEvent, source: DragSource) {
     !(event.target as HTMLElement).closest("button, input, a")
   ) {
     longPressItem = { kind: source.kind, key: source.key };
+    longPressKey.value = source.key;
     longPressTimer = window.setTimeout(fireLongPress, 3000);
   }
 }
@@ -1262,7 +1268,7 @@ onUnmounted(() => {
             v-for="folder in childFolders"
             :key="folder.path"
             class="group relative flex cursor-pointer flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
-            :class="[isDropTarget(folder.path) ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '', isDragged(folder.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : '']"
+            :class="[isDropTarget(folder.path) ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '', isDragged(folder.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : '', longPressKey === folder.path ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '']"
             :title="`Open folder ${folder.name}`"
             :data-drop-folder="folder.path"
             @click="onFolderTileClick(folder.path)"
@@ -1298,7 +1304,7 @@ onUnmounted(() => {
             v-for="folder in childFolders"
             :key="folder.path"
             class="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
-            :class="[isDropTarget(folder.path) ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '', isDragged(folder.path) ? 'opacity-50' : '']"
+            :class="[isDropTarget(folder.path) ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '', isDragged(folder.path) ? 'opacity-50' : '', longPressKey === folder.path ? 'bg-blue-100/70 dark:bg-blue-900/40' : '']"
             :data-drop-folder="folder.path"
             @click="onFolderTileClick(folder.path)"
             @pointerdown="onDragPointerDown($event, dragSourceForFolder(folder))"
@@ -1367,7 +1373,7 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
-              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" :class="isDragged(file.path) ? 'opacity-50' : ''" @pointerdown="onDragPointerDown($event, dragSourceForFile(file))" @pointermove="onDragPointerMove" @pointerup="onDragPointerUp" @pointercancel="onDragPointerUp" @click="onFileRowClick(file)" @contextmenu.prevent.stop="openFileCtx($event, file)">
+              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" :class="[isDragged(file.path) ? 'opacity-50' : '', longPressKey === file.path ? 'bg-blue-100/70 dark:bg-blue-900/40' : '']" @pointerdown="onDragPointerDown($event, dragSourceForFile(file))" @pointermove="onDragPointerMove" @pointerup="onDragPointerUp" @pointercancel="onDragPointerUp" @click="onFileRowClick(file)" @contextmenu.prevent.stop="openFileCtx($event, file)">
                 <td v-if="selectionMode" class="px-2 py-2.5"><input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="isSelected(file.path)" @change="toggleSelect(file.path)" @click.stop /></td>
                 <td class="max-w-0 px-4 py-2.5">
                   <span class="flex min-w-0 items-center gap-2.5">
@@ -1408,7 +1414,7 @@ onUnmounted(() => {
             v-for="file in items"
             :key="file.path"
             class="group relative flex flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
-            :class="isDragged(file.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : ''"
+            :class="[isDragged(file.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : '', longPressKey === file.path ? 'ring-2 ring-blue-500 bg-blue-100/60 dark:bg-blue-900/40' : '']"
             title="Double-click to open"
             @click="onFileTileClick(file)"
             @dblclick="onFileTileDblClick(file)"
