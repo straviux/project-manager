@@ -4,6 +4,7 @@ import {
   ArrowDownToLine,
   BookOpen,
   Code,
+  Copy,
   Download,
   Files,
   FolderCog,
@@ -274,6 +275,15 @@ const projectCtxItems = computed<ContextMenuItem[]>(() => {
       icon: BookOpen,
       action: () => (readmeProject.value = project),
     },
+    ...(project.repoUrl
+      ? [
+          {
+            label: "Copy clone URL",
+            icon: Copy,
+            action: () => copyClone(project),
+          },
+        ]
+      : []),
     {
       label: project.pinned ? "Remove star" : "Star",
       icon: Star,
@@ -283,6 +293,24 @@ const projectCtxItems = computed<ContextMenuItem[]>(() => {
     { label: "Remove", icon: Trash2, danger: true, action: () => remove(project) },
   ];
 });
+async function copyClone(project: Project) {
+  if (!project.repoUrl) return;
+  const base = project.repoUrl.replace(/\/+$/, "");
+  const cloneUrl = base.endsWith(".git") ? base : `${base}.git`;
+  try {
+    await navigator.clipboard.writeText(cloneUrl);
+  } catch {
+    // Clipboard API can be unavailable in some webviews; fall back to the
+    // classic hidden-textarea copy.
+    const ta = document.createElement("textarea");
+    ta.value = cloneUrl;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+  flash("Clone URL copied");
+}
 function onProjectContext(event: MouseEvent, project: Project) {
   containerCtx.value = null;
   projectCtx.value = { x: event.clientX, y: event.clientY, project };
@@ -549,6 +577,7 @@ function openEdit(project: Project) {
             :status-key="statusKey"
             :reorder-enabled="!search.trim()"
             @pin="togglePin(project)"
+            @copy-clone="copyClone(project)"
             @context="(e) => onProjectContext(e, project)"
             @drag-start="onDragStart(project.id)"
             @drop="onDrop(project.id)"

@@ -5,6 +5,7 @@ import {
   ArrowUp,
   CircleCheck,
   Code,
+  Copy,
   ExternalLink,
   FileText,
   Folder,
@@ -35,6 +36,7 @@ const emit = defineEmits<{
   ssh: [];
   readme: [];
   edit: [];
+  copyClone: [];
   remove: [];
   pin: [];
   context: [event: MouseEvent];
@@ -120,6 +122,11 @@ watch(() => props.statusKey, loadStatus);
               <li>
                 <a @click="menuOpen = false; emit('edit')">
                   <Pencil class="h-4 w-4" /> Edit
+                </a>
+              </li>
+              <li v-if="project.repoUrl">
+                <a @click="menuOpen = false; emit('copyClone')">
+                  <Copy class="h-4 w-4" /> Copy clone URL
                 </a>
               </li>
               <li>
