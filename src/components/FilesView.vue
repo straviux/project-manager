@@ -6,7 +6,6 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   Archive,
   ArrowUp,
-  Check,
   ChevronRight,
   Code,
   Copy,
@@ -62,7 +61,11 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import ContextMenu, { type ContextMenuItem } from "./ContextMenu.vue";
 
 const props = defineProps<{ filesDir: string | null; active: boolean }>();
-const emit = defineEmits<{ dirChanged: [dir: string]; stats: [text: string] }>();
+const emit = defineEmits<{
+  dirChanged: [dir: string];
+  stats: [text: string];
+  selecting: [on: boolean];
+}>();
 
 const files = ref<LibraryFile[]>([]);
 const query = ref("");
@@ -464,8 +467,8 @@ function dismissBusy(item: BusyItem) {
 
 /* ------------------------- batch selection ------------------------- */
 // Checkboxes only exist in selection mode, switched on by the small
-// Select button below the toolbar (Done switches it off again and clears
-// the selection).
+// Select button at the right end of the footer library row (Done switches
+// it off again and clears the selection).
 const selected = ref(new Set<string>());
 const selectedFolders = ref(new Set<string>());
 const selecting = ref(false);
@@ -477,6 +480,7 @@ function toggleSelecting() {
   } else {
     selecting.value = true;
   }
+  emit("selecting", selecting.value);
 }
 const totalSelected = computed(
   () => selected.value.size + selectedFolders.value.size,
@@ -885,7 +889,7 @@ function openContainerCtx(event: MouseEvent) {
   }
   ctx.value = { x: event.clientX, y: event.clientY, items };
 }
-defineExpose({ openContainerCtx });
+defineExpose({ openContainerCtx, toggleSelecting });
 function openFolderCtx(event: MouseEvent, folder: { path: string; name: string }) {
   ctx.value = {
     x: event.clientX,
@@ -1143,17 +1147,6 @@ onUnmounted(() => {
           <LayoutGrid class="h-4 w-4" /> Icons
         </button>
       </div>
-    </div>
-
-    <div class="mb-3 flex items-center">
-      <button
-        class="tooltip tooltip-bottom flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
-        :class="selecting ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300' : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'"
-        :data-tip="selecting ? 'Exit selection mode' : 'Show checkboxes to select files and folders'"
-        @click="toggleSelecting"
-      >
-        <Check class="h-3.5 w-3.5" /> {{ selecting ? "Done" : "Select" }}
-      </button>
     </div>
 
     <div v-if="totalSelected" class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900">

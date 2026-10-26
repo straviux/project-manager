@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, type Component } from "vue";
 import {
   ArrowDownToLine,
   BookOpen,
+  Check,
   Code,
   Copy,
   Download,
@@ -384,6 +385,7 @@ const containerCtxItems: ContextMenuItem[] = [
   { label: "Clone repository", icon: Download, action: () => (showClone.value = true) },
 ];
 const filesViewRef = ref<InstanceType<typeof FilesView> | null>(null);
+const filesSelecting = ref(false);
 const filesStats = ref("");
 function onBodyContext(event: MouseEvent) {
   if ((event.target as HTMLElement).closest("input, textarea, select")) return;
@@ -692,6 +694,7 @@ function openEdit(project: Project) {
             :active="tab === 'files'"
             @dir-changed="(d) => (filesDir = d)"
             @stats="(text) => (filesStats = text)"
+            @selecting="(on) => (filesSelecting = on)"
           />
         </div>
       </main>
@@ -712,7 +715,17 @@ function openEdit(project: Project) {
               <span class="tooltip tooltip-top truncate font-mono" :data-tip="filesDir ?? ''">{{ filesDir }}</span>
               <span class="shrink-0">— drop files anywhere here to add them.</span>
             </span>
-            <span v-if="filesStats" class="ml-auto shrink-0 whitespace-nowrap">{{ filesStats }}</span>
+            <span class="ml-auto flex shrink-0 items-center gap-3">
+              <span v-if="filesStats" class="whitespace-nowrap">{{ filesStats }}</span>
+              <button
+                class="tooltip tooltip-top flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-neutral-200/70 dark:hover:bg-neutral-800"
+                :class="filesSelecting ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300' : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'"
+                :data-tip="filesSelecting ? 'Exit selection mode' : 'Show checkboxes to select files and folders'"
+                @click="filesViewRef?.toggleSelecting()"
+              >
+                <Check class="h-3.5 w-3.5" /> {{ filesSelecting ? "Done" : "Select" }}
+              </button>
+            </span>
           </template>
         </div>
       </footer>
