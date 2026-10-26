@@ -47,6 +47,18 @@ struct LibraryFile {
     size: u64,
 }
 
+/// On Windows, a console program (git, cmd) spawned from a GUI app pops a
+/// visible console window unless told otherwise. That is the brief terminal
+/// flash on startup: every project card runs `git status` when the app
+/// opens, so each one flashed its own window. This flag makes the child run
+/// with no window at all. Deliberately NOT used by spawn_terminal — that
+/// window is the whole point there.
+#[cfg(target_os = "windows")]
+fn no_console_window(cmd: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+}
+
 /* ============================ terminal helper =========================== */
 
 /// Spawn a new terminal window, optionally in `cwd` and/or running `command`.
@@ -163,6 +175,7 @@ fn open_in_vscode(path: String) -> Result<(), String> {
     let mut cmd = {
         let mut c = Command::new("cmd");
         c.args(["/C", "code", &path]);
+        no_console_window(&mut c);
         c
     };
     #[cfg(not(target_os = "windows"))]
@@ -199,8 +212,9 @@ fn open_url(url: String) -> Result<(), String> {
     {
         // `start` reads the first quoted chunk as a window title, so an
         // empty title ("") comes first and the URL second.
-        Command::new("cmd")
-            .args(["/C", "start", "", &url])
+        let mut c = Command::new("cmd");
+        no_console_window(&mut c);
+        c.args(["/C", "start", "", &url])
             .spawn()
             .map_err(|e| format!("Could not open link: {e}"))?;
         return Ok(());
@@ -407,7 +421,10 @@ fn git_clone_impl(
     if dest.exists() {
         return Err(format!("Destination already exists: {}", dest.display()));
     }
-    let output = Command::new("git")
+    let mut git_cmd = Command::new("git");
+    #[cfg(target_os = "windows")]
+    no_console_window(&mut git_cmd);
+    let output = git_cmd
         .arg("clone")
         .arg("--")
         .arg(&repo_url)
@@ -445,7 +462,10 @@ fn git_status_impl(path: String) -> GitStatus {
         ahead: 0,
         behind: 0,
     };
-    let output = Command::new("git")
+    let mut git_cmd = Command::new("git");
+    #[cfg(target_os = "windows")]
+    no_console_window(&mut git_cmd);
+    let output = git_cmd
         .arg("-C")
         .arg(&path)
         .args(["status", "--porcelain=v1", "--branch"])
@@ -889,8 +909,9 @@ fn allow_asset_dir(app: tauri::AppHandle, dir: String) -> Result<(), String> {
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        Command::new("cmd")
-            .args(["/C", "start", "", &path])
+        let mut c = Command::new("cmd");
+        no_console_window(&mut c);
+        c.args(["/C", "start", "", &path])
             .spawn()
             .map_err(|e| format!("Failed to open: {e}"))?;
     }
