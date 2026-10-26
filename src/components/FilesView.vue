@@ -464,8 +464,9 @@ function dismissBusy(item: BusyItem) {
 
 /* ------------------------- batch selection ------------------------- */
 // Checkboxes only exist in selection mode, switched on by the small
-// Select button at the right end of the row just above the folders/files
-// (Done switches it off again and clears the selection).
+// Select button at the right end of the breadcrumbs row, inline with the
+// current-directory buttons (Done switches it off again and clears the
+// selection).
 const selected = ref(new Set<string>());
 const selectedFolders = ref(new Set<string>());
 const selecting = ref(false);
@@ -1196,17 +1197,7 @@ onUnmounted(() => {
       <p class="mb-1 text-lg font-medium">The library is empty</p>
       <p class="text-sm">Use <strong>Add files</strong>, <strong>Import folder</strong>, or drag &amp; drop files here — they'll be moved in and categorized.</p>
     </div>
-    <div v-if="!loading && filtered.length" class="mb-3 flex items-center justify-end">
-      <button
-        class="tooltip tooltip-bottom flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
-        :class="selecting ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300' : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'"
-        :data-tip="selecting ? 'Exit selection mode' : 'Show checkboxes to select files and folders'"
-        @click="toggleSelecting"
-      >
-        <Check class="h-3.5 w-3.5" /> {{ selecting ? "Done" : "Select" }}
-      </button>
-    </div>
-    <div v-if="!loading && filtered.length" class="space-y-6">
+    <div v-else class="space-y-6">
       <template v-if="drillIn">
         <nav class="on-bg flex flex-wrap items-center gap-1 text-sm">
           <button class="crumb" :class="[!currentFolder ? 'crumb-active' : '', isDropTarget('') ? 'ring-2 ring-blue-500' : '']" data-drop-folder="" @click="goFolder('')">
@@ -1229,6 +1220,14 @@ onUnmounted(() => {
               @click="openFolderMenu($event, { path: currentFolder, name: baseName(currentFolder) })"
             >
               <Settings2 class="h-4 w-4" />
+            </button>
+            <button
+              class="tooltip tooltip-bottom flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              :class="selecting ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300' : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'"
+              :data-tip="selecting ? 'Exit selection mode' : 'Show checkboxes to select files and folders'"
+              @click="toggleSelecting"
+            >
+              <Check class="h-3.5 w-3.5" /> {{ selecting ? "Done" : "Select" }}
             </button>
           </span>
         </nav>
