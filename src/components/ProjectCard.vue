@@ -72,16 +72,22 @@ watch(menuOpen, (open) => {
   }
 });
 onUnmounted(() => document.removeEventListener("click", onDocClick, true));
-// Dragging is armed synchronously on the DOM element during mousedown.
-// Toggling it through Vue's reactive binding was too slow: the browser
-// had already decided the card was not draggable, so drags never started.
-// Arming only on a left-button press also keeps right-clicks instant.
-function armDrag(event: MouseEvent) {
-  (event.currentTarget as HTMLElement).draggable =
-    event.button === 0 && props.reorderEnabled;
-}
-function disarmDrag(event: MouseEvent) {
-  (event.currentTarget as HTMLElement).draggable = false;
+// Dragging used to depend on arming `draggable` during mousedown, but
+// WebView2 never reliably picked that up — grabs silently never became
+// drags, twice. So the card is simply always draggable now and reordering
+// is gated here instead: canceling dragstart means no drag at all, and the
+// drag carries data, which some engines require before a drag will start.
+// Right-click menus are unaffected (draggable does not block contextmenu).
+function onDragStart(event: DragEvent) {
+  if (!props.reorderEnabled) {
+    event.preventDefault();
+    return;
+  }
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(props.project.id));
+  }
+  emit("dragStart");
 }
 
 async function loadStatus() {
@@ -95,11 +101,9 @@ watch(() => props.statusKey, loadStatus);
   <article
     class="card-glass flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
     :class="project.pinned ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''"
-    @mousedown="armDrag"
-    @mouseup="disarmDrag"
-    @dragend="disarmDrag"
+    draggable="true"
     @contextmenu.prevent.stop="menuOpen = false; emit('context', $event)"
-    @dragstart="emit('dragStart')"
+    @dragstart="onDragStart"
     @dragover.prevent
     @drop.prevent="emit('drop')"
   >
