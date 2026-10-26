@@ -98,3 +98,11 @@ CREATE TABLE files (
 - Duplicate (file or folder, from the ⋮ menu or the batch bar) copies next
   to the original as "name - Copy.ext" (then " - Copy (2)", …) and carries
   status/notes/star along to the new path.
+
+## Hold-to-select (2026-10-26)
+- Checkboxes are hidden until selection mode: press and hold a file or
+  folder for 3 seconds to enter it (that item becomes selected). In
+  selection mode every file and folder shows a checkbox, clicks toggle
+  selection instead of opening/navigating, and deselecting the last item
+  exits the mode. Batch actions (move, duplicate, delete) cover folders as
+  well as files; Star stays files-only.

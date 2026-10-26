@@ -364,11 +364,21 @@ async function refresh() {
     void allowAssetDir(props.filesDir).catch(() => {});
     await loadMeta();
     // A refresh (e.g. switching back to this tab) must not wipe a
-    // selection in progress — just drop files that no longer exist.
-    if (selected.value.size) {
+    // selection in progress — just drop items that no longer exist.
+    if (selected.value.size || selectedFolders.value.size) {
       const paths = new Set(files.value.map((f) => f.path));
       selected.value = new Set(
         [...selected.value].filter((p) => paths.has(p)),
+      );
+      // A folder still exists if any file lives in it or below it.
+      const folderSet = new Set<string>();
+      for (const f of files.value) {
+        const parts = f.folder.split(SEP.value);
+        for (let i = 1; i <= parts.length; i++)
+          folderSet.add(parts.slice(0, i).join(SEP.value));
+      }
+      selectedFolders.value = new Set(
+        [...selectedFolders.value].filter((p) => folderSet.has(p)),
       );
     }
   } catch (e) {
@@ -452,10 +462,22 @@ function dismissBusy(item: BusyItem) {
 }
 
 /* ------------------------- batch selection ------------------------- */
-// Files only: folders keep single actions (their own ⋮ menu + duplicate).
+// Checkboxes only exist in selection mode: press and hold a file or folder
+// for 3 seconds to enter it (and select that item). Leaving the mode is
+// automatic — deselecting the last item hides every checkbox again.
 const selected = ref(new Set<string>());
+const selectedFolders = ref(new Set<string>());
+const selectionMode = computed(
+  () => selected.value.size > 0 || selectedFolders.value.size > 0,
+);
+const totalSelected = computed(
+  () => selected.value.size + selectedFolders.value.size,
+);
 function isSelected(path: string): boolean {
   return selected.value.has(path);
+}
+function isFolderSelected(path: string): boolean {
+  return selectedFolders.value.has(path);
 }
 function toggleSelect(path: string) {
   const next = new Set(selected.value);
@@ -463,11 +485,21 @@ function toggleSelect(path: string) {
   else next.add(path);
   selected.value = next;
 }
+function toggleFolderSelect(path: string) {
+  const next = new Set(selectedFolders.value);
+  if (next.has(path)) next.delete(path);
+  else next.add(path);
+  selectedFolders.value = next;
+}
 function clearSelection() {
   selected.value = new Set();
+  selectedFolders.value = new Set();
 }
 const visibleFiles = computed(() =>
   displayGroups.value.flatMap(([, items]) => items),
+);
+const visibleFolders = computed(() =>
+  drillIn.value ? childFolders.value : [],
 );
 const allVisibleSelected = computed(
   () =>
@@ -476,15 +508,28 @@ const allVisibleSelected = computed(
 );
 function toggleSelectAll() {
   const next = new Set(selected.value);
-  if (allVisibleSelected.value) {
+  const nextFolders = new Set(selectedFolders.value);
+  const allFolders =
+    visibleFolders.value.length === 0 ||
+    visibleFolders.value.every((f) => nextFolders.has(f.path));
+  if (allVisibleSelected.value && allFolders) {
     for (const f of visibleFiles.value) next.delete(f.path);
+    for (const f of visibleFolders.value) nextFolders.delete(f.path);
   } else {
     for (const f of visibleFiles.value) next.add(f.path);
+    for (const f of visibleFolders.value) nextFolders.add(f.path);
   }
   selected.value = next;
+  selectedFolders.value = nextFolders;
 }
 function selectedFiles(): LibraryFile[] {
   return files.value.filter((f) => selected.value.has(f.path));
+}
+function selectedFolderPaths(): { path: string; name: string }[] {
+  return [...selectedFolders.value].map((path) => ({
+    path,
+    name: baseName(path),
+  }));
 }
 
 /* ------------------------- batch actions ------------------------- */
@@ -498,8 +543,9 @@ const batchMoveFolders = computed(() => {
 });
 async function batchDelete() {
   const targets = selectedFiles();
+  const folderTargets = selectedFolderPaths();
   confirmBatchDelete.value = false;
-  if (!props.filesDir || !targets.length) return;
+  if (!props.filesDir || (!targets.length && !folderTargets.length)) return;
   let deleted = 0;
   for (const file of targets) {
     try {
@@ -510,12 +556,22 @@ async function batchDelete() {
       error.value = String(e);
     }
   }
+  for (const folder of folderTargets) {
+    try {
+      await deleteLibraryFolder(props.filesDir, folder.path);
+      for (const path of filesUnder(folder.path).map((f) => f.path))
+        await deleteFileMeta(path).catch(() => {});
+      deleted++;
+    } catch (e) {
+      error.value = String(e);
+    }
+  }
   clearSelection();
   if (deleted) {
-    showToast(`Deleted ${deleted} file${deleted === 1 ? "" : "s"}.`);
+    showToast(`Deleted ${deleted} item${deleted === 1 ? "" : "s"}.`);
     await logAction(
       "deleted",
-      `Deleted ${deleted} file${deleted === 1 ? "" : "s"}.`,
+      `Deleted ${deleted} item${deleted === 1 ? "" : "s"}.`,
     ).catch(() => {});
   }
   await refresh();
@@ -540,7 +596,8 @@ async function batchStar() {
 }
 async function batchDuplicate() {
   const targets = selectedFiles();
-  if (!props.filesDir || !targets.length) return;
+  const folderTargets = selectedFolderPaths();
+  if (!props.filesDir || (!targets.length && !folderTargets.length)) return;
   let done = 0;
   for (const file of targets) {
     try {
@@ -551,21 +608,34 @@ async function batchDuplicate() {
       error.value = String(e);
     }
   }
+  for (const folder of folderTargets) {
+    try {
+      const base = props.filesDir.replace(/[\\/]+$/, "");
+      const sep = folder.path.includes("\\") ? "\\" : "/";
+      const oldFull = base + sep + folder.path;
+      const newPath = await duplicateLibraryItem(props.filesDir, oldFull);
+      await copyMetaSubtree(oldFull, newPath);
+      done++;
+    } catch (e) {
+      error.value = String(e);
+    }
+  }
   clearSelection();
   if (done) {
-    showToast(`Duplicated ${done} file${done === 1 ? "" : "s"}.`);
+    showToast(`Duplicated ${done} item${done === 1 ? "" : "s"}.`);
     await logAction(
       "duplicated",
-      `Duplicated ${done} file${done === 1 ? "" : "s"}.`,
+      `Duplicated ${done} item${done === 1 ? "" : "s"}.`,
     ).catch(() => {});
   }
   await refresh();
 }
 async function batchMove() {
   const targets = selectedFiles();
+  const folderTargets = selectedFolderPaths();
   const dest = batchMoveDest.value;
   showBatchMove.value = false;
-  if (!props.filesDir || !targets.length) return;
+  if (!props.filesDir || (!targets.length && !folderTargets.length)) return;
   let moved = 0;
   let skipped = 0;
   for (const file of targets) {
@@ -583,13 +653,33 @@ async function batchMove() {
       error.value = String(e);
     }
   }
+  for (const folder of folderTargets) {
+    const base = props.filesDir.replace(/[\\/]+$/, "");
+    const sep = folder.path.includes("\\") ? "\\" : "/";
+    const fullPath = base + sep + folder.path;
+    const pseudo: DragSource = {
+      kind: "folder",
+      fullPath,
+      fromFolder: parentFolderOf(folder.path),
+      key: folder.path,
+      name: folder.name,
+    };
+    if (!isValidDropTarget(dest, pseudo)) continue;
+    try {
+      const newPath = await moveLibraryItem(props.filesDir, fullPath, dest);
+      await remapMetaSubtree(fullPath, newPath);
+      moved++;
+    } catch (e) {
+      error.value = String(e);
+    }
+  }
   clearSelection();
   if (moved) {
     const destLabel = dest || "the library root";
-    showToast(`Moved ${moved} file${moved === 1 ? "" : "s"} to ${destLabel}.`);
+    showToast(`Moved ${moved} item${moved === 1 ? "" : "s"} to ${destLabel}.`);
     await logAction(
       "moved",
-      `Moved ${moved} file${moved === 1 ? "" : "s"} to ${destLabel}.`,
+      `Moved ${moved} item${moved === 1 ? "" : "s"} to ${destLabel}.`,
     ).catch(() => {});
   }
   if (skipped)
@@ -614,6 +704,45 @@ async function copyMeta(oldPath: string, newPath: string) {
   await setFileMeta(newPath, { ...m }).catch(() => {});
   meta.value = { ...meta.value, [newPath]: { ...m } };
 }
+// Subtree variants for folder moves/duplicates: every meta entry under the
+// folder follows (move) or is copied to (duplicate) the new path.
+async function remapMetaSubtree(oldFull: string, newPath: string) {
+  const sep = newPath.includes("\\") ? "\\" : "/";
+  const moves: { oldKey: string; newKey: string; value: FileMeta }[] = [];
+  for (const [key, value] of Object.entries(meta.value)) {
+    if (key === oldFull || key.startsWith(oldFull + sep)) {
+      moves.push({
+        oldKey: key,
+        newKey: newPath + key.slice(oldFull.length),
+        value,
+      });
+    }
+  }
+  for (const m of moves) {
+    await setFileMeta(m.newKey, m.value).catch(() => {});
+    await deleteFileMeta(m.oldKey).catch(() => {});
+  }
+  if (moves.length) {
+    const next = { ...meta.value };
+    for (const m of moves) {
+      delete next[m.oldKey];
+      next[m.newKey] = m.value;
+    }
+    meta.value = next;
+  }
+}
+async function copyMetaSubtree(oldFull: string, newPath: string) {
+  const sep = newPath.includes("\\") ? "\\" : "/";
+  const next = { ...meta.value };
+  for (const [key, value] of Object.entries(meta.value)) {
+    if (key === oldFull || key.startsWith(oldFull + sep)) {
+      const nk = newPath + key.slice(oldFull.length);
+      await setFileMeta(nk, { ...value }).catch(() => {});
+      next[nk] = { ...value };
+    }
+  }
+  meta.value = next;
+}
 
 async function duplicateFile(file: LibraryFile) {
   if (!props.filesDir) return;
@@ -637,16 +766,7 @@ async function duplicateFolder(folder: { path: string; name: string }) {
     const sep = folder.path.includes("\\") ? "\\" : "/";
     const oldFull = base + sep + folder.path;
     const newPath = await duplicateLibraryItem(props.filesDir, oldFull);
-    // Duplicated files are new paths: copy the meta of the whole subtree.
-    const next = { ...meta.value };
-    for (const [key, value] of Object.entries(meta.value)) {
-      if (key === oldFull || key.startsWith(oldFull + sep)) {
-        const nk = newPath + key.slice(oldFull.length);
-        await setFileMeta(nk, { ...value }).catch(() => {});
-        next[nk] = { ...value };
-      }
-    }
-    meta.value = next;
+    await copyMetaSubtree(oldFull, newPath);
     showToast(`Duplicated folder ${folder.name} as ${baseName(newPath)}.`);
     await logAction(
       "duplicated",
@@ -790,6 +910,34 @@ let dragStart: { x: number; y: number } | null = null;
 // next pointerdown (every click starts with one) — never by a timer.
 let suppressClick = false;
 
+// Long-press (3s hold) enters selection mode and selects the held item.
+// Checkboxes only render in selection mode — never on hover.
+let longPressTimer: number | null = null;
+let longPressItem: { kind: "file" | "folder"; key: string } | null = null;
+function clearLongPress() {
+  if (longPressTimer !== null) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  longPressItem = null;
+}
+function fireLongPress() {
+  const item = longPressItem;
+  longPressItem = null;
+  longPressTimer = null;
+  if (!item) return;
+  suppressClick = true; // swallow the click that follows release
+  if (item.kind === "file") {
+    const next = new Set(selected.value);
+    next.add(item.key);
+    selected.value = next;
+  } else {
+    const next = new Set(selectedFolders.value);
+    next.add(item.key);
+    selectedFolders.value = next;
+  }
+}
+
 function parentFolderOf(relPath: string): string {
   const i = Math.max(relPath.lastIndexOf("\\"), relPath.lastIndexOf("/"));
   return i > 0 ? relPath.slice(0, i) : "";
@@ -838,6 +986,15 @@ function onDragPointerDown(event: PointerEvent, source: DragSource) {
   dragStart = { x: event.clientX, y: event.clientY };
   dragSource.value = source;
   dragMoved.value = false;
+  // Hold-to-select: only on the row/tile body itself (not its buttons),
+  // and only while not already selecting.
+  if (
+    !selectionMode.value &&
+    !(event.target as HTMLElement).closest("button, input, a")
+  ) {
+    longPressItem = { kind: source.kind, key: source.key };
+    longPressTimer = window.setTimeout(fireLongPress, 3000);
+  }
 }
 function onDragPointerMove(event: PointerEvent) {
   const source = dragSource.value;
@@ -845,6 +1002,7 @@ function onDragPointerMove(event: PointerEvent) {
   if (!dragMoved.value) {
     if (Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y) < 5)
       return;
+    clearLongPress(); // a drag is not a hold
     try {
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     } catch {
@@ -864,6 +1022,7 @@ function onDragPointerMove(event: PointerEvent) {
     target !== null && isValidDropTarget(target, source) ? target : null;
 }
 async function onDragPointerUp() {
+  clearLongPress();
   const source = dragSource.value;
   const target = dragTarget.value;
   const wasDragging = dragMoved.value;
@@ -887,35 +1046,7 @@ async function onDragPointerUp() {
     const newPath = await moveLibraryItem(props.filesDir, source.fullPath, target);
     // Meta is keyed by absolute path, so carry it along to the new path
     // (for a folder, every file under it).
-    const sep = newPath.includes("\\") ? "\\" : "/";
-    const moves: { oldKey: string; newKey: string; value: FileMeta }[] = [];
-    for (const [key, value] of Object.entries(meta.value)) {
-      if (source.kind === "file") {
-        if (key === source.fullPath)
-          moves.push({ oldKey: key, newKey: newPath, value });
-      } else if (
-        key === source.fullPath ||
-        key.startsWith(source.fullPath + sep)
-      ) {
-        moves.push({
-          oldKey: key,
-          newKey: newPath + key.slice(source.fullPath.length),
-          value,
-        });
-      }
-    }
-    for (const m of moves) {
-      await setFileMeta(m.newKey, m.value).catch(() => {});
-      await deleteFileMeta(m.oldKey).catch(() => {});
-    }
-    if (moves.length) {
-      const next = { ...meta.value };
-      for (const m of moves) {
-        delete next[m.oldKey];
-        next[m.newKey] = m.value;
-      }
-      meta.value = next;
-    }
+    await remapMetaSubtree(source.fullPath, newPath);
     const destLabel = target || "the library root";
     showToast(`Moved ${source.name} to ${destLabel}.`);
     await logAction("moved", `${source.name} → ${destLabel}.`).catch(
@@ -931,7 +1062,29 @@ function onFolderTileClick(path: string) {
     suppressClick = false;
     return;
   }
+  if (selectionMode.value) {
+    toggleFolderSelect(path);
+    return;
+  }
   goFolder(path);
+}
+function onFileRowClick(file: LibraryFile) {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  if (selectionMode.value) toggleSelect(file.path);
+}
+function onFileTileClick(file: LibraryFile) {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  if (selectionMode.value) toggleSelect(file.path);
+}
+function onFileTileDblClick(file: LibraryFile) {
+  if (selectionMode.value) return;
+  void openPath(file.path);
 }
 
 /* External drag & drop: dropping files anywhere on this view adds them. */
@@ -953,6 +1106,7 @@ onMounted(async () => {
 });
 onUnmounted(() => {
   unlisten?.();
+  clearLongPress();
   document.body.classList.remove("select-none");
 });
 </script>
@@ -1022,12 +1176,12 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-if="selected.size" class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900">
-      <span class="font-medium">{{ selected.size }} selected</span>
+    <div v-if="totalSelected" class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 text-sm text-blue-900 ring-1 ring-blue-200 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-900">
+      <span class="font-medium">{{ totalSelected }} selected</span>
       <span class="flex flex-wrap gap-1.5">
         <button class="toolbar-btn" @click="showBatchMove = true">Move to folder</button>
         <button class="toolbar-btn" @click="batchDuplicate">Duplicate</button>
-        <button class="toolbar-btn" @click="batchStar">{{ selectedFiles().every((f) => metaOf(f).starred) ? "Unstar" : "Star" }}</button>
+        <button v-if="selected.size" class="toolbar-btn" @click="batchStar">{{ selectedFiles().every((f) => metaOf(f).starred) ? "Unstar" : "Star" }}</button>
         <button class="rounded-lg bg-red-100/80 px-3 py-2 font-medium text-red-700 hover:bg-red-200 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900" @click="confirmBatchDelete = true">Delete</button>
       </span>
       <span class="ml-auto flex gap-3">
@@ -1118,6 +1272,9 @@ onUnmounted(() => {
             @pointercancel="onDragPointerUp"
             @contextmenu.prevent.stop="openFolderCtx($event, folder)"
           >
+            <span v-if="selectionMode" class="absolute left-1 top-1 z-10">
+              <input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="isFolderSelected(folder.path)" @change="toggleFolderSelect(folder.path)" @click.stop />
+            </span>
             <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
               <button
                 class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
@@ -1150,6 +1307,7 @@ onUnmounted(() => {
             @pointercancel="onDragPointerUp"
             @contextmenu.prevent.stop="openFolderCtx($event, folder)"
           >
+            <input v-if="selectionMode" type="checkbox" class="h-4 w-4 shrink-0 accent-blue-600" :checked="isFolderSelected(folder.path)" @change="toggleFolderSelect(folder.path)" @click.stop />
             <Folder class="h-5 w-5 shrink-0 text-amber-500" />
             <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
             <span class="shrink-0 text-xs text-neutral-500">{{ folder.count }} item{{ folder.count === 1 ? "" : "s" }}</span>
@@ -1191,8 +1349,8 @@ onUnmounted(() => {
         >
           <table class="w-full table-fixed text-sm">
             <colgroup>
-              <col style="width: 36px" />
-              <col style="width: 42%" />
+              <col v-if="selectionMode" style="width: 36px" />
+              <col :style="{ width: selectionMode ? '42%' : '46%' }" />
               <col style="width: 16%" />
               <col style="width: 9%" />
               <col style="width: 13%" />
@@ -1200,7 +1358,7 @@ onUnmounted(() => {
             </colgroup>
             <thead>
               <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
-                <th class="px-2 py-2"><input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="allVisibleSelected" @change="toggleSelectAll" /></th>
+                <th v-if="selectionMode" class="px-2 py-2"><input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="allVisibleSelected" @change="toggleSelectAll" /></th>
                 <th class="px-4 py-2 font-medium">Name</th>
                 <th class="px-4 py-2 font-medium">Category</th>
                 <th class="px-4 py-2 font-medium">Size</th>
@@ -1209,11 +1367,11 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
-              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" :class="isDragged(file.path) ? 'opacity-50' : ''" @pointerdown="onDragPointerDown($event, dragSourceForFile(file))" @pointermove="onDragPointerMove" @pointerup="onDragPointerUp" @pointercancel="onDragPointerUp" @contextmenu.prevent.stop="openFileCtx($event, file)">
-                <td class="px-2 py-2.5"><input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="isSelected(file.path)" @change="toggleSelect(file.path)" @click.stop /></td>
+              <tr v-for="file in items" :key="file.path" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50" :class="isDragged(file.path) ? 'opacity-50' : ''" @pointerdown="onDragPointerDown($event, dragSourceForFile(file))" @pointermove="onDragPointerMove" @pointerup="onDragPointerUp" @pointercancel="onDragPointerUp" @click="onFileRowClick(file)" @contextmenu.prevent.stop="openFileCtx($event, file)">
+                <td v-if="selectionMode" class="px-2 py-2.5"><input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="isSelected(file.path)" @change="toggleSelect(file.path)" @click.stop /></td>
                 <td class="max-w-0 px-4 py-2.5">
                   <span class="flex min-w-0 items-center gap-2.5">
-                    <button class="shrink-0 rounded p-0.5" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click="toggleStar(file)">
+                    <button class="shrink-0 rounded p-0.5" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click.stop="toggleStar(file)">
                       <Star class="h-4 w-4" :class="metaOf(file).starred ? 'fill-amber-500 text-amber-500' : 'text-neutral-300 hover:text-amber-400'" />
                     </button>
                     <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0 text-blue-600" />
@@ -1236,7 +1394,7 @@ onUnmounted(() => {
                 </td>
                 <td class="px-4 py-2.5">
                   <span class="flex justify-end gap-1">
-                    <button class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click="openFileMenu($event, file)">
+                    <button class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click.stop="openFileMenu($event, file)">
                       <Settings2 class="h-4 w-4" />
                     </button>
                   </span>
@@ -1252,7 +1410,8 @@ onUnmounted(() => {
             class="group relative flex flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
             :class="isDragged(file.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : ''"
             title="Double-click to open"
-            @dblclick="openPath(file.path)"
+            @click="onFileTileClick(file)"
+            @dblclick="onFileTileDblClick(file)"
             @pointerdown="onDragPointerDown($event, dragSourceForFile(file))"
             @pointermove="onDragPointerMove"
             @pointerup="onDragPointerUp"
@@ -1264,13 +1423,13 @@ onUnmounted(() => {
               :class="metaOf(file).starred ? '' : 'opacity-0 transition group-hover:opacity-100'"
               @dblclick.stop
             >
-              <button class="file-action-sm" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click="toggleStar(file)">
+              <button class="file-action-sm" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click.stop="toggleStar(file)">
                 <Star class="h-3.5 w-3.5" :class="metaOf(file).starred ? 'fill-amber-500 text-amber-500' : ''" />
               </button>
             </span>
             <span
+              v-if="selectionMode"
               class="absolute left-1 top-9 z-10"
-              :class="isSelected(file.path) ? '' : 'opacity-0 transition group-hover:opacity-100'"
               @dblclick.stop
             >
               <input type="checkbox" class="h-4 w-4 accent-blue-600" :checked="isSelected(file.path)" @change="toggleSelect(file.path)" @click.stop />
@@ -1279,7 +1438,7 @@ onUnmounted(() => {
               class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100"
               @dblclick.stop
             >
-              <button class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click="openFileMenu($event, file)">
+              <button class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click.stop="openFileMenu($event, file)">
                 <Settings2 class="h-3.5 w-3.5" />
               </button>
             </span>
@@ -1414,7 +1573,7 @@ onUnmounted(() => {
     @click.self="showBatchMove = false"
   >
     <div class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <h2 class="mb-1 text-lg font-semibold">Move {{ selected.size }} files</h2>
+      <h2 class="mb-1 text-lg font-semibold">Move {{ totalSelected }} items</h2>
       <p class="mb-4 text-sm text-neutral-500">Choose the folder to move them into.</p>
       <label class="mb-1 block text-sm font-medium">Destination folder</label>
       <select
@@ -1434,7 +1593,7 @@ onUnmounted(() => {
   <ConfirmDialog
     v-if="confirmBatchDelete"
     title="Delete selected files?"
-    :message="`${selected.size} file${selected.size === 1 ? '' : 's'} will be permanently deleted. This cannot be undone.`"
+    :message="`${totalSelected} item${totalSelected === 1 ? '' : 's'} will be permanently deleted. Folders are deleted with everything inside them. This cannot be undone.`"
     confirm-label="Delete"
     @confirm="batchDelete"
     @cancel="confirmBatchDelete = false"
