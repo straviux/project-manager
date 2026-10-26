@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { FileText, X } from "@lucide/vue";
-import { readReadme } from "../lib/api";
+import { openUrl, readReadme } from "../lib/api";
 import type { Project } from "../types";
 
 const props = defineProps<{ project: Project }>();
@@ -24,6 +24,23 @@ const html = computed(() =>
     ? DOMPurify.sanitize(marked.parse(raw.value) as string)
     : "",
 );
+
+// Links inside a README used to navigate the whole app window away to
+// the linked site. Route them to the real browser instead: http(s) and
+// mailto links go through the backend's allowlisted opener, in-page
+// (#section) anchors keep working, and anything else (relative links,
+// odd schemes) is swallowed so the app never leaves its own page.
+function onReadmeLink(event: MouseEvent) {
+  const el = event.target as HTMLElement | null;
+  const anchor = el?.closest?.("a");
+  if (!anchor) return;
+  const href = anchor.getAttribute("href") ?? "";
+  if (href.startsWith("#")) return;
+  event.preventDefault();
+  if (/^(https?:|mailto:)/i.test(href)) {
+    openUrl(href).catch(() => {});
+  }
+}
 
 onMounted(async () => {
   try {
@@ -51,7 +68,7 @@ onMounted(async () => {
           This project doesn't have a README.md yet.
         </p>
         <!-- eslint-disable-next-line vue/no-v-html -->
-        <div v-else class="readme-body" v-html="html" />
+        <div v-else class="readme-body" v-html="html" @click="onReadmeLink" @auxclick="onReadmeLink" />
       </div>
     </div>
   </div>

@@ -7,6 +7,11 @@ export function openInVsCode(path: string): Promise<void> {
 }
 
 /** Open a terminal already cd'd into the project root. */
+/** Open a link in the user's real browser (see open_url in Rust). */
+export function openUrl(url: string): Promise<void> {
+  return invoke("open_url", { url });
+}
+
 export function openTerminal(path: string): Promise<void> {
   return invoke("open_terminal", { path });
 }

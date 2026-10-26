@@ -176,6 +176,58 @@ fn open_in_vscode(path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Open a link in the user's real browser instead of navigating the app
+/// window away. Only http(s) and mailto links are allowed: a crafted README
+/// link must never be able to open local files (`file:`), run a handler
+/// (`ms-msdt:`, ...) or execute script (`javascript:`). The URL is passed
+/// as a single process argument — never glued into a shell string — and
+/// must not contain quotes, whitespace or control characters.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    let lower = url.to_ascii_lowercase();
+    let scheme_ok = lower.starts_with("https://")
+        || lower.starts_with("http://")
+        || lower.starts_with("mailto:");
+    if !scheme_ok
+        || url
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace() || c == '"' || c == '<' || c == '>' || c == '`')
+    {
+        return Err("Refusing to open an unsafe link.".into());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // `start` reads the first quoted chunk as a window title, so an
+        // empty title ("") comes first and the URL second.
+        Command::new("cmd")
+            .args(["/C", "start", "", &url])
+            .spawn()
+            .map_err(|e| format!("Could not open link: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Could not open link: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Could not open link: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = url;
+        Err("Opening links is not supported on this platform yet".into())
+    }
+}
+
 #[tauri::command]
 fn open_terminal(path: String) -> Result<(), String> {
     let dir = PathBuf::from(&path);
@@ -1239,6 +1291,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             open_in_vscode,
+            open_url,
             open_terminal,
             open_ssh_terminal,
             ssh_set_password,
