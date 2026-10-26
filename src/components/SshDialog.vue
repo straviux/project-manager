@@ -76,7 +76,7 @@ async function connect(config: SshConfig) {
   try {
     if (hasPassword.value[config.id]) {
       await sshCopyPassword(config.id);
-      notice.value = `Password for "${config.name}" copied — paste it at the ssh password prompt.`;
+      notice.value = `Password for "${config.name}" copied — paste it at the ssh password prompt (it clears from the clipboard after 60 seconds).`;
     }
     await openSshTerminal(config);
   } catch (e) {

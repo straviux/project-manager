@@ -186,16 +186,49 @@ fn open_terminal(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+/// The ssh command string is eventually executed by a shell (cmd on
+/// Windows, bash elsewhere), so host/username/key values must never be able
+/// to smuggle shell syntax in: a username like `x & calc` used to run
+/// `calc` as a second command. Allowlists beat quoting here — there is no
+/// legitimate SSH username or hostname that needs `& | ; $ ( )` or quotes.
+fn ssh_token_ok(s: &str, extra: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".-_".contains(c) || extra.contains(c))
+}
+
+#[tauri::command]
 fn open_ssh_terminal(
     host: String,
     username: String,
     port: u16,
     identity_file: Option<String>,
 ) -> Result<(), String> {
-    // Values come from the user's own saved profiles (see SshDialog).
+    if !ssh_token_ok(&username, "") {
+        return Err(
+            "Invalid SSH username: use only letters, numbers, dot, dash and underscore.".into(),
+        );
+    }
+    // Hosts may also carry a port-style colon or IPv6 brackets.
+    if !ssh_token_ok(&host, ":[]") {
+        return Err(
+            "Invalid SSH host: use only letters, numbers, dot, dash, underscore, colon and brackets."
+                .into(),
+        );
+    }
     let mut ssh = format!("ssh -p {port} ");
     if let Some(key) = identity_file.filter(|k| !k.trim().is_empty()) {
-        ssh.push_str(&format!("-i {key} "));
+        // The key path travels through the shell too, so it must not contain
+        // quotes, `$`/backticks (expansion in double quotes) or control
+        // characters — and it is wrapped in double quotes so paths with
+        // spaces still work.
+        if key
+            .chars()
+            .any(|c| c == '"' || c == '\'' || c == '$' || c == '`' || c.is_control())
+        {
+            return Err("Invalid identity file path.".into());
+        }
+        ssh.push_str(&format!("-i \"{key}\" "));
     }
     ssh.push_str(&format!("{username}@{host}"));
     spawn_terminal(None, Some(&ssh))
@@ -262,8 +295,21 @@ fn ssh_copy_password(config_id: i64) -> Result<(), String> {
     let mut clipboard =
         arboard::Clipboard::new().map_err(|e| format!("Clipboard unavailable: {e}"))?;
     clipboard
-        .set_text(password)
+        .set_text(password.clone())
         .map_err(|e| format!("Could not copy password: {e}"))?;
+    // Hygiene: a server password should not sit in the clipboard forever.
+    // After 60s, clear it — but only if the clipboard still holds exactly
+    // this password, so we never wipe something the user copied afterwards.
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+        if let Ok(mut cb) = arboard::Clipboard::new() {
+            if let Ok(text) = cb.get_text() {
+                if text == password {
+                    let _ = cb.set_text("");
+                }
+            }
+        }
+    });
     Ok(())
 }
 
@@ -284,17 +330,34 @@ fn git_clone_impl(
     parent_dir: String,
     folder_name: Option<String>,
 ) -> Result<String, String> {
+    // A URL starting with `-` would be parsed by git as an option
+    // (e.g. `--upload-pack=...` runs an arbitrary command), so reject it
+    // outright and separate options from arguments with `--` below.
+    if repo_url.starts_with('-') {
+        return Err("Invalid repository URL.".into());
+    }
     let parent = PathBuf::from(&parent_dir);
     fs::create_dir_all(&parent).map_err(|e| format!("Cannot create parent directory: {e}"))?;
     let name = folder_name
         .filter(|n| !n.trim().is_empty())
         .unwrap_or_else(|| folder_name_from_url(&repo_url));
+    // A folder name like `../evil` would make the clone land outside the
+    // projects directory, so only a plain single folder name is accepted.
+    if name.trim().is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains('/')
+        || name.contains('\\')
+    {
+        return Err("Invalid folder name.".into());
+    }
     let dest = parent.join(&name);
     if dest.exists() {
         return Err(format!("Destination already exists: {}", dest.display()));
     }
     let output = Command::new("git")
         .arg("clone")
+        .arg("--")
         .arg(&repo_url)
         .arg(&dest)
         .output()

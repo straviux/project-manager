@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { chromeDark } from "../lib/theme";
 import { computed, onMounted, ref } from "vue";
+import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { FileText, X } from "@lucide/vue";
 import { readReadme } from "../lib/api";
@@ -12,10 +13,16 @@ const emit = defineEmits<{ close: [] }>();
 const raw = ref<string | null>(null);
 const loading = ref(true);
 
-// The README comes from the user's own local project, so rendering it as
-// HTML is acceptable here. For untrusted content, sanitize first.
+// A README is untrusted content: it can come from any repo the user
+// cloned, and marked passes raw HTML straight through. Rendering that
+// with v-html unsanitized would let a hostile README run JavaScript inside
+// the app window — and that window can call every backend command
+// (terminal, file delete, keychain...). DOMPurify strips scripts, event
+// handlers and other active content while keeping normal formatting.
 const html = computed(() =>
-  raw.value ? (marked.parse(raw.value) as string) : "",
+  raw.value
+    ? DOMPurify.sanitize(marked.parse(raw.value) as string)
+    : "",
 );
 
 onMounted(async () => {
