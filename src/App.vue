@@ -10,6 +10,7 @@ import {
   FolderCog,
   FolderInput,
   FolderOpen,
+  History,
   LayoutGrid,
   Network,
   Pencil,
@@ -34,6 +35,13 @@ import ReadmeDialog from "./components/ReadmeDialog.vue";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
 import Toasts from "./components/Toasts.vue";
+import ConfirmDialog from "./components/ConfirmDialog.vue";
+import {
+  clearActionHistory,
+  getActionHistory,
+  type ActionHistoryEntry,
+} from "./lib/db";
+import { showToast } from "./lib/toast";
 import ContextMenu, {
   type ContextMenuItem,
 } from "./components/ContextMenu.vue";
@@ -82,6 +90,33 @@ const showProjectDialog = ref(false);
 const showClone = ref(false);
 const showImport = ref(false);
 const showSettings = ref(false);
+
+/* ------------------------- action history ------------------------- */
+const showHistory = ref(false);
+const historyEntries = ref<ActionHistoryEntry[]>([]);
+const confirmClearHistory = ref(false);
+async function openHistory() {
+  showHistory.value = true;
+  historyEntries.value = await getActionHistory().catch(() => []);
+}
+async function doClearHistory() {
+  confirmClearHistory.value = false;
+  await clearActionHistory().catch(() => {});
+  historyEntries.value = [];
+  showToast("Action history cleared.");
+}
+const HISTORY_KIND_LABELS: Record<string, string> = {
+  added: "Added",
+  imported: "Imported",
+  moved: "Moved",
+  deleted: "Deleted",
+};
+const HISTORY_KIND_CLASSES: Record<string, string> = {
+  added: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  imported: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  moved: "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200",
+  deleted: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
+};
 const sshProject = ref<Project | null>(null);
 const readmeProject = ref<Project | null>(null);
 
@@ -512,6 +547,9 @@ function openEdit(project: Project) {
           <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Check for updates" @click="checkForUpdates(true)">
             <ArrowDownToLine class="h-4 w-4" :class="checkingUpdates ? 'animate-pulse' : ''" />
           </button>
+          <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Action history" @click="openHistory">
+            <History class="h-4 w-4" />
+          </button>
           </div>
         </div>
       </header>
@@ -698,6 +736,55 @@ function openEdit(project: Project) {
       :project="readmeProject"
       @close="readmeProject = null"
     />
+    <div
+      v-if="showHistory"
+      class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
+      :class="{ dark: chromeDark }"
+      @click.self="showHistory = false"
+    >
+      <div class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+        <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
+          <History class="h-5 w-5" /> Action history
+        </h2>
+        <p class="mb-4 text-sm text-neutral-500">
+          Additions, imports, moves, and deletions in the file library, newest first.
+        </p>
+        <div v-if="!historyEntries.length" class="py-8 text-center text-sm text-neutral-500">
+          No actions recorded yet.
+        </div>
+        <ul v-else class="max-h-96 space-y-2 overflow-y-auto pr-1">
+          <li v-for="entry in historyEntries" :key="entry.id" class="flex items-start gap-2.5 text-sm">
+            <span
+              class="mt-0.5 inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+              :class="HISTORY_KIND_CLASSES[entry.kind] ?? 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200'"
+            >{{ HISTORY_KIND_LABELS[entry.kind] ?? entry.kind }}</span>
+            <span class="min-w-0 flex-1 break-words">{{ entry.detail }}</span>
+            <span class="shrink-0 text-xs text-neutral-400">{{ new Date(entry.createdAt).toLocaleString() }}</span>
+          </li>
+        </ul>
+        <div class="mt-5 flex items-center justify-between">
+          <button
+            v-if="historyEntries.length"
+            class="text-sm font-medium text-red-600 hover:underline"
+            @click="confirmClearHistory = true"
+          >
+            Clear history
+          </button>
+          <span v-else></span>
+          <button class="btn btn-ghost btn-sm" @click="showHistory = false">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <ConfirmDialog
+      v-if="confirmClearHistory"
+      title="Clear history?"
+      message="All recorded file actions will be removed. This cannot be undone."
+      confirm-label="Clear"
+      @confirm="doClearHistory"
+      @cancel="confirmClearHistory = false"
+    />
+
     <Toasts />
   </div>
 </template>

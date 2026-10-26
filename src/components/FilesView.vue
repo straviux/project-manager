@@ -16,7 +16,6 @@ import {
   FolderCog,
   FolderOpen,
   FolderPlus,
-  History,
   Image,
   LayoutGrid,
   Library,
@@ -48,13 +47,10 @@ import ImportDialog from "./ImportDialog.vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { type FileMeta, LibraryFile } from "../types";
 import {
-  clearActionHistory,
   deleteFileMeta,
-  getActionHistory,
-  logAction,
   getAllFileMeta,
+  logAction,
   setFileMeta,
-  type ActionHistoryEntry,
 } from "../lib/db";
 import { showToast } from "../lib/toast";
 import { chromeDark } from "../lib/theme";
@@ -695,33 +691,6 @@ function onFolderTileClick(path: string) {
   goFolder(path);
 }
 
-/* ------------------------- actions history ------------------------- */
-const showHistory = ref(false);
-const historyEntries = ref<ActionHistoryEntry[]>([]);
-const confirmClearHistory = ref(false);
-async function openHistory() {
-  showHistory.value = true;
-  historyEntries.value = await getActionHistory().catch(() => []);
-}
-async function doClearHistory() {
-  confirmClearHistory.value = false;
-  await clearActionHistory().catch(() => {});
-  historyEntries.value = [];
-  showToast("Action history cleared.");
-}
-const HISTORY_KIND_LABELS: Record<string, string> = {
-  added: "Added",
-  imported: "Imported",
-  moved: "Moved",
-  deleted: "Deleted",
-};
-const HISTORY_KIND_CLASSES: Record<string, string> = {
-  added: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  imported: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  moved: "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200",
-  deleted: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-};
-
 /* External drag & drop: dropping files anywhere on this view adds them. */
 let unlisten: (() => void) | null = null;
 onMounted(async () => {
@@ -808,10 +777,6 @@ onUnmounted(() => {
           <LayoutGrid class="h-4 w-4" /> Icons
         </button>
       </div>
-
-      <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Review past file actions" @click="openHistory">
-        <History class="h-4 w-4" /> History
-      </button>
     </div>
 
     <div v-if="notice" class="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
@@ -1199,55 +1164,6 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
-
-  <div
-    v-if="showHistory"
-    class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
-    :class="{ dark: chromeDark }"
-    @click.self="showHistory = false"
-  >
-    <div class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
-        <History class="h-5 w-5" /> Action history
-      </h2>
-      <p class="mb-4 text-sm text-neutral-500">
-        Additions, imports, moves, and deletions in the file library, newest first.
-      </p>
-      <div v-if="!historyEntries.length" class="py-8 text-center text-sm text-neutral-500">
-        No actions recorded yet.
-      </div>
-      <ul v-else class="max-h-96 space-y-2 overflow-y-auto pr-1">
-        <li v-for="entry in historyEntries" :key="entry.id" class="flex items-start gap-2.5 text-sm">
-          <span
-            class="status-badge mt-0.5 shrink-0"
-            :class="HISTORY_KIND_CLASSES[entry.kind] ?? 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200'"
-          >{{ HISTORY_KIND_LABELS[entry.kind] ?? entry.kind }}</span>
-          <span class="min-w-0 flex-1 break-words">{{ entry.detail }}</span>
-          <span class="shrink-0 text-xs text-neutral-400">{{ new Date(entry.createdAt).toLocaleString() }}</span>
-        </li>
-      </ul>
-      <div class="mt-5 flex items-center justify-between">
-        <button
-          v-if="historyEntries.length"
-          class="text-sm font-medium text-red-600 hover:underline"
-          @click="confirmClearHistory = true"
-        >
-          Clear history
-        </button>
-        <span v-else></span>
-        <button class="btn btn-ghost btn-sm" @click="showHistory = false">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <ConfirmDialog
-    v-if="confirmClearHistory"
-    title="Clear history?"
-    message="All recorded file actions will be removed. This cannot be undone."
-    confirm-label="Clear"
-    @confirm="doClearHistory"
-    @cancel="confirmClearHistory = false"
-  />
 
   <ContextMenu
     v-if="ctx"
