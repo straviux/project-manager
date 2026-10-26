@@ -4,7 +4,6 @@ import {
   ArrowDown,
   ArrowUp,
   CircleCheck,
-  Code,
   Copy,
   ExternalLink,
   FileText,
@@ -19,6 +18,7 @@ import {
   Terminal,
   Trash2,
 } from "@lucide/vue";
+import VscodeIcon from "./VscodeIcon.vue";
 import { getGitStatus } from "../lib/api";
 import { PROJECT_ICONS } from "../lib/projectIcons";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -220,19 +220,24 @@ watch(() => props.statusKey, loadStatus);
 
     <footer class="mt-auto grid grid-cols-5 gap-1.5">
       <button class="action" title="Open in VS Code" @click="emit('vscode')">
-        <Code class="h-4 w-4" />
+        <VscodeIcon class="h-4 w-4" />
+        <span>VS Code</span>
       </button>
       <button class="action" title="Open source folder" @click="emit('folder')">
         <FolderOpen class="h-4 w-4" />
+        <span>Folder</span>
       </button>
       <button class="action" title="Open terminal at project root" @click="emit('terminal')">
         <Terminal class="h-4 w-4" />
+        <span>Terminal</span>
       </button>
       <button class="action" title="SSH connections" @click="emit('ssh')">
         <Server class="h-4 w-4" />
+        <span>SSH</span>
       </button>
       <button class="action" title="Open README.md" @click="emit('readme')">
         <FileText class="h-4 w-4" />
+        <span>README</span>
       </button>
     </footer>
   </article>
@@ -240,6 +245,6 @@ watch(() => props.statusKey, loadStatus);
 
 <style scoped>
 .action {
-  @apply flex items-center justify-center gap-1.5 rounded-lg bg-blue-100/80 px-2 py-2 text-xs font-medium text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/70;
+  @apply flex flex-col items-center justify-center gap-0.5 rounded-lg bg-blue-100/80 px-1 py-2 text-xs font-medium text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/70;
 }
 </style>
