@@ -58,7 +58,14 @@ import type { Project } from "./types";
 
 const ready = ref(false);
 const statusKey = ref(0);
-const dragId = ref<number | null>(null);
+// Pointer-drag session: which card is being dragged and where it would
+// land (target card + before/after its middle). Owned here so every card
+// can render the insertion indicator.
+const pointerDrag = ref<{
+  id: number;
+  targetId: number | null;
+  after: boolean;
+} | null>(null);
 const searchInput = ref<HTMLInputElement | null>(null);
 const tab = ref<"projects" | "files">("projects");
 const projectsDir = ref<string | null>(null);
@@ -342,24 +349,50 @@ function onContainerContext(event: MouseEvent) {
   containerCtx.value = { x: event.clientX, y: event.clientY };
 }
 
-function onDragStart(id: number) {
-  dragId.value = id;
+function onPointerDragStart(id: number) {
+  pointerDrag.value = { id, targetId: null, after: false };
 }
 
-async function onDrop(targetId: number) {
-  const from = dragId.value;
-  dragId.value = null;
-  if (from == null || from === targetId) return;
+function onPointerDragMove(pos: { x: number; y: number }) {
+  const session = pointerDrag.value;
+  if (!session) return;
+  // The card under the cursor carries its project id, so the drop target
+  // is found geometrically — no browser drag system involved.
+  const el = document
+    .elementFromPoint(pos.x, pos.y)
+    ?.closest?.("[data-project-id]");
+  if (!el) {
+    pointerDrag.value = { ...session, targetId: null, after: false };
+    return;
+  }
+  const targetId = Number(el.getAttribute("data-project-id"));
+  if (!targetId || targetId === session.id) {
+    pointerDrag.value = { ...session, targetId: null, after: false };
+    return;
+  }
+  const rect = el.getBoundingClientRect();
+  pointerDrag.value = {
+    ...session,
+    targetId,
+    after: pos.y > rect.top + rect.height / 2,
+  };
+}
+
+async function onPointerDragEnd() {
+  const session = pointerDrag.value;
+  pointerDrag.value = null;
+  if (!session || session.targetId == null) return;
   const list = [...projects.value];
-  const fromIdx = list.findIndex((p) => p.id === from);
-  const toIdx = list.findIndex((p) => p.id === targetId);
-  if (fromIdx < 0 || toIdx < 0) return;
-  if (list[fromIdx].pinned !== list[toIdx].pinned) {
+  const fromIdx = list.findIndex((p) => p.id === session.id);
+  if (fromIdx < 0) return;
+  const [moved] = list.splice(fromIdx, 1);
+  const toIdx = list.findIndex((p) => p.id === session.targetId);
+  if (toIdx < 0) return;
+  if (moved.pinned !== list[toIdx].pinned) {
     flash("Starred and unstarred projects sort in separate groups.");
     return;
   }
-  const [moved] = list.splice(fromIdx, 1);
-  list.splice(toIdx, 0, moved);
+  list.splice(session.after ? toIdx + 1 : toIdx, 0, moved);
   projects.value = list;
   await setProjectOrder(list.map((p) => p.id));
 }
@@ -576,11 +609,14 @@ function openEdit(project: Project) {
             :project="project"
             :status-key="statusKey"
             :reorder-enabled="!search.trim()"
+            :drop-target="pointerDrag?.targetId === project.id"
+            :drop-after="pointerDrag?.after ?? false"
             @pin="togglePin(project)"
             @copy-clone="copyClone(project)"
             @context="(e) => onProjectContext(e, project)"
-            @drag-start="onDragStart(project.id)"
-            @drop="onDrop(project.id)"
+            @pointer-drag-start="onPointerDragStart(project.id)"
+            @pointer-drag-move="onPointerDragMove"
+            @pointer-drag-end="onPointerDragEnd"
             @vscode="runAction(() => openInVsCode(project.path), 'Could not open VS Code')"
             @terminal="runAction(() => openTerminal(project.path), 'Could not open terminal')"
             @folder="runAction(() => openPath(project.path), 'Could not open folder')"

@@ -28,6 +28,8 @@ const props = defineProps<{
   project: Project;
   statusKey?: number;
   reorderEnabled?: boolean;
+  dropTarget?: boolean;
+  dropAfter?: boolean;
 }>();
 const emit = defineEmits<{
   vscode: [];
@@ -40,8 +42,9 @@ const emit = defineEmits<{
   remove: [];
   pin: [];
   context: [event: MouseEvent];
-  dragStart: [];
-  drop: [];
+  pointerDragStart: [];
+  pointerDragMove: [pos: { x: number; y: number }];
+  pointerDragEnd: [];
 }>();
 
 const status = ref<GitStatus | null>(null);
@@ -72,22 +75,44 @@ watch(menuOpen, (open) => {
   }
 });
 onUnmounted(() => document.removeEventListener("click", onDocClick, true));
-// Dragging used to depend on arming `draggable` during mousedown, but
-// WebView2 never reliably picked that up — grabs silently never became
-// drags, twice. So the card is simply always draggable now and reordering
-// is gated here instead: canceling dragstart means no drag at all, and the
-// drag carries data, which some engines require before a drag will start.
-// Right-click menus are unaffected (draggable does not block contextmenu).
-function onDragStart(event: DragEvent) {
-  if (!props.reorderEnabled) {
-    event.preventDefault();
-    return;
+// Dragging is done with pointer events, not the browser's drag system:
+// HTML5 drag-and-drop never engaged in this webview at all (nothing ever
+// lifted, through three attempts at it). Pointer tracking has no such
+// dependency — press, move past a small threshold, and the card is being
+// dragged. Capture is only taken once the threshold is crossed, so plain
+// clicks on the card's buttons still work exactly as before, and
+// right-click menus are unaffected.
+const dragStartPos = ref<{ x: number; y: number; pointerId: number } | null>(null);
+const dragActive = ref(false);
+
+function onPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || !props.reorderEnabled) return;
+  dragStartPos.value = {
+    x: event.clientX,
+    y: event.clientY,
+    pointerId: event.pointerId,
+  };
+}
+
+function onPointerMove(event: PointerEvent) {
+  const start = dragStartPos.value;
+  if (!start || event.pointerId !== start.pointerId) return;
+  if (!dragActive.value) {
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    dragActive.value = true;
+    emit("pointerDragStart");
   }
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", String(props.project.id));
-  }
-  emit("dragStart");
+  emit("pointerDragMove", { x: event.clientX, y: event.clientY });
+}
+
+function onPointerUp(event: PointerEvent) {
+  const start = dragStartPos.value;
+  if (!start || event.pointerId !== start.pointerId) return;
+  const wasDragging = dragActive.value;
+  dragStartPos.value = null;
+  dragActive.value = false;
+  if (wasDragging) emit("pointerDragEnd");
 }
 
 async function loadStatus() {
@@ -99,14 +124,23 @@ watch(() => props.statusKey, loadStatus);
 
 <template>
   <article
-    class="card-glass flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
-    :class="project.pinned ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''"
-    draggable="true"
+    class="card-glass relative flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+    :data-project-id="project.id"
+    :class="[
+      project.pinned ? 'ring-2 ring-amber-400 dark:ring-amber-500' : '',
+      dragActive ? 'cursor-grabbing opacity-40' : '',
+    ]"
     @contextmenu.prevent.stop="menuOpen = false; emit('context', $event)"
-    @dragstart="onDragStart"
-    @dragover.prevent
-    @drop.prevent="emit('drop')"
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
   >
+    <div
+      v-if="dropTarget"
+      class="absolute left-2 right-2 z-10 h-1 rounded-full bg-blue-500"
+      :class="dropAfter ? '-bottom-2' : '-top-2'"
+    />
     <header class="mb-1 flex items-start justify-between gap-2">
       <h3 class="flex items-center gap-2 text-lg font-semibold">
         <GripVertical
