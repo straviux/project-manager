@@ -1,17 +1,12 @@
 import { computed, ref, watch } from "vue";
 
-// The app is dark-only: <html> always carries `.dark`, so every dark:
-// utility is active. (DaisyUI was dropped; the button/menu/tooltip
-// classes it used to provide are now defined in index.css.)
-document.documentElement.classList.add("dark");
+// The app is dark by default: <html> carries `.dark`, so every dark:
+// utility is active — except when a light theme is selected, when
+// `.dark` is removed (see the bgTheme watcher below) and the light
+// Tailwind styles take over instead. (DaisyUI was dropped; the
+// button/menu/tooltip classes it used to provide are now defined in
+// index.css.)
 localStorage.removeItem("pm-theme"); // leftover from the removed mode switch
-
-/**
- * App chrome (header/nav, dialogs, menus) is always dark. Kept as an
- * export because the header, footer and every dialog bind it to apply
- * the `.dark` class to themselves.
- */
-export const chromeDark = computed(() => true);
 
 /* --------------------- Explorer background themes --------------------- */
 
@@ -22,6 +17,7 @@ export type BgTheme =
   | "monterey"
   | "bigsur"
   | "catalina"
+  | "lightglass"
   | "sky"
   | "mint"
   | "blush"
@@ -39,6 +35,11 @@ export interface BgThemeDef {
   dark?: boolean;
   /** iOS/macOS-style layout themes: cards become true frosted glass. */
   glass?: boolean;
+  /** Full light theme: the app leaves dark mode entirely while this
+   *  theme is active (html `.dark` removed, chromeDark false), so
+   *  cards, header, footer and dialogs render with their light
+   *  Tailwind styles and light frosted glass. */
+  light?: boolean;
 }
 
 export const BG_THEMES: BgThemeDef[] = [
@@ -89,6 +90,15 @@ export const BG_THEMES: BgThemeDef[] = [
     glass: true,
   },
   {
+    id: "lightglass",
+    label: "Light Glass",
+    hint: "Light frosted glass, full light mode",
+    preview:
+      "radial-gradient(50% 40% at 20% 15%, rgb(147 197 253 / 0.9), transparent 70%),radial-gradient(50% 40% at 85% 20%, rgb(252 211 77 / 0.7), transparent 70%),radial-gradient(60% 55% at 60% 95%, rgb(167 139 250 / 0.7), transparent 70%),linear-gradient(150deg, #eff6ff 0%, #fdf2f8 50%, #ecfdf5 100%)",
+    glass: true,
+    light: true,
+  },
+  {
     id: "sky",
     label: "Sky",
     hint: "Flat color · sky blue",
@@ -130,6 +140,16 @@ function initialBg(): BgTheme {
 
 export const bgTheme = ref<BgTheme>(initialBg());
 
+/**
+ * App chrome (header/nav, dialogs, menus) is dark except on a light
+ * theme. Kept as an export because the header, footer and every
+ * dialog bind it to apply the `.dark` class to themselves.
+ */
+export const chromeDark = computed(() => {
+  const def = BG_THEMES.find((t) => t.id === bgTheme.value);
+  return !def?.light;
+});
+
 watch(
   bgTheme,
   (bg) => {
@@ -146,6 +166,12 @@ watch(
     } else {
       delete document.documentElement.dataset.glass;
     }
+    // Dark mode itself follows the theme: a light theme removes
+    // `.dark` from <html> (immediate: true, so a saved light theme
+    // applies on launch, before the app mounts), a dark theme puts
+    // it back. All Tailwind dark: styles and the chromeDark bindings
+    // above follow from this single toggle.
+    document.documentElement.classList.toggle("dark", !def?.light);
   },
   { immediate: true },
 );

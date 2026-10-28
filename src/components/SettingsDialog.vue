@@ -29,9 +29,11 @@ useDialogDrag(dialogPanel, dialogHandle);
 
       <h3 class="mb-1 text-sm font-semibold">Background</h3>
       <p class="mb-2 text-xs text-neutral-500">
-        Sonoma, Sequoia, Monterey, Big Sur and Catalina are iOS/macOS-style glass themes:
-        vivid wallpapers with true frosted-glass cards. The rest are flat
-        colors with softly translucent cards. Changes apply immediately.
+        Sonoma, Sequoia, Monterey, Big Sur and Catalina are dark iOS/macOS-style glass themes:
+        vivid wallpapers with true frosted-glass cards. Light Glass is the same
+        frosted-glass look in full light mode — it switches the whole app out of
+        dark mode while it is active. The rest are flat colors with softly
+        translucent cards. Changes apply immediately.
       </p>
       <div class="grid grid-cols-3 gap-2">
         <button

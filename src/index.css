@@ -444,3 +444,55 @@ html[data-glass="true"] .file-action-danger:hover {
   bottom: auto;
   transform: translateY(-50%);
 }
+
+/* Light Glass theme (data-bg="lightglass"): a light pastel wallpaper
+   with light frosted-glass cards. This theme removes `.dark` from
+   <html> (see theme.ts), so the generic glass-card rule above
+   (white translucent) already applies; the rules below override the
+   dark-glass pieces that are not dark-qualified and would otherwise
+   stay dark on a light backdrop: dialog panels, header/footer, and
+   the glass action buttons. Toasts stay dark on purpose — a dark
+   toast is readable on a light UI. */
+html[data-bg="lightglass"] body {
+  background-image:
+    radial-gradient(50% 40% at 20% 15%, rgb(147 197 253 / 0.55), transparent 70%),
+    radial-gradient(50% 40% at 85% 20%, rgb(252 211 77 / 0.45), transparent 70%),
+    radial-gradient(60% 55% at 60% 95%, rgb(167 139 250 / 0.45), transparent 70%),
+    linear-gradient(150deg, #eff6ff 0%, #fdf2f8 50%, #ecfdf5 100%);
+  background-attachment: fixed;
+}
+html[data-glass="true"]:not(.dark) .glass-panel {
+  background-color: rgb(255 255 255 / 0.55);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    0 24px 64px rgb(0 0 0 / 0.15);
+}
+html[data-glass="true"]:not(.dark) header,
+html[data-glass="true"]:not(.dark) footer {
+  background-color: rgb(255 255 255 / 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+html[data-glass="true"]:not(.dark) .toolbar-btn,
+html[data-glass="true"]:not(.dark) .file-action,
+html[data-glass="true"]:not(.dark) .file-action-sm,
+html[data-glass="true"]:not(.dark) .action {
+  background-color: rgb(255 255 255 / 0.6);
+  color: rgb(30 64 175);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.7);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+}
+html[data-glass="true"]:not(.dark) .toolbar-btn:hover,
+html[data-glass="true"]:not(.dark) .file-action:hover,
+html[data-glass="true"]:not(.dark) .file-action-sm:hover,
+html[data-glass="true"]:not(.dark) .action:hover {
+  background-color: rgb(255 255 255 / 0.85);
+}
+html[data-glass="true"]:not(.dark) .file-action-danger:hover {
+  background-color: rgb(254 226 226);
+  color: rgb(185 28 28);
+}

@@ -39,7 +39,7 @@ function choose(item: ContextMenuItem) {
     @contextmenu.prevent="emit('close')"
   >
     <ul
-      class="menu glass-panel fixed z-[60] w-56 rounded-2xl bg-neutral-900 p-2 text-sm shadow-xl ring-1 ring-white/10"
+      class="menu glass-panel fixed z-[60] w-56 rounded-2xl bg-white p-2 text-sm text-neutral-900 shadow-xl ring-1 ring-neutral-200 dark:bg-neutral-900 dark:text-neutral-100 dark:ring-white/10"
       :style="style"
       @click.stop
     >

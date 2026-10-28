@@ -193,7 +193,7 @@ watch(() => props.statusKey, loadStatus);
           </button>
           <template v-if="menuOpen">
             <ul
-              class="menu absolute right-0 top-full z-20 mt-1 w-44 rounded-2xl bg-neutral-900 p-2 text-sm shadow-xl ring-1 ring-white/10"
+              class="menu absolute right-0 top-full z-20 mt-1 w-44 rounded-2xl bg-white p-2 text-sm text-neutral-900 shadow-xl ring-1 ring-neutral-200 dark:bg-neutral-900 dark:text-neutral-100 dark:ring-white/10"
             >
               <li>
                 <a @click="menuOpen = false; emit('edit')">
