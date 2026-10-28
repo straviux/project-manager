@@ -107,6 +107,76 @@ export function fileTypeBadgeClasses(name: string): string {
   return FAMILY_CLASSES[fileExtension(name)] ?? DEFAULT_CLASSES;
 }
 
+/**
+ * Icon colour for a file, given its name. Same families as the badges
+ * above (Word blue, PDF red, spreadsheets green, presentations orange,
+ * images purple, video rose, audio teal, archives amber, code indigo,
+ * text/unknown neutral) so the icon and the badge always agree — but
+ * as a plain text colour (-600 light / -400 dark) suited to a Lucide
+ * icon on the card background, not the badge's filled background.
+ * Folders keep their amber icon and are unaffected.
+ */
+const ICON_CLASSES: Record<string, string> = {
+  doc: "text-blue-600 dark:text-blue-400",
+  docx: "text-blue-600 dark:text-blue-400",
+  odt: "text-blue-600 dark:text-blue-400",
+  rtf: "text-blue-600 dark:text-blue-400",
+  pdf: "text-red-600 dark:text-red-400",
+  xls: "text-green-600 dark:text-green-400",
+  xlsx: "text-green-600 dark:text-green-400",
+  csv: "text-green-600 dark:text-green-400",
+  ods: "text-green-600 dark:text-green-400",
+  ppt: "text-orange-600 dark:text-orange-400",
+  pptx: "text-orange-600 dark:text-orange-400",
+  odp: "text-orange-600 dark:text-orange-400",
+  key: "text-orange-600 dark:text-orange-400",
+  txt: "text-neutral-500 dark:text-neutral-400",
+  md: "text-neutral-500 dark:text-neutral-400",
+  jpg: "text-purple-600 dark:text-purple-400",
+  jpeg: "text-purple-600 dark:text-purple-400",
+  png: "text-purple-600 dark:text-purple-400",
+  gif: "text-purple-600 dark:text-purple-400",
+  webp: "text-purple-600 dark:text-purple-400",
+  svg: "text-purple-600 dark:text-purple-400",
+  bmp: "text-purple-600 dark:text-purple-400",
+  heic: "text-purple-600 dark:text-purple-400",
+  avif: "text-purple-600 dark:text-purple-400",
+  mp4: "text-rose-600 dark:text-rose-400",
+  mov: "text-rose-600 dark:text-rose-400",
+  mkv: "text-rose-600 dark:text-rose-400",
+  webm: "text-rose-600 dark:text-rose-400",
+  avi: "text-rose-600 dark:text-rose-400",
+  mp3: "text-teal-600 dark:text-teal-400",
+  wav: "text-teal-600 dark:text-teal-400",
+  flac: "text-teal-600 dark:text-teal-400",
+  ogg: "text-teal-600 dark:text-teal-400",
+  m4a: "text-teal-600 dark:text-teal-400",
+  zip: "text-amber-600 dark:text-amber-400",
+  rar: "text-amber-600 dark:text-amber-400",
+  "7z": "text-amber-600 dark:text-amber-400",
+  tar: "text-amber-600 dark:text-amber-400",
+  gz: "text-amber-600 dark:text-amber-400",
+  "tar.gz": "text-amber-600 dark:text-amber-400",
+  "tar.bz2": "text-amber-600 dark:text-amber-400",
+  js: "text-indigo-600 dark:text-indigo-400",
+  ts: "text-indigo-600 dark:text-indigo-400",
+  py: "text-indigo-600 dark:text-indigo-400",
+  html: "text-indigo-600 dark:text-indigo-400",
+  css: "text-indigo-600 dark:text-indigo-400",
+  json: "text-indigo-600 dark:text-indigo-400",
+  xml: "text-indigo-600 dark:text-indigo-400",
+  java: "text-indigo-600 dark:text-indigo-400",
+  cpp: "text-indigo-600 dark:text-indigo-400",
+  c: "text-indigo-600 dark:text-indigo-400",
+  rs: "text-indigo-600 dark:text-indigo-400",
+  go: "text-indigo-600 dark:text-indigo-400",
+};
+
+/** Icon colour classes for a file, given its name. */
+export function fileTypeIconClasses(name: string): string {
+  return ICON_CLASSES[fileExtension(name)] ?? "text-neutral-500 dark:text-neutral-400";
+}
+
 /** Base badge shape, shared by rows and tiles. */
 export const FILE_TYPE_BADGE_BASE =
   "inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset";

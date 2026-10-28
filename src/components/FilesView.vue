@@ -65,6 +65,7 @@ import { useDialogDrag } from "../lib/useDialogDrag";
 import {
   FILE_TYPE_BADGE_BASE,
   fileTypeBadgeClasses,
+  fileTypeIconClasses,
   fileTypeLabel,
   fileTypeTitle,
 } from "../lib/fileTypes";
@@ -1422,7 +1423,7 @@ onUnmounted(() => {
                     <button class="shrink-0 rounded p-0.5" :title="metaOf(file).starred ? 'Remove star' : 'Star'" @click.stop="toggleStar(file)">
                       <Star class="h-4 w-4" :class="metaOf(file).starred ? 'fill-amber-500 text-amber-500' : 'text-neutral-300 hover:text-amber-400'" />
                     </button>
-                    <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0 text-blue-600" />
+                    <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0" :class="fileTypeIconClasses(file.name)" />
                     <span class="truncate font-medium">{{ file.name }}</span>
                     <span :class="[FILE_TYPE_BADGE_BASE, fileTypeBadgeClasses(file.name)]" :title="fileTypeTitle(file.name)">{{ fileTypeLabel(file.name) }}</span>
                     <span
@@ -1506,7 +1507,7 @@ onUnmounted(() => {
                 muted
                 preload="metadata"
               ></video>
-              <component v-else :is="iconFor(file.category)" class="h-16 w-16 text-blue-600" />
+              <component v-else :is="iconFor(file.category)" class="h-16 w-16" :class="fileTypeIconClasses(file.name)" />
               <span :class="[FILE_TYPE_BADGE_BASE, fileTypeBadgeClasses(file.name), 'absolute bottom-0 right-1 shadow']" :title="fileTypeTitle(file.name)">{{ fileTypeLabel(file.name) }}</span>
             </span>
             <span class="mt-2 flex max-w-full items-start justify-center gap-1">

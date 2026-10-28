@@ -67,7 +67,9 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   images purple, video rose, audio teal, archives amber, code
   indigo). In list view the badge sits after the file name; in
   grid view it overlays the bottom-right of the thumbnail/icon.
-  Files with no extension show a neutral FILE badge.
+  Files with no extension show a neutral FILE badge. The file icon
+  itself uses the same family colour, so icon and badge always agree
+  (folders stay amber).
 - **Draggable dialogs** — every dialog (project, clone, SSH, settings,
   README, document preview/create, import, confirm, history, and the
   Files status/notes/batch-move dialogs) can be dragged by its title
