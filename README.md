@@ -61,6 +61,11 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   verifies each file isn't running or open in another app when it's added. Busy files are
   skipped with the reason shown and a Retry button, never forced.
   Spec: [docs/file-manager.md](docs/file-manager.md)
+- **PrimeVue** — PrimeVue 5 with the Aura preset is registered in
+  `src/main.ts` (`darkModeSelector: ".dark"`, matching the app's
+  dark-only setup), ready for future components. Project-card and Files
+  dragging deliberately stay on the existing pointer-based code:
+  PrimeVue's HTML5-drag components do not engage in this Tauri webview.
 - **Documents in the file library** — preview Word (.docx), Excel (.xlsx)
   and PDF files inside the app (read-only; Word/Excel previews show
   content, not live formatting or formulas), and create a blank Word,
