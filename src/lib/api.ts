@@ -185,6 +185,16 @@ export function saveDocumentFile(
   });
 }
 
+/**
+ * Convert a .doc/.ppt/.pptx/.xls file to PDF with Microsoft Office
+ * (assumed installed) and return the cached PDF's absolute path. The
+ * Rust side caches by file stem + size + modified time, so an
+ * unchanged file converts only once.
+ */
+export function convertOfficeToPdf(path: string): Promise<string> {
+  return invoke("convert_office_to_pdf", { path });
+}
+
 /** Move or copy a folder into the file library, keeping its structure. */
 export function importFolderToLibrary(
   source: string,

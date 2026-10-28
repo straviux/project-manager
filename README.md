@@ -79,6 +79,17 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   dark-only setup), ready for future components. Project-card and Files
   dragging deliberately stay on the existing pointer-based code:
   PrimeVue's HTML5-drag components do not engage in this Tauri webview.
+- **Office preview via Microsoft Office** — .doc, .ppt, .pptx and
+  .xls files preview inside the app too: a new Rust command converts
+  them to PDF with Office itself (PowerShell COM, read-only, no
+  window), cached in app data by file stem + size + modified time so
+  an unchanged file converts only once, and the PDF shows in the
+  existing PDF preview. Microsoft Office is assumed installed;
+  without it, preview shows the conversion error and the file can
+  still be opened in its own app. This Rust command, like
+  `save_document_file` before it, has not been compiled here (no
+  cargo) and needs its first Tauri build on a Windows machine with
+  Office.
 - **Documents in the file library** — preview Word (.docx), Excel (.xlsx)
   and PDF files inside the app (read-only; Word/Excel previews show
   content, not live formatting or formulas), and create a blank Word,

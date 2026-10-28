@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { ExternalLink, FileText, X } from "@lucide/vue";
 import { chromeDark } from "../lib/theme";
-import { openPath } from "../lib/api";
+import { convertOfficeToPdf, openPath } from "../lib/api";
 import {
   documentKind,
   fetchLibraryFile,
@@ -25,9 +25,14 @@ const kind = documentKind(props.file.name);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const docxHtml = ref("");
+const convertedPdfUrl = ref<string | null>(null);
 const sheets = ref<XlsxSheet[]>([]);
 const activeSheet = ref(0);
-const pdfUrl = computed(() => convertFileSrc(props.file.path));
+const pdfUrl = computed(() =>
+  kind === "office"
+    ? (convertedPdfUrl.value ?? "")
+    : convertFileSrc(props.file.path),
+);
 
 onMounted(async () => {
   if (!kind) {
@@ -39,6 +44,11 @@ onMounted(async () => {
   try {
     if (kind === "pdf") {
       // The webview renders PDFs itself (iframe below); nothing to parse.
+    } else if (kind === "office") {
+      // Convert with Microsoft Office (assumed installed), then show
+      // the cached PDF in the same iframe as a native PDF.
+      const pdfPath = await convertOfficeToPdf(props.file.path);
+      convertedPdfUrl.value = convertFileSrc(pdfPath);
     } else {
       const buffer = await fetchLibraryFile(props.file.path);
       if (kind === "docx") docxHtml.value = await previewDocx(buffer);
@@ -91,7 +101,7 @@ onMounted(async () => {
       </header>
 
       <div class="min-h-0 flex-1 overflow-y-auto p-6">
-        <p v-if="loading" class="text-sm text-neutral-500">Loading preview…</p>
+        <p v-if="loading" class="text-sm text-neutral-500">{{ kind === "office" ? "Converting with Microsoft Office… first preview of a file takes a few seconds, later ones reuse the cached PDF." : "Loading preview…" }}</p>
         <p
           v-else-if="error"
           class="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
@@ -99,15 +109,18 @@ onMounted(async () => {
           {{ error }}
         </p>
 
-        <template v-else-if="kind === 'pdf'">
+        <template v-else-if="kind === 'pdf' || kind === 'office'">
           <iframe
             :src="pdfUrl"
             class="h-[70vh] w-full rounded-lg ring-1 ring-neutral-200 dark:ring-neutral-800"
             title="PDF preview"
           />
           <p class="mt-2 text-xs text-neutral-500">
-            If the PDF doesn't show here, use the open button above to view it
-            in your PDF viewer.
+            {{
+              kind === "office"
+                ? "Converted to PDF with Microsoft Office for preview — open the file to edit it in Office."
+                : "If the PDF doesn't show here, use the open button above to view it in your PDF viewer."
+            }}
           </p>
         </template>
 

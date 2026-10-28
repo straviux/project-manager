@@ -7,14 +7,19 @@ import DOMPurify from "dompurify";
 // runs, instead of on every app launch. The main bundle stays lean and
 // the document chunks are fetched on first use.
 
-/** Document types this app can preview inside its own window. */
-export type DocumentKind = "pdf" | "docx" | "xlsx";
+/** Document types this app can preview inside its own window.
+ * "office" is .doc/.ppt/.pptx/.xls: they are not rendered natively,
+ * but converted to PDF with Microsoft Office (assumed installed, per
+ * the design decision) and then shown in the PDF preview. */
+export type DocumentKind = "pdf" | "docx" | "xlsx" | "office";
 
 export function documentKind(name: string): DocumentKind | null {
   const ext = name.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return "pdf";
   if (ext === "docx") return "docx";
   if (ext === "xlsx") return "xlsx";
+  if (ext === "doc" || ext === "ppt" || ext === "pptx" || ext === "xls")
+    return "office";
   return null;
 }
 
@@ -24,11 +29,23 @@ export function isPreviewable(name: string): boolean {
 
 /** File extension for a document kind, with the leading dot. */
 export function documentExtension(kind: DocumentKind): string {
-  return kind === "pdf" ? ".pdf" : kind === "docx" ? ".docx" : ".xlsx";
+  // "office" is only ever a preview kind (create offers docx/xlsx/pdf);
+  // its converted preview is a PDF, so that is the extension here.
+  return kind === "pdf" || kind === "office"
+    ? ".pdf"
+    : kind === "docx"
+      ? ".docx"
+      : ".xlsx";
 }
 
 export function documentLabel(kind: DocumentKind): string {
-  return kind === "pdf" ? "PDF" : kind === "docx" ? "Word" : "Excel";
+  return kind === "pdf"
+    ? "PDF"
+    : kind === "docx"
+      ? "Word"
+      : kind === "xlsx"
+        ? "Excel"
+        : "Office";
 }
 
 /* ------------------------------ preview ------------------------------ */

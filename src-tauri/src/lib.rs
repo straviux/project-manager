@@ -1529,6 +1529,203 @@ async fn save_document_file(
     .map_err(|e| e.to_string())?
 }
 
+/* ==================== office conversion (preview) ===================== */
+/*
+ * Convert an Office file to PDF with Microsoft Office itself, so the
+ * app can preview formats it cannot render natively (.doc, .ppt,
+ * .pptx, .xls). This assumes Microsoft Office is installed on the
+ * machine — that is the design decision, not a fallback: there is no
+ * LibreOffice path and no online viewer (work files must not be
+ * uploaded anywhere to render).
+ *
+ * The conversion runs PowerShell with a fixed, embedded script — the
+ * script text never comes from the frontend, and the file paths reach
+ * it as named parameters, not interpolated text, so a file name with
+ * spaces or quotes cannot break out of the script. Word, PowerPoint
+ * and Excel are each driven through their own COM application object,
+ * opened read-only and invisible, exported to PDF, then quit and
+ * released, so no Office window pops up and no stray process is left
+ * behind on the happy path.
+ *
+ * Converted PDFs are cached in app data (office-previews/) under a
+ * name built from the file's stem, size and modified time, so a second
+ * preview of an unchanged file is instant and an edited file is
+ * reconverted automatically. The cache folder is allowlisted for the
+ * asset protocol here, so the frontend can show the PDF with
+ * convertFileSrc exactly like a library PDF.
+ *
+ * This command cannot be verified in Muse's environment (no cargo,
+ * no Windows, no Office here): its first real run has to be on a
+ * Windows machine with Office installed, and any COM error surfaces
+ * as a plain error string for the preview dialog to show.
+ */
+#[cfg(target_os = "windows")]
+const OFFICE_PS_SCRIPT: &str = r#"param([string]$InputPath, [string]$OutputPath, [string]$Kind)
+$ErrorActionPreference = 'Stop'
+try {
+  if ($Kind -eq 'word') {
+    $app = New-Object -ComObject Word.Application
+    try {
+      $app.Visible = $false
+      $doc = $app.Documents.Open($InputPath, $false, $true)
+      try { $doc.ExportAsFixedFormat($OutputPath, 17) } finally { $doc.Close($false) }
+    } finally { $app.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null }
+  } elseif ($Kind -eq 'powerpoint') {
+    $app = New-Object -ComObject PowerPoint.Application
+    try {
+      $pres = $app.Presentations.Open($InputPath, $true, $true, $false)
+      try { $pres.ExportAsFixedFormat($OutputPath, 2) } finally { $pres.Close() }
+    } finally { $app.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null }
+  } elseif ($Kind -eq 'excel') {
+    $app = New-Object -ComObject Excel.Application
+    try {
+      $app.Visible = $false
+      $app.DisplayAlerts = $false
+      $wb = $app.Workbooks.Open($InputPath, $false, $true)
+      try { $wb.ExportAsFixedFormat(0, $OutputPath) } finally { $wb.Close($false) }
+    } finally { $app.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null }
+  } else {
+    throw "Unknown Office kind: $Kind"
+  }
+} finally {
+  [GC]::Collect()
+  [GC]::WaitForPendingFinalizers()
+}
+"#;
+
+fn office_kind_for(ext: &str) -> Option<&'static str> {
+    match ext.to_ascii_lowercase().as_str() {
+        "doc" => Some("word"),
+        "ppt" | "pptx" => Some("powerpoint"),
+        "xls" => Some("excel"),
+        _ => None,
+    }
+}
+
+fn convert_office_to_pdf_impl(
+    app: &tauri::AppHandle,
+    path: String,
+) -> Result<String, String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (app, path);
+        return Err(
+            "Office preview is only available on Windows with Microsoft Office installed."
+                .into(),
+        );
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let src = PathBuf::from(&path);
+        let ext = src
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let kind = office_kind_for(&ext).ok_or_else(|| {
+            format!("Only .doc, .ppt, .pptx and .xls files can be converted with Office (got .{ext}).")
+        })?;
+        let meta = fs::metadata(&src)
+            .map_err(|e| format!("Could not read the file: {e}"))?;
+        if !meta.is_file() {
+            return Err("That is not a file.".into());
+        }
+        let cache = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| e.to_string())?
+            .join("office-previews");
+        fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+        app.asset_protocol_scope()
+            .allow_directory(cache.to_string_lossy().to_string(), true)
+            .map_err(|e| e.to_string())?;
+        // Cache key: sanitized stem + size + modified time. An edited
+        // file changes size or mtime, so it is reconverted; an
+        // unchanged file reuses the cached PDF.
+        let stem: String = src
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "document".to_string())
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .take(60)
+            .collect();
+        let mtime = meta
+            .modified()
+            .map_err(|e| e.to_string())?
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| e.to_string())?
+            .as_secs();
+        let dest = cache.join(format!("{stem}-{}-{mtime}.pdf", meta.len()));
+        if dest.exists() {
+            if let Ok(m) = fs::metadata(&dest) {
+                if m.len() > 0 {
+                    return Ok(dest.to_string_lossy().to_string());
+                }
+            }
+        }
+        // Write the fixed script to a temp file, then run it. The
+        // script is deleted afterwards whether it succeeds or not.
+        let script_path = std::env::temp_dir().join(format!(
+            "pm-office-convert-{}.ps1",
+            std::process::id()
+        ));
+        fs::write(&script_path, OFFICE_PS_SCRIPT)
+            .map_err(|e| format!("Could not write the conversion script: {e}"))?;
+        let mut cmd = Command::new("powershell");
+        no_console_window(&mut cmd);
+        let output = cmd
+            .args([
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &script_path.to_string_lossy(),
+                "-InputPath",
+                &src.to_string_lossy(),
+                "-OutputPath",
+                &dest.to_string_lossy(),
+                "-Kind",
+                kind,
+            ])
+            .output()
+            .map_err(|e| format!("Could not start PowerShell: {e}"))?;
+        let _ = fs::remove_file(&script_path);
+        if !output.status.success() || !dest.exists() {
+            let _ = fs::remove_file(&dest);
+            let detail = String::from_utf8_lossy(&output.stderr)
+                .trim()
+                .lines()
+                .last()
+                .unwrap_or("")
+                .to_string();
+            return Err(if detail.is_empty() {
+                "Microsoft Office could not convert this file. Check that Office is installed, then open the file in its own app instead.".into()
+            } else {
+                format!("Microsoft Office could not convert this file: {detail}")
+            });
+        }
+        Ok(dest.to_string_lossy().to_string())
+    }
+}
+
+#[tauri::command]
+async fn convert_office_to_pdf(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        convert_office_to_pdf_impl(&app, path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /* ========================== project icons ============================ */
 
 fn project_icons_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -1620,7 +1817,8 @@ pub fn run() {
             duplicate_library_item,
             open_path,
             allow_asset_dir,
-            save_document_file
+            save_document_file,
+            convert_office_to_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
