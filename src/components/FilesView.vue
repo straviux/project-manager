@@ -452,6 +452,13 @@ async function addFiles(paths: string[]) {
   error.value = null;
   notice.value = null;
   let moved = 0;
+  const movedNames: string[] = [];
+  // Destination folders, in first-seen order. The move command already
+  // returns the full destination path — previously it was discarded,
+  // so the toast only said "into the library" and a file that was
+  // categorized into Documents looked like it had vanished from the
+  // library root. Name the folder(s) so the user knows where to look.
+  const destFolders: string[] = [];
   for (const source of paths) {
     const check = await checkFileFree(source);
     if (!check.free) {
@@ -463,11 +470,17 @@ async function addFiles(paths: string[]) {
       continue;
     }
     try {
-      await moveFileToLibrary(source, props.filesDir);
+      const dest = await moveFileToLibrary(source, props.filesDir);
       moved++;
+      movedNames.push(baseName(source));
+      const relative = dest.startsWith(props.filesDir)
+        ? dest.slice(props.filesDir.length).replace(/^[/\\]/, "")
+        : dest;
+      const folder = relative.split(/[\\/]/).slice(0, -1).join("/") || "Library root";
+      if (!destFolders.includes(folder)) destFolders.push(folder);
       await logAction(
         "added",
-        `${baseName(source)} added to the library.`,
+        `${baseName(source)} added to the library (${folder}).`,
       ).catch(() => {});
     } catch (e) {
       busyItems.value.push({
@@ -477,8 +490,14 @@ async function addFiles(paths: string[]) {
       });
     }
   }
-  if (moved)
-    showToast(`Moved ${moved} file${moved === 1 ? "" : "s"} into the library.`);
+  if (moved) {
+    const where = destFolders.join(", ");
+    showToast(
+      moved === 1
+        ? `Moved ${movedNames[0]} to ${where}.`
+        : `Moved ${moved} files to ${where}.`,
+    );
+  }
   await refresh();
 }
 
