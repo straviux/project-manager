@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, type Component } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch, type Component } from "vue";
 import {
   ArrowDownToLine,
   BookOpen,
@@ -55,6 +55,7 @@ import {
   deleteProject,
   FILES_DIR_KEY,
   getSetting,
+  setSetting,
   listProjects,
   PROJECTS_DIR_KEY,
   setProjectOrder,
@@ -82,6 +83,11 @@ const pointerDrag = ref<{
 } | null>(null);
 const searchInput = ref<HTMLInputElement | null>(null);
 const tab = ref<"projects" | "files">("projects");
+// Tab persistency: the last active tab is saved in settings on every
+// switch and restored at boot, so the app reopens where you left it
+// instead of always landing on Projects.
+const ACTIVE_TAB_KEY = "active_tab";
+watch(tab, (value) => void setSetting(ACTIVE_TAB_KEY, value));
 const projectsDir = ref<string | null>(null);
 const filesDir = ref<string | null>(null);
 const projects = ref<Project[]>([]);
@@ -162,6 +168,8 @@ async function refresh() {
 async function boot() {
   projectsDir.value = await getSetting(PROJECTS_DIR_KEY);
   filesDir.value = await getSetting(FILES_DIR_KEY);
+  const savedTab = await getSetting(ACTIVE_TAB_KEY);
+  if (savedTab === "projects" || savedTab === "files") tab.value = savedTab;
   if (projectsDir.value) await refresh();
   ready.value = true;
 }
