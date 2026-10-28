@@ -74,15 +74,21 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   bar. Dragging uses pointer events in `src/lib/useDialogDrag.ts`,
   not HTML5 drag, so it works in the Tauri webview, and the dialog
   is kept in the viewport so its title bar can always be grabbed again.
-- **PrimeVue** — PrimeVue 4.5.5 (MIT) with the Aura preset is
+- **PrimeVue (PrimeUI)** — PrimeVue 5 with the Aura preset is
   registered in `src/main.ts` (`darkModeSelector: ".dark"`, matching
-  the app's dark-only setup), ready for future components.
-  Deliberately version 4, not 5: PrimeVue 5 moved to the commercial
-  PrimeUI license, which requires a license key and otherwise shows
-  an "Invalid PrimeUI License" notice; version 4 stays MIT and needs
-  no key. Project-card and Files dragging deliberately stay on the
+  the app's dark-only setup), ready for future components. Its
+  license key comes from `VITE_PRIMEUI_LICENSE_KEY` in a local,
+  gitignored `.env` (see `.env.example`) — the key is never in this
+  repo. Without it, PrimeVue shows an "Invalid PrimeUI License"
+  notice. Project-card and Files dragging deliberately stay on the
   existing pointer-based code: PrimeVue's HTML5-drag components do
   not engage in this Tauri webview.
+- **No DaisyUI** — DaisyUI was dropped. The small subset of its
+  classes the app used (`btn`/`btn-primary`/`btn-ghost`/`btn-error`/
+  `btn-sm`, `menu`, `tooltip` + directions) is now defined in
+  `src/index.css` with the same names and look, so templates did
+  not change; `bg-base-200`/`text-error` were replaced with plain
+  Tailwind classes.
 - **Office preview via Microsoft Office** — .doc, .ppt, .pptx and
   .xls files preview inside the app too: a new Rust command converts
   them to PDF with Office itself (PowerShell COM, read-only, no

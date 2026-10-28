@@ -193,7 +193,7 @@ watch(() => props.statusKey, loadStatus);
           </button>
           <template v-if="menuOpen">
             <ul
-              class="menu absolute right-0 top-full z-20 mt-1 w-44 rounded-box bg-base-200 p-2 text-sm shadow-xl ring-1 ring-white/10"
+              class="menu absolute right-0 top-full z-20 mt-1 w-44 rounded-2xl bg-neutral-900 p-2 text-sm shadow-xl ring-1 ring-white/10"
             >
               <li>
                 <a @click="menuOpen = false; emit('edit')">
@@ -207,7 +207,7 @@ watch(() => props.statusKey, loadStatus);
               </li>
               <li>
                 <a
-                  class="text-error"
+                  class="text-red-600 dark:text-red-400"
                   @click="menuOpen = false; emit('remove')"
                 >
                   <Trash2 class="h-4 w-4" /> Remove from list

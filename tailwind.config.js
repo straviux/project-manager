@@ -1,5 +1,3 @@
-import daisyui from "daisyui";
-
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: "class",
@@ -7,9 +5,5 @@ export default {
   theme: {
     extend: {},
   },
-  plugins: [daisyui],
-  daisyui: {
-    // Dark-only app: DaisyUI components render with the dark theme.
-    themes: ["dark"],
-  },
+  plugins: [],
 };

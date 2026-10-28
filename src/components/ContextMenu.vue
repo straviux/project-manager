@@ -39,12 +39,12 @@ function choose(item: ContextMenuItem) {
     @contextmenu.prevent="emit('close')"
   >
     <ul
-      class="menu glass-panel fixed z-[60] w-56 rounded-box bg-base-200 p-2 text-sm shadow-xl ring-1 ring-white/10"
+      class="menu glass-panel fixed z-[60] w-56 rounded-2xl bg-neutral-900 p-2 text-sm shadow-xl ring-1 ring-white/10"
       :style="style"
       @click.stop
     >
       <li v-for="item in items" :key="item.label">
-        <a :class="item.danger ? 'text-error' : ''" @click="choose(item)">
+        <a :class="item.danger ? 'text-red-600 dark:text-red-400' : ''" @click="choose(item)">
           <component :is="item.icon" v-if="item.icon" class="h-4 w-4 shrink-0" />
           {{ item.label }}
         </a>

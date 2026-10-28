@@ -319,3 +319,128 @@ html[data-glass="true"] .file-action-danger:hover {
   background-color: rgb(239 68 68 / 0.28);
   color: rgb(254 202 202);
 }
+
+/* App-owned button, menu and tooltip utilities. These used to come
+   from DaisyUI; DaisyUI was dropped, so the small subset the app
+   actually uses is defined here instead, with the same class names,
+   so no template markup had to change and the look is unchanged.
+   Tooltips keep the `tooltip` class + direction + `data-tip`
+   convention: never a native `title` attribute, except inside
+   scrolling containers where tooltips get clipped (Files rows/tiles
+   still use `title` for that reason). Never put a tooltip on a
+   `.menu` row: it would force inline-block and break the row. */
+.btn {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-semibold transition-colors;
+  background-color: rgb(229 229 229);
+  color: rgb(23 23 23);
+}
+.dark .btn {
+  background-color: rgb(38 38 38);
+  color: rgb(245 245 245);
+}
+.btn:hover {
+  background-color: rgb(212 212 212);
+}
+.dark .btn:hover {
+  background-color: rgb(64 64 64);
+}
+.btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+.btn-primary {
+  background-color: rgb(37 99 235);
+  color: rgb(255 255 255);
+}
+.btn-primary:hover {
+  background-color: rgb(29 78 216);
+}
+.btn-ghost {
+  background-color: transparent;
+}
+.btn-ghost:hover {
+  background-color: rgb(0 0 0 / 0.05);
+}
+.dark .btn-ghost:hover {
+  background-color: rgb(255 255 255 / 0.1);
+}
+.btn-error {
+  background-color: rgb(220 38 38);
+  color: rgb(255 255 255);
+}
+.btn-error:hover {
+  background-color: rgb(185 28 28);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.menu {
+  @apply m-0 flex list-none flex-col gap-1 p-0;
+}
+.menu li {
+  @apply list-none;
+}
+.menu li > a {
+  @apply flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2;
+}
+.menu li > a:hover {
+  background-color: rgb(0 0 0 / 0.05);
+}
+.dark .menu li > a:hover {
+  background-color: rgb(255 255 255 / 0.1);
+}
+.rounded-box {
+  border-radius: 1rem;
+}
+.tooltip {
+  position: relative;
+}
+.tooltip::before {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  background-color: rgb(38 38 38);
+  color: rgb(245 245 245);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-align: center;
+  max-width: 280px;
+  white-space: normal;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+}
+.tooltip:hover::before {
+  opacity: 1;
+}
+.tooltip-top::before,
+.tooltip::before {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.tooltip-bottom::before {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.tooltip-left::before {
+  right: calc(100% + 6px);
+  left: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+.tooltip-right::before {
+  left: calc(100% + 6px);
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}

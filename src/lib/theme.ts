@@ -1,10 +1,9 @@
 import { computed, ref, watch } from "vue";
 
 // The app is dark-only: <html> always carries `.dark`, so every dark:
-// utility is active. DaisyUI (registered in tailwind.config.js) renders
-// its components with the dark theme via the data-theme attribute.
+// utility is active. (DaisyUI was dropped; the button/menu/tooltip
+// classes it used to provide are now defined in index.css.)
 document.documentElement.classList.add("dark");
-document.documentElement.dataset.theme = "dark";
 localStorage.removeItem("pm-theme"); // leftover from the removed mode switch
 
 /**
