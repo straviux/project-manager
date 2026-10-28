@@ -124,7 +124,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }" @click.self="emit('close')">
+  <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }">
     <div ref="dialogPanel" class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 max-h-[90vh] overflow-y-auto">
       <header ref="dialogHandle" class="mb-4 flex cursor-grab items-center justify-between active:cursor-grabbing">
         <h2 class="text-lg font-semibold">{{ project ? "Edit project" : "Add project" }}</h2>

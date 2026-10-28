@@ -1545,7 +1545,7 @@ onUnmounted(() => {
     v-if="statusTarget"
     class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
     :class="{ dark: chromeDark }"
-    @click.self="statusTarget = null"
+   
   >
     <div ref="statusPanel" class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <h2 ref="statusHandle" class="mb-1 flex cursor-grab items-center gap-2 text-lg font-semibold active:cursor-grabbing">
@@ -1597,7 +1597,7 @@ onUnmounted(() => {
     v-if="notesTarget"
     class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
     :class="{ dark: chromeDark }"
-    @click.self="notesTarget = null"
+   
   >
     <div ref="notesPanel" class="glass-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <h2 ref="notesHandle" class="mb-1 flex cursor-grab items-center gap-2 text-lg font-semibold active:cursor-grabbing">
@@ -1621,7 +1621,7 @@ onUnmounted(() => {
     v-if="showBatchMove"
     class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
     :class="{ dark: chromeDark }"
-    @click.self="showBatchMove = false"
+   
   >
     <div ref="batchPanel" class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <h2 ref="batchHandle" class="mb-1 cursor-grab text-lg font-semibold active:cursor-grabbing">Move {{ totalSelected }} items</h2>

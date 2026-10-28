@@ -15,7 +15,7 @@ useDialogDrag(dialogPanel, dialogHandle);
   <div
     class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4"
     :class="{ dark: chromeDark }"
-    @click.self="emit('close')"
+   
   >
     <div ref="dialogPanel" class="glass-panel max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <header ref="dialogHandle" class="mb-4 flex cursor-grab items-center justify-between active:cursor-grabbing">

@@ -144,7 +144,14 @@ export async function createDocxBytes(title: string): Promise<Uint8Array> {
       },
     ],
   });
-  return Packer.toBuffer(doc);
+  // NOT Packer.toBuffer(): that is Node-only and throws "nodebuffer is
+  // not supported by this platform" in the Tauri webview, which has no
+  // Node Buffer. toArrayBuffer() is the browser-safe equivalent, and
+  // the Node round-trip test that originally verified this generator
+  // passed precisely because Node does have a Buffer — that test
+  // masked the bug. Use toArrayBuffer() here so creating a Word
+  // document works in the actual app.
+  return new Uint8Array(await Packer.toArrayBuffer(doc));
 }
 
 /** A new, empty Excel workbook with a single blank sheet. */
