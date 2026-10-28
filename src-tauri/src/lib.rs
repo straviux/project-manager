@@ -1562,19 +1562,50 @@ async fn save_document_file(
 #[cfg(target_os = "windows")]
 const OFFICE_PS_SCRIPT: &str = r#"param([string]$InputPath, [string]$OutputPath, [string]$Kind)
 $ErrorActionPreference = 'Stop'
+# Office ExportAsFixedFormat takes enum parameters (Word WdExportFormat,
+# PowerPoint PpFixedFormatType, Excel XlFixedFormatType). Passing a plain
+# int (e.g. PowerPoint's 2 for PDF) fails in PowerShell's COM binder with
+# "Cannot convert the '2' value of type 'int' to type 'Object'", so load
+# the Office interop assembly and pass the real enum value. If the
+# interop assembly is not available, fall back to reflection, whose
+# binder converts an int to the enum parameter type.
+function Export-WordPdf($doc, $out) {
+  try {
+    Add-Type -AssemblyName Microsoft.Office.Interop.Word -ErrorAction Stop
+    $doc.ExportAsFixedFormat($out, [Microsoft.Office.Interop.Word.WdExportFormat]::wdExportFormatPDF)
+    return
+  } catch {}
+  $doc.GetType().InvokeMember("ExportAsFixedFormat", "InvokeMethod", $null, $doc, @($out, 17))
+}
+function Export-PowerPointPdf($pres, $out) {
+  try {
+    Add-Type -AssemblyName Microsoft.Office.Interop.PowerPoint -ErrorAction Stop
+    $pres.ExportAsFixedFormat($out, [Microsoft.Office.Interop.PowerPoint.PpFixedFormatType]::ppFixedFormatTypePDF)
+    return
+  } catch {}
+  $pres.GetType().InvokeMember("ExportAsFixedFormat", "InvokeMethod", $null, $pres, @($out, 2))
+}
+function Export-ExcelPdf($wb, $out) {
+  try {
+    Add-Type -AssemblyName Microsoft.Office.Interop.Excel -ErrorAction Stop
+    $wb.ExportAsFixedFormat([Microsoft.Office.Interop.Excel.XlFixedFormatType]::xlTypePDF, $out)
+    return
+  } catch {}
+  $wb.GetType().InvokeMember("ExportAsFixedFormat", "InvokeMethod", $null, $wb, @(0, $out))
+}
 try {
   if ($Kind -eq 'word') {
     $app = New-Object -ComObject Word.Application
     try {
       $app.Visible = $false
       $doc = $app.Documents.Open($InputPath, $false, $true)
-      try { $doc.ExportAsFixedFormat($OutputPath, 17) } finally { try { $doc.Close($false) } catch {} }
+      try { Export-WordPdf $doc $OutputPath } finally { try { $doc.Close($false) } catch {} }
     } finally { try { $app.Quit() } catch {}; try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {} }
   } elseif ($Kind -eq 'powerpoint') {
     $app = New-Object -ComObject PowerPoint.Application
     try {
       $pres = $app.Presentations.Open($InputPath, $true, $true, $false)
-      try { $pres.ExportAsFixedFormat($OutputPath, 2) } finally { try { $pres.Close() } catch {} }
+      try { Export-PowerPointPdf $pres $OutputPath } finally { try { $pres.Close() } catch {} }
     } finally { try { $app.Quit() } catch {}; try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {} }
   } elseif ($Kind -eq 'excel') {
     $app = New-Object -ComObject Excel.Application
@@ -1582,7 +1613,7 @@ try {
       $app.Visible = $false
       $app.DisplayAlerts = $false
       $wb = $app.Workbooks.Open($InputPath, $false, $true)
-      try { $wb.ExportAsFixedFormat(0, $OutputPath) } finally { try { $wb.Close($false) } catch {} }
+      try { Export-ExcelPdf $wb $OutputPath } finally { try { $wb.Close($false) } catch {} }
     } finally { try { $app.Quit() } catch {}; try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {} }
   } else {
     throw "Unknown Office kind: $Kind"
