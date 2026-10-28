@@ -35,6 +35,7 @@ import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
+import MusicPlayerWidget from "./components/MusicPlayerWidget.vue";
 import Toasts from "./components/Toasts.vue";
 import ConfirmDialog from "./components/ConfirmDialog.vue";
 import {
@@ -390,6 +391,18 @@ const containerCtxItems: ContextMenuItem[] = [
 ];
 const filesViewRef = ref<InstanceType<typeof FilesView> | null>(null);
 const filesStats = ref("");
+// Music player: FilesView tells App which audio file to play and the
+// audio queue (all audio files in the library); the widget lives in
+// App (between main and footer) so playback survives tab switches.
+const audioTrack = ref<import("./types").LibraryFile | null>(null);
+const audioQueue = ref<import("./types").LibraryFile[]>([]);
+function onPlayAudio(
+  file: import("./types").LibraryFile,
+  queue: import("./types").LibraryFile[],
+) {
+  audioTrack.value = file;
+  audioQueue.value = queue;
+}
 function onBodyContext(event: MouseEvent) {
   if ((event.target as HTMLElement).closest("input, textarea, select")) return;
   if (tab.value === "projects") {
@@ -697,9 +710,16 @@ function openEdit(project: Project) {
             :active="tab === 'files'"
             @dir-changed="(d) => (filesDir = d)"
             @stats="(text) => (filesStats = text)"
+            @play-audio="onPlayAudio"
           />
         </div>
       </main>
+      <MusicPlayerWidget
+        v-if="audioTrack"
+        :track="audioTrack"
+        :queue="audioQueue"
+        @close="audioTrack = null"
+      />
       <footer @contextmenu="onBodyContext"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
         :class="{ dark: chromeDark }"

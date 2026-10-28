@@ -25,6 +25,7 @@ import {
   List,
   Settings2,
   Music,
+  Play,
   RefreshCw,
   Search,
   Star,
@@ -69,6 +70,7 @@ import {
   fileTypeIconClasses,
   fileTypeLabel,
   fileTypeTitle,
+  isAudioFile,
   isMediaPreviewable,
 } from "../lib/fileTypes";
 import { chromeDark } from "../lib/theme";
@@ -76,7 +78,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import ContextMenu, { type ContextMenuItem } from "./ContextMenu.vue";
 
 const props = defineProps<{ filesDir: string | null; active: boolean }>();
-const emit = defineEmits<{ dirChanged: [dir: string]; stats: [text: string] }>();
+const emit = defineEmits<{ dirChanged: [dir: string]; stats: [text: string]; playAudio: [file: LibraryFile, queue: LibraryFile[]] }>();
 
 const files = ref<LibraryFile[]>([]);
 const query = ref("");
@@ -130,6 +132,10 @@ function openPreview(file: LibraryFile) {
 const mediaPreviewTarget = ref<LibraryFile | null>(null);
 function openMediaPreview(file: LibraryFile) {
   mediaPreviewTarget.value = file;
+}
+function playAudio(file: LibraryFile) {
+  const queue = files.value.filter((f) => isAudioFile(f.name));
+  emit("playAudio", file, queue);
 }
 async function onDocumentCreated(path: string) {
   showCreateDoc.value = false;
@@ -853,6 +859,15 @@ const ctx = ref<{ x: number; y: number; items: ContextMenuItem[] } | null>(null)
 // so the two never drift apart.
 function fileMenuItems(file: LibraryFile): ContextMenuItem[] {
   return [
+    ...(isAudioFile(file.name)
+      ? [
+          {
+            label: "Play",
+            icon: Play,
+            action: () => playAudio(file),
+          } as ContextMenuItem,
+        ]
+      : []),
     ...(isPreviewable(file.name)
       ? [
           {

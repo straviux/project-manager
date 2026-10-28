@@ -200,6 +200,13 @@ export function isMediaPreviewable(name: string): boolean {
   return fileMediaKind(name) !== null;
 }
 
+const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "flac", "ogg", "m4a"]);
+
+/** True when a file is an audio track the music player can play. */
+export function isAudioFile(name: string): boolean {
+  return AUDIO_EXTENSIONS.has(fileExtension(name));
+}
+
 /** Base badge shape, shared by rows and tiles. */
 export const FILE_TYPE_BADGE_BASE =
   "inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset";
