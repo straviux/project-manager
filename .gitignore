@@ -46,8 +46,11 @@ project-manager.pub
 # Generated lockfiles, local to each machine's build
 src-tauri/Cargo.lock
 Cargo.lock
+Cargo.toml
 package-lock.json
 # Project manifest shown as modified in the same view. Note: Cargo.toml
 # is already tracked, so this pattern alone does not untrack it — see
 # the note in the chat message before removing it from tracking.
 Cargo.toml
+src-tauri/Cargo.toml
+.gitignore
