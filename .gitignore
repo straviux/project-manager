@@ -34,3 +34,20 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Files shown in VS Code Source Control (2026-10-28)
+# Signing keys — the private key must never be committed. These live in
+# %USERPROFILE%\.tauri\ on the signing machine; these patterns also
+# protect them if a copy ever lands inside the repo.
+*.key
+project-manager.key
+project-manager.pub
+.tauri/
+# Generated lockfiles, local to each machine's build
+src-tauri/Cargo.lock
+Cargo.lock
+package-lock.json
+# Project manifest shown as modified in the same view. Note: Cargo.toml
+# is already tracked, so this pattern alone does not untrack it — see
+# the note in the chat message before removing it from tracking.
+Cargo.toml
