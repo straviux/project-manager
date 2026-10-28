@@ -24,6 +24,7 @@ import {
   Library,
   List,
   Settings2,
+  Heart,
   Music,
   Play,
   RefreshCw,
@@ -63,6 +64,7 @@ import {
   setFileMeta,
 } from "../lib/db";
 import { showToast } from "../lib/toast";
+import { loadFavorites, toggleFavorite } from "../lib/playlists";
 import { useDialogDrag } from "../lib/useDialogDrag";
 import {
   FILE_TYPE_BADGE_BASE,
@@ -136,6 +138,19 @@ function openMediaPreview(file: LibraryFile) {
 function playAudio(file: LibraryFile) {
   const queue = files.value.filter((f) => isAudioFile(f.name));
   emit("playAudio", file, queue);
+}
+const favoritePaths = ref<Set<string>>(new Set());
+async function refreshFavorites() {
+  favoritePaths.value = new Set(await loadFavorites());
+}
+async function toggleFileFavorite(file: LibraryFile) {
+  const nowFavorite = await toggleFavorite(file.path);
+  await refreshFavorites();
+  showToast(
+    nowFavorite
+      ? `Added ${file.name} to favorites.`
+      : `Removed ${file.name} from favorites.`,
+  );
 }
 async function onDocumentCreated(path: string) {
   showCreateDoc.value = false;
@@ -411,6 +426,7 @@ async function refresh() {
     files.value = await listLibraryFiles(props.filesDir);
     void allowAssetDir(props.filesDir).catch(() => {});
     await loadMeta();
+    await refreshFavorites();
     // A refresh (e.g. switching back to this tab) must not wipe a
     // selection in progress — just drop items that no longer exist.
     if (selected.value.size || selectedFolders.value.size) {
@@ -865,6 +881,13 @@ function fileMenuItems(file: LibraryFile): ContextMenuItem[] {
             label: "Play",
             icon: Play,
             action: () => playAudio(file),
+          } as ContextMenuItem,
+          {
+            label: favoritePaths.value.has(file.path)
+              ? "Remove from favorites"
+              : "Add to favorites",
+            icon: Heart,
+            action: () => toggleFileFavorite(file),
           } as ContextMenuItem,
         ]
       : []),
