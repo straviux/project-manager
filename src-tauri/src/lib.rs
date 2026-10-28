@@ -1378,6 +1378,157 @@ async fn import_folder_to_library(
     .map_err(|e| e.to_string())?
 }
 
+/* ========================= document create ============================ */
+/* New Word/Excel/PDF files are generated in the frontend (docx, exceljs,
+   pdf-lib) and handed here as base64, because the webview cannot write
+   to disk itself. The backend is the only writer, and it enforces the
+   same rules as the rest of the file manager: the file must land inside
+   the library, the name must be a plain filename, and an existing file
+   is never overwritten (a " - Copy" suffix is added instead). No new
+   crate is needed: base64 decoding is small enough to do by hand. */
+
+fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
+    fn value(c: u8) -> Option<u32> {
+        match c {
+            b'A'..=b'Z' => Some((c - b'A') as u32),
+            b'a'..=b'z' => Some((c - b'a' + 26) as u32),
+            b'0'..=b'9' => Some((c - b'0' + 52) as u32),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
+    let bytes: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+    if bytes.len() % 4 != 0 {
+        return Err("The document data is not valid base64.".into());
+    }
+    let padding = bytes.iter().rev().take_while(|b| **b == b'=').count();
+    if padding > 2 {
+        return Err("The document data is not valid base64.".into());
+    }
+    let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
+    for chunk in bytes.chunks(4) {
+        let mut n: u32 = 0;
+        for (i, &c) in chunk.iter().enumerate() {
+            if c == b'=' {
+                if i < 2 {
+                    return Err("The document data is not valid base64.".into());
+                }
+            } else {
+                let v = value(c).ok_or("The document data is not valid base64.")?;
+                n |= v << (18 - 6 * i);
+            }
+        }
+        out.push((n >> 16) as u8);
+        if chunk[2] != b'=' {
+            out.push((n >> 8) as u8);
+        }
+        if chunk[3] != b'=' {
+            out.push(n as u8);
+        }
+    }
+    Ok(out)
+}
+
+fn save_document_file_impl(
+    library_dir: String,
+    folder: String,
+    filename: String,
+    data_base64: String,
+) -> Result<String, String> {
+    let lib = PathBuf::from(&library_dir)
+        .canonicalize()
+        .map_err(|e| format!("Library folder not found: {e}"))?;
+    if !lib.is_dir() {
+        return Err("The library folder does not exist.".into());
+    }
+    // The folder must be a plain relative path inside the library:
+    // no absolute paths, no ".." escapes.
+    let folder = folder.trim().trim_matches(|c| c == '/' || c == '\\');
+    let mut dest_dir = lib.clone();
+    if !folder.is_empty() {
+        for part in Path::new(folder).components() {
+            match part {
+                std::path::Component::Normal(name) => dest_dir.push(name),
+                _ => return Err("That folder is not inside the library.".into()),
+            }
+        }
+    }
+    fs::create_dir_all(&dest_dir).map_err(|e| format!("Could not create the folder: {e}"))?;
+    let dest_dir = dest_dir
+        .canonicalize()
+        .map_err(|e| format!("Could not resolve the folder: {e}"))?;
+    if !dest_dir.starts_with(&lib) {
+        return Err("That folder is not inside the library.".into());
+    }
+    let filename = filename.trim().to_string();
+    if filename.is_empty()
+        || filename == "."
+        || filename == ".."
+        || filename.starts_with('.')
+        || filename.contains('/')
+        || filename.contains('\\')
+    {
+        return Err("Please give the document a plain file name.".into());
+    }
+    let ext_ok = ["docx", "xlsx", "pdf"].iter().any(|ext| {
+        filename
+            .rsplit_once('.')
+            .map(|(_, e)| e.eq_ignore_ascii_case(ext))
+            .unwrap_or(false)
+    });
+    if !ext_ok {
+        return Err("Only Word (.docx), Excel (.xlsx) and PDF (.pdf) files can be created here.".into());
+    }
+    if data_base64.len() > 34_000_000 {
+        return Err("That document is too large to save (max 25 MB).".into());
+    }
+    let bytes = base64_decode(&data_base64)?;
+    if bytes.len() > 25 * 1024 * 1024 {
+        return Err("That document is too large to save (max 25 MB).".into());
+    }
+    // Never overwrite: reuse the Duplicate naming ("Name - Copy.ext").
+    let stem = Path::new(&filename)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or(filename.clone());
+    let ext = Path::new(&filename)
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+    let mut i = 1;
+    let dest = loop {
+        let new_name = if i == 1 {
+            format!("{stem}{ext}")
+        } else if i == 2 {
+            format!("{stem} - Copy{ext}")
+        } else {
+            format!("{stem} - Copy ({}){ext}", i - 1)
+        };
+        let candidate = dest_dir.join(new_name);
+        if !candidate.exists() {
+            break candidate;
+        }
+        i += 1;
+    };
+    fs::write(&dest, &bytes).map_err(|e| format!("Could not save the document: {e}"))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn save_document_file(
+    library_dir: String,
+    folder: String,
+    filename: String,
+    data_base64: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        save_document_file_impl(library_dir, folder, filename, data_base64)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /* ========================== project icons ============================ */
 
 fn project_icons_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -1468,7 +1619,8 @@ pub fn run() {
             move_library_item,
             duplicate_library_item,
             open_path,
-            allow_asset_dir
+            allow_asset_dir,
+            save_document_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

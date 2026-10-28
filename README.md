@@ -61,6 +61,13 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   verifies each file isn't running or open in another app when it's added. Busy files are
   skipped with the reason shown and a Retry button, never forced.
   Spec: [docs/file-manager.md](docs/file-manager.md)
+- **Documents in the file library** — preview Word (.docx), Excel (.xlsx)
+  and PDF files inside the app (read-only; Word/Excel previews show
+  content, not live formatting or formulas), and create a blank Word,
+  Excel or PDF in the current library folder from the Files toolbar or
+  right-click menu. Editing still happens in Word/Excel — the preview
+  has an "open in its own app" button for that. Older .doc/.xls files
+  are not previewable and open in their own app instead.
 
 ## Tech stack
 

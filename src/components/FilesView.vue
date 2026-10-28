@@ -11,6 +11,7 @@ import {
   Code,
   Copy,
   ExternalLink,
+  Eye,
   File,
   FilePlus2,
   FileText,
@@ -48,6 +49,9 @@ import {
   openPath,
 } from "../lib/api";
 import ImportDialog from "./ImportDialog.vue";
+import DocumentPreviewDialog from "./DocumentPreviewDialog.vue";
+import DocumentCreateDialog from "./DocumentCreateDialog.vue";
+import { isPreviewable } from "../lib/documents";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { type FileMeta, LibraryFile } from "../types";
 import {
@@ -94,6 +98,18 @@ async function onFolderImported(warning: string | null, path?: string) {
       () => {},
     );
   }
+}
+
+/* --------------------- document preview & create --------------------- */
+const previewTarget = ref<LibraryFile | null>(null);
+const showCreateDoc = ref(false);
+function openPreview(file: LibraryFile) {
+  previewTarget.value = file;
+}
+async function onDocumentCreated(path: string) {
+  showCreateDoc.value = false;
+  showToast(`Created ${baseName(path)}.`);
+  await refresh();
 }
 
 /* --------------------- layout & per-file actions --------------------- */
@@ -793,6 +809,15 @@ const ctx = ref<{ x: number; y: number; items: ContextMenuItem[] } | null>(null)
 // so the two never drift apart.
 function fileMenuItems(file: LibraryFile): ContextMenuItem[] {
   return [
+    ...(isPreviewable(file.name)
+      ? [
+          {
+            label: "Preview",
+            icon: Eye,
+            action: () => openPreview(file),
+          } as ContextMenuItem,
+        ]
+      : []),
     { label: "Open", icon: ExternalLink, action: () => openPath(file.path) },
     {
       label: "Open containing folder",
@@ -863,6 +888,11 @@ function openContainerCtx(event: MouseEvent) {
   event.preventDefault();
   const items: ContextMenuItem[] = [
     { label: "Add files", icon: FilePlus2, action: () => pickFiles() },
+    {
+      label: "New document",
+      icon: FileText,
+      action: () => (showCreateDoc.value = true),
+    },
     {
       label: "Import folder",
       icon: FolderPlus,
@@ -1115,6 +1145,9 @@ onUnmounted(() => {
 
       <button class="toolbar-btn" @click="pickFiles">
         <FilePlus2 class="h-4 w-4" /> Add files
+      </button>
+      <button class="toolbar-btn" @click="showCreateDoc = true">
+        <FileText class="h-4 w-4" /> New document
       </button>
       <button class="toolbar-btn" @click="showAddFolder = true">
         <FolderPlus class="h-4 w-4" /> Import folder
@@ -1606,6 +1639,20 @@ onUnmounted(() => {
     :importer="importFolderToLibrary"
     @close="showAddFolder = false"
     @imported="onFolderImported"
+  />
+
+  <DocumentPreviewDialog
+    v-if="previewTarget"
+    :file="previewTarget"
+    @close="previewTarget = null"
+  />
+
+  <DocumentCreateDialog
+    v-if="showCreateDoc && filesDir"
+    :library-dir="filesDir"
+    :folder="currentFolder"
+    @close="showCreateDoc = false"
+    @created="onDocumentCreated"
   />
 </template>
 

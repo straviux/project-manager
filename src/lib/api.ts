@@ -165,6 +165,26 @@ export function deleteProjectIcon(projectId: number): Promise<void> {
   return invoke("delete_project_icon", { projectId });
 }
 
+/**
+ * Save a newly created document into the library. The backend validates
+ * the name, keeps the file inside the library, and never overwrites an
+ * existing file (it adds " - Copy" like Duplicate does). Resolves to the
+ * new file's absolute path.
+ */
+export function saveDocumentFile(
+  libraryDir: string,
+  folder: string,
+  filename: string,
+  dataBase64: string,
+): Promise<string> {
+  return invoke("save_document_file", {
+    libraryDir,
+    folder,
+    filename,
+    dataBase64,
+  });
+}
+
 /** Move or copy a folder into the file library, keeping its structure. */
 export function importFolderToLibrary(
   source: string,
