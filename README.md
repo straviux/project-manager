@@ -61,6 +61,13 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   verifies each file isn't running or open in another app when it's added. Busy files are
   skipped with the reason shown and a Retry button, never forced.
   Spec: [docs/file-manager.md](docs/file-manager.md)
+- **File-type badges** — every file in the Files view shows a small
+  badge with its extension (DOCX, PPTX, PDF, …), coloured by family
+  (Word blue, PDF red, spreadsheets green, presentations orange,
+  images purple, video rose, audio teal, archives amber, code
+  indigo). In list view the badge sits after the file name; in
+  grid view it overlays the bottom-right of the thumbnail/icon.
+  Files with no extension show a neutral FILE badge.
 - **Draggable dialogs** — every dialog (project, clone, SSH, settings,
   README, document preview/create, import, confirm, history, and the
   Files status/notes/batch-move dialogs) can be dragged by its title

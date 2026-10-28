@@ -62,6 +62,12 @@ import {
 } from "../lib/db";
 import { showToast } from "../lib/toast";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import {
+  FILE_TYPE_BADGE_BASE,
+  fileTypeBadgeClasses,
+  fileTypeLabel,
+  fileTypeTitle,
+} from "../lib/fileTypes";
 import { chromeDark } from "../lib/theme";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ContextMenu, { type ContextMenuItem } from "./ContextMenu.vue";
@@ -1399,6 +1405,7 @@ onUnmounted(() => {
                     </button>
                     <component :is="iconFor(file.category)" class="h-5 w-5 shrink-0 text-blue-600" />
                     <span class="truncate font-medium">{{ file.name }}</span>
+                    <span :class="[FILE_TYPE_BADGE_BASE, fileTypeBadgeClasses(file.name)]" :title="fileTypeTitle(file.name)">{{ fileTypeLabel(file.name) }}</span>
                     <span
                         v-if="metaOf(file).notes"
                         class="shrink-0 cursor-default text-blue-500 dark:text-blue-400"
@@ -1465,7 +1472,7 @@ onUnmounted(() => {
                 <Settings2 class="h-3.5 w-3.5" />
               </button>
             </span>
-            <span class="flex h-20 items-center justify-center">
+            <span class="relative flex h-20 items-center justify-center">
               <img
                 v-if="file.category === 'Images'"
                 :src="convertFileSrc(file.path)"
@@ -1481,6 +1488,7 @@ onUnmounted(() => {
                 preload="metadata"
               ></video>
               <component v-else :is="iconFor(file.category)" class="h-16 w-16 text-blue-600" />
+              <span :class="[FILE_TYPE_BADGE_BASE, fileTypeBadgeClasses(file.name), 'absolute bottom-0 right-1 shadow']" :title="fileTypeTitle(file.name)">{{ fileTypeLabel(file.name) }}</span>
             </span>
             <span class="mt-2 flex max-w-full items-start justify-center gap-1">
               <span class="line-clamp-2 break-words text-xs leading-snug" :title="file.name">{{ file.name }}</span>
