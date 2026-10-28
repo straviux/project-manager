@@ -50,6 +50,7 @@ import {
 } from "../lib/api";
 import ImportDialog from "./ImportDialog.vue";
 import DocumentPreviewDialog from "./DocumentPreviewDialog.vue";
+import MediaPreviewDialog from "./MediaPreviewDialog.vue";
 import DocumentCreateDialog from "./DocumentCreateDialog.vue";
 import { isPreviewable } from "../lib/documents";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -68,6 +69,7 @@ import {
   fileTypeIconClasses,
   fileTypeLabel,
   fileTypeTitle,
+  isMediaPreviewable,
 } from "../lib/fileTypes";
 import { chromeDark } from "../lib/theme";
 import ConfirmDialog from "./ConfirmDialog.vue";
@@ -124,6 +126,10 @@ const previewTarget = ref<LibraryFile | null>(null);
 const showCreateDoc = ref(false);
 function openPreview(file: LibraryFile) {
   previewTarget.value = file;
+}
+const mediaPreviewTarget = ref<LibraryFile | null>(null);
+function openMediaPreview(file: LibraryFile) {
+  mediaPreviewTarget.value = file;
 }
 async function onDocumentCreated(path: string) {
   showCreateDoc.value = false;
@@ -855,7 +861,15 @@ function fileMenuItems(file: LibraryFile): ContextMenuItem[] {
             action: () => openPreview(file),
           } as ContextMenuItem,
         ]
-      : []),
+      : isMediaPreviewable(file.name)
+        ? [
+            {
+              label: "Preview",
+              icon: Eye,
+              action: () => openMediaPreview(file),
+            } as ContextMenuItem,
+          ]
+        : []),
     { label: "Open", icon: ExternalLink, action: () => openPath(file.path) },
     {
       label: "Open containing folder",
@@ -1685,6 +1699,12 @@ onUnmounted(() => {
     v-if="previewTarget"
     :file="previewTarget"
     @close="previewTarget = null"
+  />
+
+  <MediaPreviewDialog
+    v-if="mediaPreviewTarget"
+    :file="mediaPreviewTarget"
+    @close="mediaPreviewTarget = null"
   />
 
   <DocumentCreateDialog

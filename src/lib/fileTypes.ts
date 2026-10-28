@@ -177,6 +177,29 @@ export function fileTypeIconClasses(name: string): string {
   return ICON_CLASSES[fileExtension(name)] ?? "text-neutral-500 dark:text-neutral-400";
 }
 
+const IMAGE_EXTENSIONS = new Set([
+  "jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "heic", "avif",
+]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "mkv", "webm", "avi"]);
+
+/**
+ * Media kind for in-app photo/video preview, by extension (not by the
+ * library category, which is the folder a file happens to sit in — a
+ * .jpg copied into Documents would otherwise miss preview). Returns
+ * null for anything that isn't a photo or a video.
+ */
+export function fileMediaKind(name: string): "image" | "video" | null {
+  const ext = fileExtension(name);
+  if (IMAGE_EXTENSIONS.has(ext)) return "image";
+  if (VIDEO_EXTENSIONS.has(ext)) return "video";
+  return null;
+}
+
+/** True when a file can be previewed as a photo or video in-app. */
+export function isMediaPreviewable(name: string): boolean {
+  return fileMediaKind(name) !== null;
+}
+
 /** Base badge shape, shared by rows and tiles. */
 export const FILE_TYPE_BADGE_BASE =
   "inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset";
