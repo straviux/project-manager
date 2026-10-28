@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Dices,
@@ -85,6 +85,24 @@ const sourceLabel = computed(() => {
 const isFavorite = computed(
   () => !!current.value && favorites.value.includes(current.value.path),
 );
+
+// Marquee: the track name is truncated by default, so a long mp3 name
+// can't be read in full. When the plain name overflows its container,
+// switch to a scrolling marquee (the name twice, so the loop is
+// seamless); short names stay still. Re-checked on track change and
+// on window resize, since the bar's width changes with wrapping.
+const nameEl = ref<HTMLElement | null>(null);
+const marquee = ref(false);
+async function checkMarquee() {
+  marquee.value = false;
+  await nextTick();
+  const el = nameEl.value;
+  if (el) marquee.value = el.scrollWidth > el.clientWidth + 1;
+}
+watch(current, () => void checkMarquee());
+function onResize() {
+  void checkMarquee();
+}
 
 let audio: HTMLAudioElement | null = null;
 
@@ -252,14 +270,17 @@ onMounted(async () => {
     playing.value = false;
   });
   await refreshPlaylists();
+  window.addEventListener("resize", onResize);
   source.value = props.source;
   const i = effectiveQueue.value.findIndex(
     (f) => f.path === props.track.path,
   );
   load(i >= 0 ? i : 0);
+  void checkMarquee();
 });
 
 onUnmounted(() => {
+  window.removeEventListener("resize", onResize);
   audio?.pause();
   audio = null;
 });
@@ -273,10 +294,24 @@ onUnmounted(() => {
     <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
       <div class="flex min-w-0 flex-1 items-center gap-3">
         <Music class="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
-        <div class="min-w-0">
-          <p class="truncate text-sm font-medium" :title="current?.name ?? ''">
+        <div class="min-w-0 overflow-hidden">
+          <p
+            v-if="!marquee"
+            ref="nameEl"
+            class="truncate text-sm font-medium"
+            :title="current?.name ?? ''"
+          >
             {{ current ? current.name : `No tracks in ${sourceLabel} yet` }}
           </p>
+          <div v-else class="overflow-hidden" :title="current?.name ?? ''">
+            <div
+              class="marquee-track flex w-max items-center whitespace-nowrap text-sm font-medium"
+              :style="{ animationDuration: `${Math.max(6, (current?.name.length ?? 0) * 0.25)}s` }"
+            >
+              <span class="pr-12">{{ current?.name }}</span>
+              <span class="pr-12">{{ current?.name }}</span>
+            </div>
+          </div>
           <p class="text-xs text-neutral-500">
             <template v-if="current">
               {{ index + 1 }} / {{ effectiveQueue.length }} · {{ sourceLabel }}
@@ -407,3 +442,22 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  animation-name: marquee-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+</style>

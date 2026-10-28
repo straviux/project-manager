@@ -122,13 +122,7 @@ onMounted(refresh);
             All tracks
             <span class="text-neutral-500">· {{ audioFiles.length }} tracks</span>
           </button>
-          <button
-            class="flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
-            :disabled="!audioFiles.length"
-            @click="playSource('all')"
-          >
-            <Play class="h-3 w-3" /> Play
-          </button>
+          <button class="rounded bg-blue-600 p-1.5 text-white disabled:opacity-40" title="Play" :disabled="!audioFiles.length" @click="playSource('all')"><Play class="h-4 w-4" /></button>
         </li>
         <li
           class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
@@ -138,13 +132,7 @@ onMounted(refresh);
             <Heart class="mr-1 inline h-4 w-4 fill-red-500 text-red-500" /> Favorites
             <span class="text-neutral-500">· {{ favoriteFiles.length }} tracks</span>
           </button>
-          <button
-            class="flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
-            :disabled="!favoriteFiles.length"
-            @click="playSource('favorites')"
-          >
-            <Play class="h-3 w-3" /> Play
-          </button>
+          <button class="rounded bg-blue-600 p-1.5 text-white disabled:opacity-40" title="Play" :disabled="!favoriteFiles.length" @click="playSource('favorites')"><Play class="h-4 w-4" /></button>
         </li>
         <li
           v-for="playlist in playlists"
@@ -164,13 +152,7 @@ onMounted(refresh);
           >
             + Current
           </button>
-          <button
-            class="flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
-            :disabled="!queueFor(playlist.id).length"
-            @click="playSource(playlist.id)"
-          >
-            <Play class="h-3 w-3" /> Play
-          </button>
+          <button class="rounded bg-blue-600 p-1.5 text-white disabled:opacity-40" title="Play" :disabled="!queueFor(playlist.id).length" @click="playSource(playlist.id)"><Play class="h-4 w-4" /></button>
           <button
             class="rounded p-1 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
             title="Delete playlist"
