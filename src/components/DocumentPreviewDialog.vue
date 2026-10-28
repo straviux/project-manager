@@ -70,7 +70,7 @@ onMounted(async () => {
   >
     <div
       ref="dialogPanel"
-      class="glass-panel flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
+      class="glass-panel flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-xl dark:bg-neutral-900"
     >
       <header
         ref="dialogHandle"
@@ -112,7 +112,7 @@ onMounted(async () => {
         <template v-else-if="kind === 'pdf' || kind === 'office'">
           <iframe
             :src="pdfUrl"
-            class="h-[70vh] w-full rounded-lg ring-1 ring-neutral-200 dark:ring-neutral-800"
+            class="h-[70vh] w-full rounded-2xl ring-1 ring-neutral-200 dark:ring-neutral-800"
             title="PDF preview"
           />
           <p class="mt-2 text-xs text-neutral-500">
@@ -151,7 +151,7 @@ onMounted(async () => {
           </div>
           <div
             v-if="sheets[activeSheet]"
-            class="overflow-x-auto rounded-lg ring-1 ring-neutral-200 dark:ring-neutral-800"
+            class="overflow-x-auto rounded-2xl ring-1 ring-neutral-200 dark:ring-neutral-800"
           >
             <table class="w-full text-sm">
               <tbody>

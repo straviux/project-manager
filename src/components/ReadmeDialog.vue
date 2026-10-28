@@ -58,7 +58,7 @@ onMounted(async () => {
 
 <template>
   <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }" @click.self="emit('close')">
-    <div ref="dialogPanel" class="glass-panel flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl dark:bg-neutral-900">
+    <div ref="dialogPanel" class="glass-panel flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-xl dark:bg-neutral-900">
       <header ref="dialogHandle" class="flex cursor-grab items-center justify-between border-b border-neutral-200 p-4 active:cursor-grabbing dark:border-neutral-800">
         <h2 class="flex items-center gap-2 font-semibold">
           <FileText class="h-5 w-5" /> {{ project.name }} — README.md
