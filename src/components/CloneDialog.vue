@@ -3,10 +3,15 @@ import { chromeDark } from "../lib/theme";
 import { ref } from "vue";
 import { Download, X } from "@lucide/vue";
 import { gitClone, detectStacks } from "../lib/api";
+import { useDialogDrag } from "../lib/useDialogDrag";
 import { createProject } from "../lib/db";
 
 const props = defineProps<{ projectsDir: string }>();
 const emit = defineEmits<{ close: []; cloned: [] }>();
+
+const dialogPanel = ref<HTMLElement | null>(null);
+const dialogHandle = ref<HTMLElement | null>(null);
+useDialogDrag(dialogPanel, dialogHandle);
 
 const repoUrl = ref("");
 const folderName = ref("");
@@ -45,8 +50,8 @@ async function clone() {
 
 <template>
   <div class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" :class="{ dark: chromeDark }" @click.self="emit('close')">
-    <div class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900">
-      <header class="mb-4 flex items-center justify-between">
+    <div ref="dialogPanel" class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900">
+      <header ref="dialogHandle" class="mb-4 flex cursor-grab items-center justify-between active:cursor-grabbing">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
           <Download class="h-5 w-5" /> Clone repository
         </h2>

@@ -61,6 +61,7 @@ import {
   setFileMeta,
 } from "../lib/db";
 import { showToast } from "../lib/toast";
+import { useDialogDrag } from "../lib/useDialogDrag";
 import { chromeDark } from "../lib/theme";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ContextMenu, { type ContextMenuItem } from "./ContextMenu.vue";
@@ -81,6 +82,17 @@ interface BusyItem {
 }
 const busyItems = ref<BusyItem[]>([]);
 const showAddFolder = ref(false);
+
+// Draggable inline dialogs (status / notes / batch move).
+const statusPanel = ref<HTMLElement | null>(null);
+const statusHandle = ref<HTMLElement | null>(null);
+useDialogDrag(statusPanel, statusHandle);
+const notesPanel = ref<HTMLElement | null>(null);
+const notesHandle = ref<HTMLElement | null>(null);
+useDialogDrag(notesPanel, notesHandle);
+const batchPanel = ref<HTMLElement | null>(null);
+const batchHandle = ref<HTMLElement | null>(null);
+useDialogDrag(batchPanel, batchHandle);
 
 async function onFolderImported(warning: string | null, path?: string) {
   showAddFolder.value = false;
@@ -1507,8 +1519,8 @@ onUnmounted(() => {
     :class="{ dark: chromeDark }"
     @click.self="statusTarget = null"
   >
-    <div class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
+    <div ref="statusPanel" class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <h2 ref="statusHandle" class="mb-1 flex cursor-grab items-center gap-2 text-lg font-semibold active:cursor-grabbing">
         <Tag class="h-5 w-5" /> Set status
       </h2>
       <p class="mb-4 truncate text-sm text-neutral-500">{{ statusTarget.name }}</p>
@@ -1559,8 +1571,8 @@ onUnmounted(() => {
     :class="{ dark: chromeDark }"
     @click.self="notesTarget = null"
   >
-    <div class="glass-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
+    <div ref="notesPanel" class="glass-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <h2 ref="notesHandle" class="mb-1 flex cursor-grab items-center gap-2 text-lg font-semibold active:cursor-grabbing">
         <StickyNote class="h-5 w-5" /> Notes
       </h2>
       <p class="mb-3 truncate text-sm text-neutral-500">{{ notesTarget.name }}</p>
@@ -1583,8 +1595,8 @@ onUnmounted(() => {
     :class="{ dark: chromeDark }"
     @click.self="showBatchMove = false"
   >
-    <div class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <h2 class="mb-1 text-lg font-semibold">Move {{ totalSelected }} items</h2>
+    <div ref="batchPanel" class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <h2 ref="batchHandle" class="mb-1 cursor-grab text-lg font-semibold active:cursor-grabbing">Move {{ totalSelected }} items</h2>
       <p class="mb-4 text-sm text-neutral-500">Choose the folder to move them into.</p>
       <label class="mb-1 block text-sm font-medium">Destination folder</label>
       <select

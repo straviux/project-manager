@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { TriangleAlert } from "@lucide/vue";
+import { useDialogDrag } from "../lib/useDialogDrag";
 import { chromeDark } from "../lib/theme";
 
 defineProps<{
@@ -8,6 +10,10 @@ defineProps<{
   confirmLabel?: string;
 }>();
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
+
+const dialogPanel = ref<HTMLElement | null>(null);
+const dialogHandle = ref<HTMLElement | null>(null);
+useDialogDrag(dialogPanel, dialogHandle);
 </script>
 
 <template>
@@ -16,8 +22,8 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
     :class="{ dark: chromeDark }"
     @click.self="emit('cancel')"
   >
-    <div class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <h2 class="mb-2 flex items-center gap-2 text-lg font-semibold">
+    <div ref="dialogPanel" class="glass-panel w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <h2 ref="dialogHandle" class="mb-2 flex cursor-grab items-center gap-2 text-lg font-semibold active:cursor-grabbing">
         <TriangleAlert class="h-5 w-5 shrink-0 text-red-500" /> {{ title }}
       </h2>
       <p class="mb-5 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">{{ message }}</p>

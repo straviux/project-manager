@@ -5,6 +5,7 @@ import { Copy, FolderInput, FolderOpen, Move, X } from "@lucide/vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { pickerDefaultPath } from "../lib/paths";
 import type { ImportResult } from "../lib/api";
+import { useDialogDrag } from "../lib/useDialogDrag";
 
 export type FolderImporter = (
   source: string,
@@ -23,6 +24,10 @@ const emit = defineEmits<{
   close: [];
   imported: [warning: string | null, path?: string];
 }>();
+
+const dialogPanel = ref<HTMLElement | null>(null);
+const dialogHandle = ref<HTMLElement | null>(null);
+useDialogDrag(dialogPanel, dialogHandle);
 
 const source = ref("");
 const name = ref("");
@@ -81,9 +86,10 @@ async function submit() {
     @click.self="emit('close')"
   >
     <div
+      ref="dialogPanel"
       class="glass-panel w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-neutral-900"
     >
-      <div class="mb-4 flex items-center justify-between">
+      <div ref="dialogHandle" class="mb-4 flex cursor-grab items-center justify-between active:cursor-grabbing">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
           <FolderInput class="h-5 w-5" /> {{ title }}
         </h2>

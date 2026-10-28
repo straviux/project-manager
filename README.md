@@ -61,6 +61,12 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   verifies each file isn't running or open in another app when it's added. Busy files are
   skipped with the reason shown and a Retry button, never forced.
   Spec: [docs/file-manager.md](docs/file-manager.md)
+- **Draggable dialogs** — every dialog (project, clone, SSH, settings,
+  README, document preview/create, import, confirm, history, and the
+  Files status/notes/batch-move dialogs) can be dragged by its title
+  bar. Dragging uses pointer events in `src/lib/useDialogDrag.ts`,
+  not HTML5 drag, so it works in the Tauri webview, and the dialog
+  is kept in the viewport so its title bar can always be grabbed again.
 - **PrimeVue** — PrimeVue 5 with the Aura preset is registered in
   `src/main.ts` (`darkModeSelector: ".dark"`, matching the app's
   dark-only setup), ready for future components. Project-card and Files

@@ -12,9 +12,14 @@ import {
   type XlsxSheet,
 } from "../lib/documents";
 import type { LibraryFile } from "../types";
+import { useDialogDrag } from "../lib/useDialogDrag";
 
 const props = defineProps<{ file: LibraryFile }>();
 const emit = defineEmits<{ close: [] }>();
+
+const dialogPanel = ref<HTMLElement | null>(null);
+const dialogHandle = ref<HTMLElement | null>(null);
+useDialogDrag(dialogPanel, dialogHandle);
 
 const kind = documentKind(props.file.name);
 const loading = ref(true);
@@ -54,10 +59,12 @@ onMounted(async () => {
     @click.self="emit('close')"
   >
     <div
+      ref="dialogPanel"
       class="glass-panel flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
     >
       <header
-        class="flex items-center justify-between gap-2 border-b border-neutral-200 p-4 dark:border-neutral-800"
+        ref="dialogHandle"
+        class="flex cursor-grab items-center justify-between gap-2 border-b border-neutral-200 p-4 active:cursor-grabbing dark:border-neutral-800"
       >
         <h2 class="flex min-w-0 items-center gap-2 font-semibold">
           <FileText class="h-5 w-5 shrink-0" />

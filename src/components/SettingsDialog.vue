@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { Check, Settings, X } from "@lucide/vue";
+import { useDialogDrag } from "../lib/useDialogDrag";
 import { BG_THEMES, bgTheme, chromeDark, setBgTheme } from "../lib/theme";
 
 const emit = defineEmits<{ close: [] }>();
+
+const dialogPanel = ref<HTMLElement | null>(null);
+const dialogHandle = ref<HTMLElement | null>(null);
+useDialogDrag(dialogPanel, dialogHandle);
 </script>
 
 <template>
@@ -11,8 +17,8 @@ const emit = defineEmits<{ close: [] }>();
     :class="{ dark: chromeDark }"
     @click.self="emit('close')"
   >
-    <div class="glass-panel max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-      <header class="mb-4 flex items-center justify-between">
+    <div ref="dialogPanel" class="glass-panel max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+      <header ref="dialogHandle" class="mb-4 flex cursor-grab items-center justify-between active:cursor-grabbing">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
           <Settings class="h-5 w-5" /> Settings
         </h2>

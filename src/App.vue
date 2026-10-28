@@ -43,6 +43,7 @@ import {
   type ActionHistoryEntry,
 } from "./lib/db";
 import { showToast } from "./lib/toast";
+import { useDialogDrag } from "./lib/useDialogDrag";
 import ContextMenu, {
   type ContextMenuItem,
 } from "./components/ContextMenu.vue";
@@ -106,6 +107,10 @@ function openNavMenu(event: MouseEvent) {
 }
 
 /* ------------------------- action history ------------------------- */
+const historyPanel = ref<HTMLElement | null>(null);
+const historyHandle = ref<HTMLElement | null>(null);
+useDialogDrag(historyPanel, historyHandle);
+
 const showHistory = ref(false);
 const historyEntries = ref<ActionHistoryEntry[]>([]);
 const confirmClearHistory = ref(false);
@@ -752,8 +757,8 @@ function openEdit(project: Project) {
       :class="{ dark: chromeDark }"
       @click.self="showHistory = false"
     >
-      <div class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-        <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
+      <div ref="historyPanel" class="glass-panel w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+        <h2 ref="historyHandle" class="mb-1 flex cursor-grab items-center gap-2 text-lg font-semibold active:cursor-grabbing">
           <History class="h-5 w-5" /> Action history
         </h2>
         <p class="mb-4 text-sm text-neutral-500">

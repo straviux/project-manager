@@ -4,6 +4,7 @@ import { FilePlus2, X } from "@lucide/vue";
 import { chromeDark } from "../lib/theme";
 import { logAction } from "../lib/db";
 import { saveDocumentFile } from "../lib/api";
+import { useDialogDrag } from "../lib/useDialogDrag";
 import {
   bytesToBase64,
   createDocumentBytes,
@@ -20,6 +21,10 @@ const emit = defineEmits<{
   close: [];
   created: [path: string];
 }>();
+
+const dialogPanel = ref<HTMLElement | null>(null);
+const dialogHandle = ref<HTMLElement | null>(null);
+useDialogDrag(dialogPanel, dialogHandle);
 
 const kind = ref<DocumentKind>("docx");
 const name = ref("Untitled document");
@@ -64,9 +69,10 @@ async function submit() {
     @click.self="emit('close')"
   >
     <div
+      ref="dialogPanel"
       class="glass-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900"
     >
-      <div class="mb-4 flex items-center justify-between">
+      <div ref="dialogHandle" class="mb-4 flex cursor-grab items-center justify-between active:cursor-grabbing">
         <h2 class="flex items-center gap-2 text-lg font-semibold">
           <FilePlus2 class="h-5 w-5" /> New document
         </h2>
