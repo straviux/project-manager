@@ -1773,10 +1773,10 @@ onUnmounted(() => {
   @apply flex items-center gap-1.5 px-3 py-2 text-sm font-medium;
 }
 .file-action {
-  @apply flex items-center rounded-lg bg-blue-100/80 p-2 text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/70;
+  @apply flex items-center rounded-lg bg-neutral-200/80 p-2 text-neutral-900 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700;
 }
 .file-action-sm {
-  @apply flex items-center rounded-md bg-blue-100/90 p-1.5 text-blue-900 shadow ring-1 ring-blue-200 hover:bg-blue-200 dark:bg-blue-950/90 dark:text-blue-100 dark:ring-blue-900 dark:hover:bg-blue-900;
+  @apply flex items-center rounded-md bg-neutral-100/90 p-1.5 text-neutral-900 shadow ring-1 ring-neutral-300 hover:bg-neutral-200 dark:bg-neutral-900/90 dark:text-neutral-100 dark:ring-neutral-700 dark:hover:bg-neutral-700;
 }
 .file-action-danger {
   @apply hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-300;
@@ -1791,6 +1791,6 @@ onUnmounted(() => {
   @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium;
 }
 .toolbar-btn {
-  @apply flex items-center gap-1.5 rounded-lg bg-blue-100/80 px-3 py-2 text-sm font-medium text-blue-900 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/70;
+  @apply flex items-center gap-1.5 rounded-lg bg-neutral-200/80 px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700;
 }
 </style>

@@ -235,19 +235,13 @@ html.dark[data-bg="ink"] body {
   background-color: #101216;
 }
 
-/* Switch highlight: strong glowing text instead of a filled background. */
+/* Switch highlight: bold neutral text, no glow and no filled background. */
 .switch-active {
-  color: rgb(37 99 235);
+  color: rgb(23 23 23);
   font-weight: 700;
-  text-shadow:
-    0 0 8px rgb(59 130 246 / 0.32),
-    0 0 2px rgb(59 130 246 / 0.22);
 }
 .dark .switch-active {
-  color: rgb(147 197 253);
-  text-shadow:
-    0 0 8px rgb(96 165 250 / 0.42),
-    0 0 2px rgb(96 165 250 / 0.28);
+  color: rgb(245 245 245);
 }
 
 html[data-bg="bigsur"] body {
@@ -304,7 +298,7 @@ html[data-glass="true"] .file-action,
 html[data-glass="true"] .file-action-sm,
 html[data-glass="true"] .action {
   background-color: rgb(255 255 255 / 0.13);
-  color: rgb(219 234 254);
+  color: rgb(245 245 245);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
   -webkit-backdrop-filter: blur(12px) saturate(150%);
   backdrop-filter: blur(12px) saturate(150%);
@@ -481,7 +475,7 @@ html[data-glass="true"]:not(.dark) .file-action,
 html[data-glass="true"]:not(.dark) .file-action-sm,
 html[data-glass="true"]:not(.dark) .action {
   background-color: rgb(255 255 255 / 0.6);
-  color: rgb(30 64 175);
+  color: rgb(23 23 23);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.7);
   -webkit-backdrop-filter: blur(12px) saturate(150%);
   backdrop-filter: blur(12px) saturate(150%);

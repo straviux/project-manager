@@ -66,9 +66,6 @@ useDialogDrag(dialogPanel, dialogHandle);
   @apply flex flex-col items-center gap-1 rounded-xl px-2 py-3 ring-1 ring-neutral-300 hover:bg-neutral-50 dark:ring-neutral-700 dark:hover:bg-neutral-800;
 }
 .option-btn-active {
-  @apply font-semibold text-blue-700 ring-2 ring-blue-500 dark:text-blue-300;
-  text-shadow:
-    0 0 7px rgb(59 130 246 / 0.2),
-    0 0 2px rgb(59 130 246 / 0.16);
+  @apply font-semibold text-neutral-900 ring-2 ring-blue-500 dark:text-neutral-100;
 }
 </style>
