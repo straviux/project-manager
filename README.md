@@ -74,11 +74,15 @@ Built with **Tauri 2**, **Vue 3 + TypeScript**, **SQLite**, **TailwindCSS** and
   bar. Dragging uses pointer events in `src/lib/useDialogDrag.ts`,
   not HTML5 drag, so it works in the Tauri webview, and the dialog
   is kept in the viewport so its title bar can always be grabbed again.
-- **PrimeVue** — PrimeVue 5 with the Aura preset is registered in
-  `src/main.ts` (`darkModeSelector: ".dark"`, matching the app's
-  dark-only setup), ready for future components. Project-card and Files
-  dragging deliberately stay on the existing pointer-based code:
-  PrimeVue's HTML5-drag components do not engage in this Tauri webview.
+- **PrimeVue** — PrimeVue 4.5.5 (MIT) with the Aura preset is
+  registered in `src/main.ts` (`darkModeSelector: ".dark"`, matching
+  the app's dark-only setup), ready for future components.
+  Deliberately version 4, not 5: PrimeVue 5 moved to the commercial
+  PrimeUI license, which requires a license key and otherwise shows
+  an "Invalid PrimeUI License" notice; version 4 stays MIT and needs
+  no key. Project-card and Files dragging deliberately stay on the
+  existing pointer-based code: PrimeVue's HTML5-drag components do
+  not engage in this Tauri webview.
 - **Office preview via Microsoft Office** — .doc, .ppt, .pptx and
   .xls files preview inside the app too: a new Rust command converts
   them to PDF with Office itself (PowerShell COM, read-only, no
