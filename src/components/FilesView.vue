@@ -1260,7 +1260,7 @@ onUnmounted(() => {
       <div class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
         <button
           class="toggle-btn tooltip tooltip-bottom"
-          :class="layout === 'table' ? 'switch-active' : ''"
+          :class="layout === 'table' ? 'switch-active tab-active' : ''"
           data-tip="Show files as a list"
           @click="setLayout('table')"
         >
@@ -1268,7 +1268,7 @@ onUnmounted(() => {
         </button>
         <button
           class="toggle-btn tooltip tooltip-bottom"
-          :class="layout === 'grid' ? 'switch-active' : ''"
+          :class="layout === 'grid' ? 'switch-active tab-active' : ''"
           data-tip="Show files as big icons, like Windows Explorer"
           @click="setLayout('grid')"
         >

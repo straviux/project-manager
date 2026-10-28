@@ -244,6 +244,27 @@ html.dark[data-bg="ink"] body {
   color: rgb(245 245 245);
 }
 
+/* Active tab indicator: a short bar under the active tab in a segmented
+   pair (main nav Projects/Files, Files List/Icons toggle). Absolute, so
+   it never shifts layout when switching tabs; bold switch-active text
+   stays as well. Tooltip uses ::before, so ::after here never clashes. */
+.tab-active {
+  position: relative;
+}
+.tab-active::after {
+  content: "";
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 1px;
+  height: 2px;
+  border-radius: 9999px;
+  background-color: rgb(23 23 23);
+}
+.dark .tab-active::after {
+  background-color: rgb(245 245 245);
+}
+
 html[data-bg="bigsur"] body {
   background-image:
     radial-gradient(55% 45% at 18% 12%, rgb(59 130 246 / 0.55), transparent 70%),

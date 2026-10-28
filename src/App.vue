@@ -578,14 +578,14 @@ function openEdit(project: Project) {
           <nav class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
             <button
               class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'projects' ? 'switch-active' : ''"
+              :class="tab === 'projects' ? 'switch-active tab-active' : ''"
               @click="tab = 'projects'"
             >
               <LayoutGrid class="h-4 w-4" /> Projects
             </button>
             <button
               class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'files' ? 'switch-active' : ''"
+              :class="tab === 'files' ? 'switch-active tab-active' : ''"
               @click="tab = 'files'"
             >
               <Files class="h-4 w-4" /> Files
