@@ -9,11 +9,9 @@ import {
   Music,
   Pause,
   Play,
-  Plus,
   Shuffle,
   SkipBack,
   SkipForward,
-  Trash2,
   Volume2,
   VolumeX,
   X,
@@ -22,9 +20,6 @@ import { openPath } from "../lib/api";
 import { chromeDark } from "../lib/theme";
 import { showToast } from "../lib/toast";
 import {
-  addToPlaylist,
-  createPlaylist,
-  deletePlaylist,
   loadFavorites,
   loadPlaylists,
   toggleFavorite,
@@ -43,8 +38,10 @@ import type { LibraryFile } from "../types";
 const props = defineProps<{
   track: LibraryFile;
   queue: LibraryFile[];
+  /** The source App selected ('all', 'favorites', or a playlist id). */
+  source: string;
 }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; openPlaylists: [] }>();
 
 const index = ref(0);
 const playing = ref(false);
@@ -56,11 +53,12 @@ const error = ref(false);
 
 const shuffle = ref(false);
 const shuffleHistory = ref<number[]>([]);
-const showPanel = ref(false);
 const playlists = ref<Playlist[]>([]);
 const favorites = ref<string[]>([]);
-const source = ref<string>("all");
-const newPlaylistName = ref("");
+// The playing source is owned by App (it also opens the playlist
+// manager modal from the main nav, even when nothing is playing yet),
+// so this widget only mirrors it — it never switches source itself.
+const source = ref<string>(props.source);
 
 const effectiveQueue = computed<LibraryFile[]>(() => {
   if (source.value === "all") return props.queue;
@@ -204,17 +202,7 @@ async function refreshPlaylists() {
   favorites.value = await loadFavorites();
 }
 
-async function togglePanel() {
-  showPanel.value = !showPanel.value;
-  if (showPanel.value) await refreshPlaylists();
-}
 
-function selectSource(id: string) {
-  source.value = id;
-  shuffleHistory.value = [];
-  index.value = 0;
-  load(0);
-}
 
 async function toggleCurrentFavorite() {
   if (!current.value) return;
@@ -227,27 +215,8 @@ async function toggleCurrentFavorite() {
   );
 }
 
-async function createNewPlaylist() {
-  const name = newPlaylistName.value.trim();
-  if (!name) return;
-  await createPlaylist(name);
-  newPlaylistName.value = "";
-  await refreshPlaylists();
-}
 
-async function deletePlaylistById(id: string) {
-  await deletePlaylist(id);
-  if (source.value === id) source.value = "all";
-  await refreshPlaylists();
-}
 
-async function addCurrentToPlaylist(id: string) {
-  if (!current.value) return;
-  const playlist = playlists.value.find((p) => p.id === id);
-  await addToPlaylist(id, current.value.path);
-  await refreshPlaylists();
-  if (playlist) showToast(`Added to ${playlist.name}.`);
-}
 
 function close() {
   audio?.pause();
@@ -256,13 +225,14 @@ function close() {
 }
 
 watch(
-  () => props.track,
-  (file) => {
-    // Playing a file directly from Files always plays from All tracks,
-    // even if a playlist was selected before.
-    source.value = "all";
+  () => [props.track, props.source] as const,
+  ([file, newSource]) => {
+    // One watcher for both, so a single App update (new track + new
+    // source + new queue) is applied atomically: set the source first,
+    // then find the track in the queue that source resolves to.
+    source.value = newSource;
     shuffleHistory.value = [];
-    const i = props.queue.findIndex((f) => f.path === file.path);
+    const i = effectiveQueue.value.findIndex((f) => f.path === file.path);
     load(i >= 0 ? i : 0);
   },
 );
@@ -282,7 +252,10 @@ onMounted(async () => {
     playing.value = false;
   });
   await refreshPlaylists();
-  const i = props.queue.findIndex((f) => f.path === props.track.path);
+  source.value = props.source;
+  const i = effectiveQueue.value.findIndex(
+    (f) => f.path === props.track.path,
+  );
   load(i >= 0 ? i : 0);
 });
 
@@ -297,100 +270,6 @@ onUnmounted(() => {
     class="border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
     :class="{ dark: chromeDark }"
   >
-    <div
-      v-if="showPanel"
-      class="border-b border-neutral-200 bg-neutral-50 px-6 py-4 dark:border-neutral-800 dark:bg-neutral-800/50"
-    >
-      <div class="mx-auto w-full max-w-6xl">
-        <h3 class="mb-2 text-sm font-semibold">Playlists</h3>
-        <ul class="max-h-64 space-y-1 overflow-y-auto pr-1">
-          <li
-            class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
-            :class="source === 'all' ? 'bg-blue-100 dark:bg-blue-900/40' : ''"
-          >
-            <button class="min-w-0 flex-1 text-left font-medium" @click="selectSource('all')">
-              All tracks
-              <span class="text-neutral-500">· {{ queue.length }} tracks</span>
-            </button>
-            <button
-              class="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white"
-              @click="selectSource('all')"
-            >
-              Play
-            </button>
-          </li>
-          <li
-            class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
-            :class="source === 'favorites' ? 'bg-blue-100 dark:bg-blue-900/40' : ''"
-          >
-            <button class="min-w-0 flex-1 text-left font-medium" @click="selectSource('favorites')">
-              <Heart class="mr-1 inline h-4 w-4 fill-red-500 text-red-500" /> Favorites
-              <span class="text-neutral-500">· {{ queue.filter((f) => favorites.includes(f.path)).length }} tracks</span>
-            </button>
-            <button
-              class="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white"
-              @click="selectSource('favorites')"
-            >
-              Play
-            </button>
-          </li>
-          <li
-            v-for="playlist in playlists"
-            :key="playlist.id"
-            class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
-            :class="source === playlist.id ? 'bg-blue-100 dark:bg-blue-900/40' : ''"
-          >
-            <button class="min-w-0 flex-1 truncate text-left font-medium" @click="selectSource(playlist.id)">
-              {{ playlist.name }}
-              <span class="text-neutral-500">· {{ playlist.tracks.length }} tracks</span>
-            </button>
-            <button
-              class="rounded px-2 py-1 text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700"
-              :disabled="!current"
-              title="Add the currently playing track to this playlist"
-              @click="addCurrentToPlaylist(playlist.id)"
-            >
-              + Current
-            </button>
-            <button
-              class="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white"
-              @click="selectSource(playlist.id)"
-            >
-              Play
-            </button>
-            <button
-              class="rounded p-1 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
-              title="Delete playlist"
-              @click="deletePlaylistById(playlist.id)"
-            >
-              <Trash2 class="h-4 w-4" />
-            </button>
-          </li>
-        </ul>
-        <div class="mt-3 flex gap-2">
-          <input
-            v-model="newPlaylistName"
-            type="text"
-            placeholder="New playlist name…"
-            class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-            @keyup.enter="createNewPlaylist"
-          />
-          <button
-            class="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
-            :disabled="!newPlaylistName.trim()"
-            @click="createNewPlaylist"
-          >
-            <Plus class="h-4 w-4" /> Create
-          </button>
-        </div>
-        <p class="mt-2 text-xs text-neutral-500">
-          Playlists and favorites are saved in the app database, so they
-          survive restarts. Tracks are matched by file path — a file that
-          was moved or deleted is skipped when its playlist plays.
-        </p>
-      </div>
-    </div>
-
     <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
       <div class="flex min-w-0 flex-1 items-center gap-3">
         <Music class="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
@@ -487,12 +366,11 @@ onUnmounted(() => {
           />
         </button>
         <button
-          class="rounded p-2"
-          :class="showPanel ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
-          title="Playlists"
-          @click="togglePanel"
+          class="flex items-center gap-1.5 rounded px-2 py-2 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          title="Open the playlist manager"
+          @click="emit('openPlaylists')"
         >
-          <ListMusic class="h-4 w-4" />
+          <ListMusic class="h-4 w-4" /> Playlists
         </button>
         <button
           class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"

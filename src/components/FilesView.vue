@@ -25,6 +25,7 @@ import {
   List,
   Settings2,
   Heart,
+  ListMusic,
   Music,
   Play,
   RefreshCw,
@@ -53,6 +54,7 @@ import {
 import ImportDialog from "./ImportDialog.vue";
 import DocumentPreviewDialog from "./DocumentPreviewDialog.vue";
 import MediaPreviewDialog from "./MediaPreviewDialog.vue";
+import PlaylistPickerDialog from "./PlaylistPickerDialog.vue";
 import DocumentCreateDialog from "./DocumentCreateDialog.vue";
 import { isPreviewable } from "../lib/documents";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -132,6 +134,7 @@ function openPreview(file: LibraryFile) {
   previewTarget.value = file;
 }
 const mediaPreviewTarget = ref<LibraryFile | null>(null);
+const playlistTarget = ref<LibraryFile | null>(null);
 function openMediaPreview(file: LibraryFile) {
   mediaPreviewTarget.value = file;
 }
@@ -888,6 +891,11 @@ function fileMenuItems(file: LibraryFile): ContextMenuItem[] {
               : "Add to favorites",
             icon: Heart,
             action: () => toggleFileFavorite(file),
+          } as ContextMenuItem,
+          {
+            label: "Add to playlist…",
+            icon: ListMusic,
+            action: () => (playlistTarget.value = file),
           } as ContextMenuItem,
         ]
       : []),
@@ -1743,6 +1751,12 @@ onUnmounted(() => {
     v-if="mediaPreviewTarget"
     :file="mediaPreviewTarget"
     @close="mediaPreviewTarget = null"
+  />
+
+  <PlaylistPickerDialog
+    v-if="playlistTarget"
+    :file="playlistTarget"
+    @close="playlistTarget = null"
   />
 
   <DocumentCreateDialog

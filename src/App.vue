@@ -13,6 +13,7 @@ import {
   Grip,
   History,
   LayoutGrid,
+  Music,
   Network,
   Pencil,
   Plus,
@@ -36,6 +37,7 @@ import ReadmeDialog from "./components/ReadmeDialog.vue";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
 import MusicPlayerWidget from "./components/MusicPlayerWidget.vue";
+import PlaylistManagerDialog from "./components/PlaylistManagerDialog.vue";
 import Toasts from "./components/Toasts.vue";
 import ConfirmDialog from "./components/ConfirmDialog.vue";
 import {
@@ -396,12 +398,28 @@ const filesStats = ref("");
 // App (between main and footer) so playback survives tab switches.
 const audioTrack = ref<import("./types").LibraryFile | null>(null);
 const audioQueue = ref<import("./types").LibraryFile[]>([]);
+// The playing source ('all', 'favorites', or a playlist id) is owned
+// here so the playlist manager modal can change it from the main nav
+// even when nothing is playing yet; the widget mirrors it.
+const playerSource = ref<string>("all");
+const showPlaylistManager = ref(false);
 function onPlayAudio(
   file: import("./types").LibraryFile,
   queue: import("./types").LibraryFile[],
 ) {
   audioTrack.value = file;
   audioQueue.value = queue;
+  playerSource.value = "all";
+}
+function onManagerPlay(
+  file: import("./types").LibraryFile,
+  queue: import("./types").LibraryFile[],
+  source: string,
+) {
+  audioTrack.value = file;
+  audioQueue.value = queue;
+  playerSource.value = source;
+  showPlaylistManager.value = false;
 }
 function onBodyContext(event: MouseEvent) {
   if ((event.target as HTMLElement).closest("input, textarea, select")) return;
@@ -575,6 +593,9 @@ function openEdit(project: Project) {
           </nav>
 
           <div class="ml-auto flex items-center gap-2 min-[1600px]:absolute min-[1600px]:right-6 min-[1600px]:top-1/2 min-[1600px]:ml-0 min-[1600px]:-translate-y-1/2">
+          <button class="toolbar-btn" @click="showPlaylistManager = true">
+            <Music class="h-4 w-4" /> Playlists
+          </button>
           <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Actions" @click="openNavMenu">
             <Grip class="h-4 w-4" />
           </button>
@@ -718,7 +739,9 @@ function openEdit(project: Project) {
         v-if="audioTrack"
         :track="audioTrack"
         :queue="audioQueue"
-        @close="audioTrack = null"
+        :source="playerSource"
+        @close="audioTrack = null; playerSource = 'all'"
+        @open-playlists="showPlaylistManager = true"
       />
       <footer @contextmenu="onBodyContext"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
@@ -750,6 +773,14 @@ function openEdit(project: Project) {
       @saved="showProjectDialog = false; refresh()"
     />
     <SettingsDialog v-if="showSettings" @close="showSettings = false" />
+    <PlaylistManagerDialog
+      v-if="showPlaylistManager"
+      :files-dir="filesDir ?? ''"
+      :current-track="audioTrack"
+      :active-source="playerSource"
+      @close="showPlaylistManager = false"
+      @play="onManagerPlay"
+    />
     <CloneDialog
       v-if="showClone && projectsDir"
       :projects-dir="projectsDir"
