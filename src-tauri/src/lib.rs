@@ -1566,16 +1566,21 @@ $ErrorActionPreference = 'Stop'
 # PowerPoint PpFixedFormatType, Excel XlFixedFormatType). Passing a plain
 # int (e.g. PowerPoint's 2 for PDF) fails in PowerShell's COM binder with
 # "Cannot convert the '2' value of type 'int' to type 'Object'", so load
-# the Office interop assembly and pass the real enum value. If the
-# interop assembly is not available, fall back to reflection, whose
-# binder converts an int to the enum parameter type.
+# the Office interop assembly and pass the real enum value. If that is
+# not available, fall back to the older SaveAs PDF path (Word 17,
+# PowerPoint 32, Excel 57), which PowerShell's COM call handles without
+# any interop assembly. Do NOT fall back to reflection InvokeMember: it
+# does not fill in the missing optional parameters the way PowerShell's
+# own COM call does, and fails with DISP_E_TYPEMISMATCH (0x80020005).
+# SaveAs changes the open document's target path, but every caller here
+# closes without saving afterwards, so the original file is untouched.
 function Export-WordPdf($doc, $out) {
   try {
     Add-Type -AssemblyName Microsoft.Office.Interop.Word -ErrorAction Stop
     $doc.ExportAsFixedFormat($out, [Microsoft.Office.Interop.Word.WdExportFormat]::wdExportFormatPDF)
     return
   } catch {}
-  $doc.GetType().InvokeMember("ExportAsFixedFormat", "InvokeMethod", $null, $doc, @($out, 17))
+  $doc.SaveAs($out, 17)
 }
 function Export-PowerPointPdf($pres, $out) {
   try {
@@ -1583,7 +1588,7 @@ function Export-PowerPointPdf($pres, $out) {
     $pres.ExportAsFixedFormat($out, [Microsoft.Office.Interop.PowerPoint.PpFixedFormatType]::ppFixedFormatTypePDF)
     return
   } catch {}
-  $pres.GetType().InvokeMember("ExportAsFixedFormat", "InvokeMethod", $null, $pres, @($out, 2))
+  $pres.SaveAs($out, 32)
 }
 function Export-ExcelPdf($wb, $out) {
   try {
@@ -1591,7 +1596,7 @@ function Export-ExcelPdf($wb, $out) {
     $wb.ExportAsFixedFormat([Microsoft.Office.Interop.Excel.XlFixedFormatType]::xlTypePDF, $out)
     return
   } catch {}
-  $wb.GetType().InvokeMember("ExportAsFixedFormat", "InvokeMethod", $null, $wb, @(0, $out))
+  $wb.SaveAs($out, 57)
 }
 try {
   if ($Kind -eq 'word') {
