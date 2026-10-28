@@ -1568,22 +1568,22 @@ try {
     try {
       $app.Visible = $false
       $doc = $app.Documents.Open($InputPath, $false, $true)
-      try { $doc.ExportAsFixedFormat($OutputPath, 17) } finally { $doc.Close($false) }
-    } finally { $app.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null }
+      try { $doc.ExportAsFixedFormat($OutputPath, 17) } finally { try { $doc.Close($false) } catch {} }
+    } finally { try { $app.Quit() } catch {}; try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {} }
   } elseif ($Kind -eq 'powerpoint') {
     $app = New-Object -ComObject PowerPoint.Application
     try {
       $pres = $app.Presentations.Open($InputPath, $true, $true, $false)
-      try { $pres.ExportAsFixedFormat($OutputPath, 2) } finally { $pres.Close() }
-    } finally { $app.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null }
+      try { $pres.ExportAsFixedFormat($OutputPath, 2) } finally { try { $pres.Close() } catch {} }
+    } finally { try { $app.Quit() } catch {}; try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {} }
   } elseif ($Kind -eq 'excel') {
     $app = New-Object -ComObject Excel.Application
     try {
       $app.Visible = $false
       $app.DisplayAlerts = $false
       $wb = $app.Workbooks.Open($InputPath, $false, $true)
-      try { $wb.ExportAsFixedFormat(0, $OutputPath) } finally { $wb.Close($false) }
-    } finally { $app.Quit(); [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null }
+      try { $wb.ExportAsFixedFormat(0, $OutputPath) } finally { try { $wb.Close($false) } catch {} }
+    } finally { try { $app.Quit() } catch {}; try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {} }
   } else {
     throw "Unknown Office kind: $Kind"
   }
@@ -1698,10 +1698,17 @@ fn convert_office_to_pdf_impl(
         let _ = fs::remove_file(&script_path);
         if !output.status.success() || !dest.exists() {
             let _ = fs::remove_file(&dest);
+            // PowerShell formats a failure as the real message first,
+            // then lines like "    + CategoryInfo ..." and
+            // "    + FullyQualifiedErrorId : RuntimeException". Taking
+            // the last line used to report only that useless id, hiding
+            // the actual cause (e.g. COM class not registered, file
+            // locked, password-protected). Take the first meaningful
+            // line instead, skipping the "+" metadata lines.
             let detail = String::from_utf8_lossy(&output.stderr)
-                .trim()
                 .lines()
-                .last()
+                .map(str::trim)
+                .find(|l| !l.is_empty() && !l.starts_with('+'))
                 .unwrap_or("")
                 .to_string();
             return Err(if detail.is_empty() {
