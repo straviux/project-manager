@@ -1243,7 +1243,7 @@ onUnmounted(() => {
 
   <div v-else @contextmenu.stop="openContainerCtx">
     <!-- Toolbar -->
-    <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="relative z-20 mb-4 flex flex-wrap items-center gap-2">
       <div class="relative min-w-52 flex-1 sm:max-w-md">
         <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
         <input
@@ -1342,7 +1342,7 @@ onUnmounted(() => {
     </div>
     <div v-else class="space-y-6">
       <template v-if="drillIn">
-        <nav class="on-bg flex flex-wrap items-center gap-1 text-sm">
+        <nav class="on-bg relative z-20 flex flex-wrap items-center gap-1 text-sm">
           <button class="crumb" :class="[!currentFolder ? 'crumb-active' : '', isDropTarget('') ? 'ring-2 ring-blue-500' : '']" data-drop-folder="" @click="goFolder('')">
             <Library class="h-4 w-4" /> Library
           </button>
@@ -1358,8 +1358,8 @@ onUnmounted(() => {
             </button>
             <button
               v-if="currentFolder"
-              class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
-              title="Actions"
+              class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 tooltip tooltip-bottom"
+              data-tip="Actions"
               @click="openFolderMenu($event, { path: currentFolder, name: baseName(currentFolder) })"
             >
               <Settings2 class="h-4 w-4" />
@@ -1398,8 +1398,8 @@ onUnmounted(() => {
             </span>
             <span class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100">
               <button
-                class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                title="Actions"
+                class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 tooltip tooltip-left"
+                data-tip="Actions"
                 @click.stop="openFolderMenu($event, folder)"
               >
                 <Settings2 class="h-3.5 w-3.5" />
@@ -1433,8 +1433,8 @@ onUnmounted(() => {
             <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
             <span class="shrink-0 text-xs text-neutral-500">{{ folder.count }} item{{ folder.count === 1 ? "" : "s" }}</span>
             <button
-              class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 shrink-0"
-              title="Actions"
+              class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 shrink-0 tooltip tooltip-left"
+              data-tip="Actions"
               @click.stop="openFolderMenu($event, folder)"
             >
               <Settings2 class="h-3.5 w-3.5" />
@@ -1451,14 +1451,14 @@ onUnmounted(() => {
       </template>
 
       <section v-for="[group, items] in displayGroups" :key="group">
-        <div v-if="!drillIn" class="mb-2 flex items-center justify-between gap-2 rounded-lg" :class="isDropTarget(items[0]?.folder ?? '') ? 'ring-2 ring-blue-500' : ''" :data-drop-folder="items[0]?.folder ?? ''">
+        <div v-if="!drillIn" class="relative z-20 mb-2 flex items-center justify-between gap-2 rounded-lg" :class="isDropTarget(items[0]?.folder ?? '') ? 'ring-2 ring-blue-500' : ''" :data-drop-folder="items[0]?.folder ?? ''">
           <h3 class="on-bg text-sm font-semibold uppercase tracking-wide text-neutral-500">
             {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
           </h3>
           <button
             v-if="items[0]?.folder"
-            class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
-            title="Actions"
+            class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 tooltip tooltip-bottom"
+            data-tip="Actions"
             @click="openFolderMenu($event, { path: items[0].folder, name: baseName(items[0].folder) })"
           >
             <Settings2 class="h-4 w-4" />
@@ -1516,7 +1516,7 @@ onUnmounted(() => {
                 </td>
                 <td class="px-4 py-2.5">
                   <span class="flex justify-end gap-1">
-                    <button class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click.stop="openFileMenu($event, file)">
+                    <button class="rounded p-2 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 tooltip tooltip-left" data-tip="Actions" @click.stop="openFileMenu($event, file)">
                       <Settings2 class="h-4 w-4" />
                     </button>
                   </span>
@@ -1560,7 +1560,7 @@ onUnmounted(() => {
               class="absolute right-1 top-1 z-10 opacity-0 transition group-hover:opacity-100"
               @dblclick.stop
             >
-              <button class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800" title="Actions" @click.stop="openFileMenu($event, file)">
+              <button class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 tooltip tooltip-left" data-tip="Actions" @click.stop="openFileMenu($event, file)">
                 <Settings2 class="h-3.5 w-3.5" />
               </button>
             </span>
