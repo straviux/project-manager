@@ -427,15 +427,19 @@ html[data-glass="true"] .file-action-danger:hover {
   font-weight: 400;
   letter-spacing: normal;
   text-align: center;
+  /* Width must be max-content, not shrink-to-fit: without it, the
+     tooltip sizes to its trigger (a ~32px icon button) and wraps
+     every word — and with overflow-wrap: anywhere that collapsed
+     to one letter per line. max-content lets a short tooltip stay
+     on one line, capped at 280px, where it then wraps at spaces. */
+  width: max-content;
   max-width: 280px;
   white-space: normal;
   /* Long unbroken strings (Windows paths like D:\Arc_Files\... have
-     no spaces) otherwise overflow the max-width instead of wrapping,
-     running off the tooltip and off screen. Break anywhere when a
-     word alone is wider than the tooltip; normal text still breaks
-     at spaces first. */
-  overflow-wrap: anywhere;
-  word-break: break-word;
+     no spaces) otherwise overflow the max-width instead of wrapping.
+     break-word (not anywhere) only breaks a word that alone is wider
+     than the tooltip, and does not shrink the tooltip itself. */
+  overflow-wrap: break-word;
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
 }
 .tooltip:hover::before {
