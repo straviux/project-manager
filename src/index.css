@@ -429,6 +429,13 @@ html[data-glass="true"] .file-action-danger:hover {
   text-align: center;
   max-width: 280px;
   white-space: normal;
+  /* Long unbroken strings (Windows paths like D:\Arc_Files\... have
+     no spaces) otherwise overflow the max-width instead of wrapping,
+     running off the tooltip and off screen. Break anywhere when a
+     word alone is wider than the tooltip; normal text still breaks
+     at spaces first. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
 }
 .tooltip:hover::before {
