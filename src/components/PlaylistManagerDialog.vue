@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { Heart, ListMusic, Play, Plus, Trash2 } from "@lucide/vue";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 import { chromeDark } from "../lib/theme";
 import { showToast } from "../lib/toast";
 import { listLibraryFiles } from "../lib/api";
@@ -37,6 +38,7 @@ const emit = defineEmits<{
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const audioFiles = ref<LibraryFile[]>([]);
 const playlists = ref<Playlist[]>([]);

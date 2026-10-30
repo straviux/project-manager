@@ -7,6 +7,7 @@ import { FileText, X } from "@lucide/vue";
 import { openUrl, readReadme } from "../lib/api";
 import type { Project } from "../types";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 const props = defineProps<{ project: Project }>();
 const emit = defineEmits<{ close: [] }>();
@@ -14,6 +15,7 @@ const emit = defineEmits<{ close: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const raw = ref<string | null>(null);
 const loading = ref(true);

@@ -6,6 +6,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { pickerDefaultPath } from "../lib/paths";
 import type { ImportResult } from "../lib/api";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 export type FolderImporter = (
   source: string,
@@ -28,6 +29,7 @@ const emit = defineEmits<{
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const source = ref("");
 const name = ref("");

@@ -7,6 +7,7 @@ import { openPath } from "../lib/api";
 import { fileMediaKind } from "../lib/fileTypes";
 import type { LibraryFile } from "../types";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 const props = defineProps<{ file: LibraryFile }>();
 const emit = defineEmits<{ close: [] }>();
@@ -14,6 +15,7 @@ const emit = defineEmits<{ close: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const kind = fileMediaKind(props.file.name);
 const url = computed(() => convertFileSrc(props.file.path));

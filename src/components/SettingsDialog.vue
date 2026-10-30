@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { Check, Settings, X } from "@lucide/vue";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 import { BG_THEMES, bgTheme, chromeDark, setBgTheme } from "../lib/theme";
 
 const emit = defineEmits<{ close: [] }>();
@@ -9,6 +10,7 @@ const emit = defineEmits<{ close: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 </script>
 
 <template>

@@ -16,6 +16,7 @@ import {
 } from "../lib/api";
 import type { Project, SshConfig, SshConfigDraft } from "../types";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 const props = defineProps<{ project: Project }>();
 const emit = defineEmits<{ close: [] }>();
@@ -23,6 +24,7 @@ const emit = defineEmits<{ close: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const configs = ref<SshConfig[]>([]);
 const error = ref<string | null>(null);

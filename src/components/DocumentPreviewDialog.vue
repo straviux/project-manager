@@ -13,6 +13,7 @@ import {
 } from "../lib/documents";
 import type { LibraryFile } from "../types";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 const props = defineProps<{ file: LibraryFile }>();
 const emit = defineEmits<{ close: [] }>();
@@ -20,6 +21,7 @@ const emit = defineEmits<{ close: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const kind = documentKind(props.file.name);
 const loading = ref(true);

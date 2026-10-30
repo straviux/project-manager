@@ -68,6 +68,7 @@ import {
 import { showToast } from "../lib/toast";
 import { loadFavorites, toggleFavorite } from "../lib/playlists";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 import {
   FILE_TYPE_BADGE_BASE,
   fileTypeBadgeClasses,
@@ -108,6 +109,17 @@ useDialogDrag(notesPanel, notesHandle);
 const batchPanel = ref<HTMLElement | null>(null);
 const batchHandle = ref<HTMLElement | null>(null);
 useDialogDrag(batchPanel, batchHandle);
+useEscapeClose(() => {
+  if (showBatchMove.value) {
+    showBatchMove.value = false;
+  } else if (notesTarget.value) {
+    notesTarget.value = null;
+  } else if (statusTarget.value) {
+    statusTarget.value = null;
+  } else {
+    return false;
+  }
+});
 
 async function onFolderImported(warning: string | null, path?: string) {
   showAddFolder.value = false;

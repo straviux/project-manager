@@ -47,6 +47,7 @@ import {
 } from "./lib/db";
 import { showToast } from "./lib/toast";
 import { useDialogDrag } from "./lib/useDialogDrag";
+import { useEscapeClose } from "./lib/useEscapeClose";
 import ContextMenu, {
   type ContextMenuItem,
 } from "./components/ContextMenu.vue";
@@ -119,6 +120,10 @@ function openNavMenu(event: MouseEvent) {
 const historyPanel = ref<HTMLElement | null>(null);
 const historyHandle = ref<HTMLElement | null>(null);
 useDialogDrag(historyPanel, historyHandle);
+useEscapeClose(() => {
+  if (!showHistory.value) return false;
+  showHistory.value = false;
+});
 
 const showHistory = ref(false);
 const historyEntries = ref<ActionHistoryEntry[]>([]);

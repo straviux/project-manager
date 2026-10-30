@@ -5,6 +5,7 @@ import { chromeDark } from "../lib/theme";
 import { logAction } from "../lib/db";
 import { saveDocumentFile } from "../lib/api";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 import {
   bytesToBase64,
   createDocumentBytes,
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const kind = ref<DocumentKind>("docx");
 const name = ref("Untitled document");

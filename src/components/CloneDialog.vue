@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { Download, X } from "@lucide/vue";
 import { gitClone, detectStacks } from "../lib/api";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 import { createProject } from "../lib/db";
 
 const props = defineProps<{ projectsDir: string }>();
@@ -12,6 +13,7 @@ const emit = defineEmits<{ close: []; cloned: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const repoUrl = ref("");
 const folderName = ref("");

@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { TriangleAlert } from "@lucide/vue";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 import { chromeDark } from "../lib/theme";
 
 defineProps<{
@@ -14,6 +15,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("cancel"));
 </script>
 
 <template>

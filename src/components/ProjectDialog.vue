@@ -15,6 +15,7 @@ import {
 } from "../lib/projectIcons";
 import { KNOWN_STACKS, type Project, type ProjectDraft } from "../types";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { useEscapeClose } from "../lib/useEscapeClose";
 
 const props = defineProps<{ project: Project | null }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
@@ -22,6 +23,7 @@ const emit = defineEmits<{ close: []; saved: [] }>();
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
+useEscapeClose(() => emit("close"));
 
 const form = reactive<ProjectDraft>({
   name: props.project?.name ?? "",
