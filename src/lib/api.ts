@@ -29,6 +29,14 @@ export function gitPull(path: string): Promise<string> {
   return invoke("git_pull", { path });
 }
 
+/**
+ * Fetch remote refs without touching the working tree (autofetch).
+ * Rejects on no remote / offline / auth failure; callers ignore it.
+ */
+export function gitFetch(path: string): Promise<void> {
+  return invoke("git_fetch", { path });
+}
+
 /* ------------------------- internal terminal ------------------------ */
 
 /** Start `command` in the internal terminal (output arrives as events). */

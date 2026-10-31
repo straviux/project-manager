@@ -72,6 +72,7 @@ import {
   importProjectFolder,
   openInVsCode,
   openPath,
+  gitFetch,
   openTerminal,
   readReadme,
   startRun,
@@ -200,6 +201,38 @@ async function boot() {
   ready.value = true;
 }
 onMounted(boot);
+
+/**
+ * VS Code-style autofetch: every 3 minutes, fetch remote refs for
+ * every project, then refresh all card statuses once. Fetch never
+ * touches the working tree, so it is safe with local edits, and
+ * every failure is swallowed silently — a background fetch must
+ * never surface an error, and a repo with no remote just skips.
+ * The first run is delayed 10s so it does not compete with the
+ * initial status load at boot. There is no toggle yet: it is
+ * always on while the app is open.
+ */
+const AUTOFETCH_MS = 3 * 60 * 1000;
+let autofetchTimer: ReturnType<typeof setInterval> | null = null;
+async function autofetch() {
+  const snapshot = [...projects.value];
+  if (!snapshot.length) return;
+  for (const project of snapshot) {
+    await gitFetch(project.path).catch(() => {});
+  }
+  statusKey.value++;
+}
+onMounted(() => {
+  setTimeout(() => {
+    void autofetch();
+  }, 10_000);
+  autofetchTimer = setInterval(() => {
+    void autofetch();
+  }, AUTOFETCH_MS);
+});
+onUnmounted(() => {
+  if (autofetchTimer !== null) clearInterval(autofetchTimer);
+});
 
 // Internal terminal output events from Rust (start_run threads).
 onMounted(async () => {

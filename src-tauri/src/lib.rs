@@ -434,6 +434,41 @@ fn terminal_input(state: tauri::State<RunState>, input: String) -> Result<(), St
     Ok(())
 }
 
+/// Fetch remote refs for one project, without touching the working
+/// tree: this is the VS Code autofetch half of auto-tracking. It only
+/// updates the local picture of the remote (so git_status's
+/// ahead/behind counts become current); it never merges, never
+/// changes files, and never overwrites local edits. Failures
+/// (no remote, offline, auth needed) are returned so the caller
+/// can ignore them silently — a background fetch must never pop
+/// an error at the user.
+#[tauri::command]
+fn git_fetch(path: String) -> Result<(), String> {
+    let dir = PathBuf::from(&path);
+    if !dir.is_dir() {
+        return Err(format!("Folder does not exist: {path}"));
+    }
+    let mut git_cmd = Command::new("git");
+    #[cfg(target_os = "windows")]
+    no_console_window(&mut git_cmd);
+    let output = git_cmd
+        .arg("-C")
+        .arg(&path)
+        .args(["fetch", "origin"])
+        .output()
+        .map_err(|e| format!("Failed to run git fetch: {e}"))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let detail = String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("git fetch failed")
+            .to_string();
+        Err(format!("git fetch failed: {detail}"))
+    }
+}
+
 /// Pull the current branch from its upstream, fast-forward only:
 /// this never creates a merge commit and never overwrites local
 /// changes — if local changes would be overwritten, or the branch
@@ -2057,6 +2092,7 @@ pub fn run() {
             open_terminal,
             open_terminal_command,
             git_pull,
+            git_fetch,
             start_run,
             stop_run,
             terminal_input,
