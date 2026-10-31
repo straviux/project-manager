@@ -251,6 +251,223 @@ fn open_terminal(path: String) -> Result<(), String> {
     spawn_terminal(Some(&dir), None)
 }
 
+/// Open a terminal at the project root already running `command` (the
+/// Build & Run action: the command comes from the project's README.md,
+/// found by the frontend, and is shown in the terminal as it runs, so
+/// a long-running dev server stays visible and stoppable with Ctrl+C
+/// instead of being swallowed by the app). The command string is
+/// executed by cmd on Windows, so it must not contain control
+/// characters; the project is the user's own, so its README command
+/// is trusted the same way opening a terminal in it already is.
+#[tauri::command]
+fn open_terminal_command(path: String, command: String) -> Result<(), String> {
+    let dir = PathBuf::from(&path);
+    if !dir.is_dir() {
+        return Err(format!("Folder does not exist: {path}"));
+    }
+    if command.trim().is_empty() || command.chars().any(|c| c.is_control()) {
+        return Err("Invalid run command.".into());
+    }
+    spawn_terminal(Some(&dir), Some(&command))
+}
+
+/* ========================== internal terminal ========================== */
+
+/// The internal terminal runs one command at a time (v1, no PTY:
+/// output is piped lines, not a full terminal emulator, so programs
+/// that require a TTY — password prompts, interactive menus — will
+/// not work in it, and ANSI colours are shown as plain text lines
+/// by the frontend panel). The child and its stdin live in managed
+/// state so start/stop/input are separate commands: output threads
+/// emit `run-output` per line, and a poll thread emits `run-exit`
+/// with the exit code once the child finishes on its own.
+struct RunState {
+    child: std::sync::Mutex<Option<std::process::Child>>,
+    stdin: std::sync::Mutex<Option<std::process::ChildStdin>>,
+}
+
+impl Default for RunState {
+    fn default() -> Self {
+        RunState {
+            child: std::sync::Mutex::new(None),
+            stdin: std::sync::Mutex::new(None),
+        }
+    }
+}
+
+fn emit_run_line(app: &tauri::AppHandle, line: String) {
+    let _ = app.emit("run-output", line);
+}
+
+#[tauri::command]
+fn start_run(
+    app: tauri::AppHandle,
+    state: tauri::State<RunState>,
+    path: String,
+    command: String,
+) -> Result<(), String> {
+    let dir = PathBuf::from(&path);
+    if !dir.is_dir() {
+        return Err(format!("Folder does not exist: {path}"));
+    }
+    if command.trim().is_empty() || command.chars().any(|c| c.is_control()) {
+        return Err("Invalid run command.".into());
+    }
+    if state.child.lock().map_err(|_| "Terminal state locked")?.is_some() {
+        return Err("A command is already running — stop it first.".into());
+    }
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = Command::new("cmd");
+        c.args(["/C", &command]);
+        c
+    };
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = {
+        let mut c = Command::new("sh");
+        c.args(["-c", &command]);
+        c
+    };
+    #[cfg(target_os = "windows")]
+    no_console_window(&mut cmd);
+    let mut child = cmd
+        .current_dir(&dir)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start command: {e}"))?;
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let stdin = child.stdin.take();
+    if let Some(out) = stdout {
+        let app2 = app.clone();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            let reader = std::io::BufReader::new(out);
+            for line in reader.lines() {
+                match line {
+                    Ok(l) => emit_run_line(&app2, l),
+                    Err(_) => break,
+                }
+            }
+        });
+    }
+    if let Some(err) = stderr {
+        let app2 = app.clone();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            let reader = std::io::BufReader::new(err);
+            for line in reader.lines() {
+                match line {
+                    Ok(l) => emit_run_line(&app2, l),
+                    Err(_) => break,
+                }
+            }
+        });
+    }
+    *state.stdin.lock().map_err(|_| "Terminal state locked")? = stdin;
+    *state.child.lock().map_err(|_| "Terminal state locked")? = Some(child);
+    // Poll for exit: try_wait takes &mut, so each poll locks briefly
+    // and stop (which takes the child out) never blocks on a wait.
+    let app2 = app.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        let run_state = app2.state::<RunState>();
+        let mut guard = match run_state.child.lock() {
+            Ok(g) => g,
+            Err(_) => break,
+        };
+        match guard.as_mut() {
+            None => break,
+            Some(child) => match child.try_wait() {
+                Ok(Some(status)) => {
+                    let code = status.code();
+                    *guard = None;
+                    let _ = app2.emit("run-exit", code);
+                    break;
+                }
+                Ok(None) => continue,
+                Err(_) => break,
+            },
+        }
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_run(state: tauri::State<RunState>) -> Result<(), String> {
+    let mut child_guard = state.child.lock().map_err(|_| "Terminal state locked")?;
+    let mut child = match child_guard.take() {
+        Some(c) => c,
+        None => return Ok(()),
+    };
+    drop(child_guard);
+    *state.stdin.lock().map_err(|_| "Terminal state locked")? = None;
+    // On Windows, killing cmd alone leaves npm/node grandchildren
+    // running, so kill the whole process tree first.
+    #[cfg(target_os = "windows")]
+    {
+        let pid = child.id();
+        let mut tk = Command::new("taskkill");
+        no_console_window(&mut tk);
+        let _ = tk.args(["/PID", &pid.to_string(), "/T", "/F"]).output();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    Ok(())
+}
+
+#[tauri::command]
+fn terminal_input(state: tauri::State<RunState>, input: String) -> Result<(), String> {
+    use std::io::Write;
+    let mut guard = state.stdin.lock().map_err(|_| "Terminal state locked")?;
+    let stdin = match guard.as_mut() {
+        Some(s) => s,
+        None => return Err("No command is running.".into()),
+    };
+    stdin
+        .write_all(input.as_bytes())
+        .and_then(|_| stdin.write_all(b"\n"))
+        .and_then(|_| stdin.flush())
+        .map_err(|e| format!("Failed to send input: {e}"))?;
+    Ok(())
+}
+
+/// Pull the current branch from its upstream, fast-forward only:
+/// this never creates a merge commit and never overwrites local
+/// changes — if local changes would be overwritten, or the branch
+/// has diverged, git fails and the error is returned instead.
+#[tauri::command]
+fn git_pull(path: String) -> Result<String, String> {
+    let dir = PathBuf::from(&path);
+    if !dir.is_dir() {
+        return Err(format!("Folder does not exist: {path}"));
+    }
+    let mut git_cmd = Command::new("git");
+    #[cfg(target_os = "windows")]
+    no_console_window(&mut git_cmd);
+    let output = git_cmd
+        .arg("-C")
+        .arg(&path)
+        .args(["pull", "--ff-only"])
+        .output()
+        .map_err(|e| format!("Failed to run git pull: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if output.status.success() {
+        Ok(stdout)
+    } else {
+        // First meaningful stderr line (git puts the real message
+        // first; the rest is usually a hint or a repeated line).
+        let detail = stderr
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("git pull failed");
+        Err(format!("git pull failed: {detail}"))
+    }
+}
+
 #[tauri::command]
 /// The ssh command string is eventually executed by a shell (cmd on
 /// Windows, bash elsewhere), so host/username/key values must never be able
@@ -1829,6 +2046,7 @@ fn delete_project_icon(app: tauri::AppHandle, project_id: i64) -> Result<(), Str
 
 pub fn run() {
     tauri::Builder::default()
+        .manage(RunState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_process::init())
@@ -1837,6 +2055,11 @@ pub fn run() {
             open_in_vscode,
             open_url,
             open_terminal,
+            open_terminal_command,
+            git_pull,
+            start_run,
+            stop_run,
+            terminal_input,
             open_ssh_terminal,
             ssh_set_password,
             ssh_has_password,

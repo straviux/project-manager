@@ -16,6 +16,7 @@ import {
   Music,
   Network,
   Pencil,
+  Play,
   Plus,
   RefreshCw,
   Search,
@@ -34,6 +35,9 @@ import CloneDialog from "./components/CloneDialog.vue";
 import ImportDialog from "./components/ImportDialog.vue";
 import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
+import RunCommandDialog from "./components/RunCommandDialog.vue";
+import TerminalPanel from "./components/TerminalPanel.vue";
+import { listen } from "@tauri-apps/api/event";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
 import MusicPlayerWidget from "./components/MusicPlayerWidget.vue";
@@ -64,12 +68,18 @@ import {
 } from "./lib/db";
 import {
   deleteProjectIcon,
+  gitPull,
   importProjectFolder,
   openInVsCode,
   openPath,
   openTerminal,
+  readReadme,
+  startRun,
+  stopRun,
+  terminalInput,
   scanProjects,
 } from "./lib/api";
+import { findRunCommand } from "./lib/findRunCommand";
 import type { Project } from "./types";
 
 const ready = ref(false);
@@ -154,6 +164,17 @@ const HISTORY_KIND_CLASSES: Record<string, string> = {
 };
 const sshProject = ref<Project | null>(null);
 const readmeProject = ref<Project | null>(null);
+const runProject = ref<Project | null>(null);
+const runInitialCommand = ref("");
+const runSource = ref<"saved" | "readme" | "none">("none");
+const runReadmeCommand = ref<string | null>(null);
+// Internal terminal panel state (see TerminalPanel.vue).
+const terminalOpen = ref(false);
+const terminalProjectName = ref("");
+const terminalCommand = ref("");
+const terminalLines = ref<string[]>([]);
+const terminalRunning = ref(false);
+const terminalExitCode = ref<number | null>(null);
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
@@ -179,6 +200,22 @@ async function boot() {
   ready.value = true;
 }
 onMounted(boot);
+
+// Internal terminal output events from Rust (start_run threads).
+onMounted(async () => {
+  await listen<string>("run-output", (event) => {
+    terminalLines.value.push(event.payload);
+    // Keep the buffer bounded: a dev server can run for hours.
+    if (terminalLines.value.length > 2000) {
+      terminalLines.value.splice(0, terminalLines.value.length - 2000);
+    }
+  });
+  await listen<number | null>("run-exit", (event) => {
+    terminalRunning.value = false;
+    terminalExitCode.value = event.payload;
+    terminalLines.value.push(`Process exited with code ${event.payload}`);
+  });
+});
 
 function onSetupDone(dir: string) {
   projectsDir.value = dir;
@@ -269,6 +306,108 @@ async function runAction(fn: () => Promise<unknown>, failMsg: string) {
   }
 }
 
+/** Pull latest changes, then refresh the card's git status. */
+async function pullProject(project: Project) {
+  error.value = null;
+  try {
+    const output = await gitPull(project.path);
+    const summary = output.split("\n").find((l) => l.trim()) ?? "Up to date.";
+    showToast(`Pulled ${project.name}: ${summary}`);
+    statusKey.value++;
+  } catch (e) {
+    error.value = `Could not pull ${project.name}: ${String(e)}`;
+  }
+}
+
+/**
+ * Build & Run: open the editable run-command dialog. Prefill order:
+ * a command saved for this project (from a previous run), else the
+ * command found in README.md, else empty. Nothing runs until the
+ * user taps Run in the dialog, and the edited command is saved for
+ * this project when they do.
+ */
+async function buildRunProject(project: Project) {
+  error.value = null;
+  try {
+    const saved = await getSetting(`run_command_${project.id}`);
+    const readme = await readReadme(project.path);
+    const readmeCommand = findRunCommand(readme);
+    runReadmeCommand.value = readmeCommand;
+    if (saved?.trim()) {
+      runInitialCommand.value = saved;
+      runSource.value = "saved";
+    } else if (readmeCommand) {
+      runInitialCommand.value = readmeCommand;
+      runSource.value = "readme";
+    } else {
+      runInitialCommand.value = "";
+      runSource.value = "none";
+    }
+    runProject.value = project;
+  } catch (e) {
+    error.value = `Could not prepare run for ${project.name}: ${String(e)}`;
+  }
+}
+
+/** Run the edited command in the internal terminal, and save it. */
+async function runWithCommand(command: string) {
+  const project = runProject.value;
+  if (!project) return;
+  runProject.value = null;
+  error.value = null;
+  try {
+    await setSetting(`run_command_${project.id}`, command);
+    await openInternalTerminal(project, command);
+  } catch (e) {
+    error.value = `Could not run ${project.name}: ${String(e)}`;
+  }
+}
+
+/**
+ * Start a command in the internal terminal panel. The panel stays
+ * open while the command runs; closing it stops the command.
+ */
+async function openInternalTerminal(project: Project, command: string) {
+  if (terminalRunning.value) {
+    await stopTerminalPanel();
+  }
+  terminalProjectName.value = project.name;
+  terminalCommand.value = command;
+  terminalLines.value = [`$ ${command}`];
+  terminalRunning.value = true;
+  terminalExitCode.value = null;
+  terminalOpen.value = true;
+  try {
+    await startRun(project.path, command);
+    showToast(`Running ${project.name}: ${command}`);
+  } catch (e) {
+    terminalRunning.value = false;
+    terminalLines.value.push(`Failed to start: ${String(e)}`);
+    throw e;
+  }
+}
+
+/** Stop the command but keep the panel open to see its output. */
+async function stopTerminalPanel() {
+  if (!terminalRunning.value) return;
+  terminalRunning.value = false;
+  await stopRun().catch(() => {});
+}
+
+/** Stop the command and close the panel. */
+async function closeTerminalPanel() {
+  await stopTerminalPanel();
+  terminalOpen.value = false;
+}
+
+async function sendTerminalInput(input: string) {
+  if (!terminalRunning.value) return;
+  terminalLines.value.push(`> ${input}`);
+  await terminalInput(input).catch((e) => {
+    terminalLines.value.push(`Could not send input: ${String(e)}`);
+  });
+}
+
 async function scan() {
   if (!projectsDir.value) return;
   error.value = null;
@@ -354,6 +493,16 @@ const projectCtxItems = computed<ContextMenuItem[]>(() => {
       label: "Open README",
       icon: BookOpen,
       action: () => (readmeProject.value = project),
+    },
+    {
+      label: "Pull latest changes",
+      icon: ArrowDownToLine,
+      action: () => pullProject(project),
+    },
+    {
+      label: "Build & run (from README)",
+      icon: Play,
+      action: () => buildRunProject(project),
     },
     ...(project.repoUrl
       ? [
@@ -723,6 +872,8 @@ function openEdit(project: Project) {
             @folder="runAction(() => openPath(project.path), 'Could not open folder')"
             @ssh="sshProject = project"
             @readme="readmeProject = project"
+            @pull="pullProject(project)"
+            @buildrun="buildRunProject(project)"
             @edit="openEdit(project)"
             @remove="remove(project)"
           />
@@ -755,6 +906,18 @@ function openEdit(project: Project) {
         :source="playerSource"
         @close="audioTrack = null; playerSource = 'all'"
         @open-playlists="showPlaylistManager = true"
+      />
+      <TerminalPanel
+        v-if="terminalOpen"
+        :project-name="terminalProjectName"
+        :command="terminalCommand"
+        :lines="terminalLines"
+        :running="terminalRunning"
+        :exit-code="terminalExitCode"
+        @close="closeTerminalPanel"
+        @stop="stopTerminalPanel"
+        @clear="terminalLines = []"
+        @send="sendTerminalInput"
       />
       <footer @contextmenu="onBodyContext"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
@@ -814,6 +977,15 @@ function openEdit(project: Project) {
       v-if="readmeProject"
       :project="readmeProject"
       @close="readmeProject = null"
+    />
+    <RunCommandDialog
+      v-if="runProject"
+      :project-name="runProject.name"
+      :initial-command="runInitialCommand"
+      :source="runSource"
+      :readme-command="runReadmeCommand"
+      @close="runProject = null"
+      @run="runWithCommand"
     />
     <div
       v-if="showHistory"

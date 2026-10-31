@@ -11,6 +11,7 @@ import {
   FolderOpen,
   GitBranch,
   GripVertical,
+  Play,
   Settings2,
   Pencil,
   Star,
@@ -37,6 +38,8 @@ const emit = defineEmits<{
   folder: [];
   ssh: [];
   readme: [];
+  pull: [];
+  buildrun: [];
   edit: [];
   copyClone: [];
   remove: [];
@@ -273,7 +276,7 @@ watch(() => props.statusKey, loadStatus);
       <span class="truncate">{{ project.repoUrl }}</span>
     </a>
 
-    <footer class="mt-auto grid grid-cols-5 gap-1.5">
+    <footer class="mt-auto grid grid-cols-7 gap-1.5">
       <button class="action tooltip tooltip-top" data-tip="Open in VS Code" @click="emit('vscode')">
         <VscodeIcon class="h-4 w-4" />
         <span>VS Code</span>
@@ -293,6 +296,14 @@ watch(() => props.statusKey, loadStatus);
       <button class="action tooltip tooltip-top" data-tip="Open README.md" @click="emit('readme')">
         <FileText class="h-4 w-4" />
         <span>README</span>
+      </button>
+      <button class="action tooltip tooltip-top" data-tip="Pull latest changes (fast-forward only)" @click="emit('pull')">
+        <ArrowDown class="h-4 w-4" />
+        <span>Pull</span>
+      </button>
+      <button class="action tooltip tooltip-top" data-tip="Build & run — command from README.md" @click="emit('buildrun')">
+        <Play class="h-4 w-4" />
+        <span>Run</span>
       </button>
     </footer>
   </article>

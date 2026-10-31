@@ -16,6 +16,36 @@ export function openTerminal(path: string): Promise<void> {
   return invoke("open_terminal", { path });
 }
 
+/** Open a terminal at `path` already running `command`. */
+export function openTerminalWithCommand(
+  path: string,
+  command: string,
+): Promise<void> {
+  return invoke("open_terminal_command", { path, command });
+}
+
+/** Pull the current branch fast-forward only. Resolves to git's output. */
+export function gitPull(path: string): Promise<string> {
+  return invoke("git_pull", { path });
+}
+
+/* ------------------------- internal terminal ------------------------ */
+
+/** Start `command` in the internal terminal (output arrives as events). */
+export function startRun(path: string, command: string): Promise<void> {
+  return invoke("start_run", { path, command });
+}
+
+/** Stop the running internal-terminal command, if any. */
+export function stopRun(): Promise<void> {
+  return invoke("stop_run");
+}
+
+/** Send a line of input to the running internal-terminal command. */
+export function terminalInput(input: string): Promise<void> {
+  return invoke("terminal_input", { input });
+}
+
 /** Open a terminal running an ssh session from a saved profile. */
 export function openSshTerminal(config: SshConfig): Promise<void> {
   return invoke("open_ssh_terminal", {
