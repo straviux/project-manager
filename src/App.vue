@@ -36,7 +36,7 @@ import ImportDialog from "./components/ImportDialog.vue";
 import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
 import RunCommandDialog from "./components/RunCommandDialog.vue";
-import TerminalPanel from "./components/TerminalPanel.vue";
+import TerminalPanel, { type TerminalTab } from "./components/TerminalPanel.vue";
 import { listen } from "@tauri-apps/api/event";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
@@ -169,13 +169,13 @@ const runProject = ref<Project | null>(null);
 const runInitialCommand = ref("");
 const runSource = ref<"saved" | "readme" | "none">("none");
 const runReadmeCommand = ref<string | null>(null);
-// Internal terminal panel state (see TerminalPanel.vue).
-const terminalOpen = ref(false);
-const terminalProjectName = ref("");
-const terminalCommand = ref("");
-const terminalLines = ref<string[]>([]);
-const terminalRunning = ref(false);
-const terminalExitCode = ref<number | null>(null);
+// Internal terminal panel state (see TerminalPanel.vue): one tab
+// per run command, so a new run adds a tab instead of stopping
+// the previous command. Minimizing keeps all tabs running.
+const terminalTabs = ref<TerminalTab[]>([]);
+const terminalActiveTabId = ref<number | null>(null);
+const terminalMinimized = ref(false);
+let terminalTabCounter = 0;
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
@@ -234,19 +234,24 @@ onUnmounted(() => {
   if (autofetchTimer !== null) clearInterval(autofetchTimer);
 });
 
-// Internal terminal output events from Rust (start_run threads).
+// Internal terminal output events from Rust (start_run threads),
+// each payload carrying its run id so it lands in the right tab.
 onMounted(async () => {
-  await listen<string>("run-output", (event) => {
-    terminalLines.value.push(event.payload);
+  await listen<{ runId: number; line: string }>("run-output", (event) => {
+    const tab = terminalTabs.value.find((t) => t.id === event.payload.runId);
+    if (!tab) return;
+    tab.lines.push(event.payload.line);
     // Keep the buffer bounded: a dev server can run for hours.
-    if (terminalLines.value.length > 2000) {
-      terminalLines.value.splice(0, terminalLines.value.length - 2000);
+    if (tab.lines.length > 2000) {
+      tab.lines.splice(0, tab.lines.length - 2000);
     }
   });
-  await listen<number | null>("run-exit", (event) => {
-    terminalRunning.value = false;
-    terminalExitCode.value = event.payload;
-    terminalLines.value.push(`Process exited with code ${event.payload}`);
+  await listen<{ runId: number; code: number | null }>("run-exit", (event) => {
+    const tab = terminalTabs.value.find((t) => t.id === event.payload.runId);
+    if (!tab) return;
+    tab.running = false;
+    tab.exitCode = event.payload.code;
+    tab.lines.push(`Process exited with code ${event.payload.code}`);
   });
 });
 
@@ -397,47 +402,57 @@ async function runWithCommand(command: string) {
 }
 
 /**
- * Start a command in the internal terminal panel. The panel stays
- * open while the command runs; closing it stops the command.
+ * Start a command in a new internal-terminal tab. Previous tabs
+ * keep running — a new run never stops an old one. The panel
+ * un-minimizes and the new tab becomes active.
  */
 async function openInternalTerminal(project: Project, command: string) {
-  if (terminalRunning.value) {
-    await stopTerminalPanel();
-  }
-  terminalProjectName.value = project.name;
-  terminalCommand.value = command;
-  terminalLines.value = [`$ ${command}`];
-  terminalRunning.value = true;
-  terminalExitCode.value = null;
-  terminalOpen.value = true;
+  const id = ++terminalTabCounter;
+  const tab: TerminalTab = {
+    id,
+    projectName: project.name,
+    command,
+    lines: [`$ ${command}`],
+    running: true,
+    exitCode: null,
+  };
+  terminalTabs.value.push(tab);
+  terminalActiveTabId.value = id;
+  terminalMinimized.value = false;
   try {
-    await startRun(project.path, command);
+    await startRun(id, project.path, command);
     showToast(`Running ${project.name}: ${command}`);
   } catch (e) {
-    terminalRunning.value = false;
-    terminalLines.value.push(`Failed to start: ${String(e)}`);
+    tab.running = false;
+    tab.lines.push(`Failed to start: ${String(e)}`);
     throw e;
   }
 }
 
-/** Stop the command but keep the panel open to see its output. */
-async function stopTerminalPanel() {
-  if (!terminalRunning.value) return;
-  terminalRunning.value = false;
-  await stopRun().catch(() => {});
+/** Stop one tab's command but keep the tab open to see its output. */
+async function stopTerminalTab(id: number) {
+  const tab = terminalTabs.value.find((t) => t.id === id);
+  if (!tab || !tab.running) return;
+  tab.running = false;
+  await stopRun(id).catch(() => {});
 }
 
-/** Stop the command and close the panel. */
-async function closeTerminalPanel() {
-  await stopTerminalPanel();
-  terminalOpen.value = false;
+/** Stop a tab's command (if running) and remove the tab. */
+async function closeTerminalTab(id: number) {
+  await stopTerminalTab(id);
+  terminalTabs.value = terminalTabs.value.filter((t) => t.id !== id);
+  if (terminalActiveTabId.value === id) {
+    terminalActiveTabId.value =
+      terminalTabs.value[terminalTabs.value.length - 1]?.id ?? null;
+  }
 }
 
-async function sendTerminalInput(input: string) {
-  if (!terminalRunning.value) return;
-  terminalLines.value.push(`> ${input}`);
-  await terminalInput(input).catch((e) => {
-    terminalLines.value.push(`Could not send input: ${String(e)}`);
+async function sendTerminalInput(id: number, input: string) {
+  const tab = terminalTabs.value.find((t) => t.id === id);
+  if (!tab || !tab.running) return;
+  tab.lines.push(`> ${input}`);
+  await terminalInput(id, input).catch((e) => {
+    tab.lines.push(`Could not send input: ${String(e)}`);
   });
 }
 
@@ -941,16 +956,17 @@ function openEdit(project: Project) {
         @open-playlists="showPlaylistManager = true"
       />
       <TerminalPanel
-        v-if="terminalOpen"
-        :project-name="terminalProjectName"
-        :command="terminalCommand"
-        :lines="terminalLines"
-        :running="terminalRunning"
-        :exit-code="terminalExitCode"
-        @close="closeTerminalPanel"
-        @stop="stopTerminalPanel"
-        @clear="terminalLines = []"
+        v-if="terminalTabs.length"
+        :tabs="terminalTabs"
+        :active-tab-id="terminalActiveTabId"
+        :minimized="terminalMinimized"
+        @select-tab="terminalActiveTabId = $event"
+        @close-tab="closeTerminalTab"
+        @stop-tab="stopTerminalTab"
+        @clear-tab="(id) => { const tab = terminalTabs.find((t) => t.id === id); if (tab) tab.lines = []; }"
         @send="sendTerminalInput"
+        @minimize="terminalMinimized = true"
+        @restore="terminalMinimized = false"
       />
       <footer @contextmenu="onBodyContext"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"

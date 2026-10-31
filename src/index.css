@@ -445,6 +445,19 @@ html[data-glass="true"] .file-action-danger:hover {
 .tooltip:hover::before {
   opacity: 1;
 }
+
+/* Tooltips behind cards: cards use backdrop-filter, which makes
+   each card its own stacking layer, so a tooltip inside one card
+   cannot paint above a neighbouring card, no matter how high the
+   tooltip's own z-index is — the neighbour's layer is painted
+   later in DOM order. Long tooltips (e.g. Pull/Run on a project
+   card) spill past the card edge and get covered exactly this way.
+   Lifting the hovered card above its neighbours fixes it, and
+   the lift only applies while the mouse is on the card, which is
+   exactly when its tooltip is visible. */
+.card-glass:hover {
+  z-index: 20;
+}
 .tooltip-top::before,
 .tooltip::before {
   bottom: calc(100% + 6px);

@@ -39,19 +39,23 @@ export function gitFetch(path: string): Promise<void> {
 
 /* ------------------------- internal terminal ------------------------ */
 
-/** Start `command` in the internal terminal (output arrives as events). */
-export function startRun(path: string, command: string): Promise<void> {
-  return invoke("start_run", { path, command });
+/** Start `command` in an internal-terminal tab (output arrives as events). */
+export function startRun(
+  runId: number,
+  path: string,
+  command: string,
+): Promise<void> {
+  return invoke("start_run", { runId, path, command });
 }
 
-/** Stop the running internal-terminal command, if any. */
-export function stopRun(): Promise<void> {
-  return invoke("stop_run");
+/** Stop the internal-terminal command in one tab, if it is running. */
+export function stopRun(runId: number): Promise<void> {
+  return invoke("stop_run", { runId });
 }
 
-/** Send a line of input to the running internal-terminal command. */
-export function terminalInput(input: string): Promise<void> {
-  return invoke("terminal_input", { input });
+/** Send a line of input to the command in one terminal tab. */
+export function terminalInput(runId: number, input: string): Promise<void> {
+  return invoke("terminal_input", { runId, input });
 }
 
 /** Open a terminal running an ssh session from a saved profile. */

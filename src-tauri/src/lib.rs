@@ -274,36 +274,53 @@ fn open_terminal_command(path: String, command: String) -> Result<(), String> {
 
 /* ========================== internal terminal ========================== */
 
-/// The internal terminal runs one command at a time (v1, no PTY:
+/// The internal terminal runs one command per tab (v1, no PTY:
 /// output is piped lines, not a full terminal emulator, so programs
 /// that require a TTY — password prompts, interactive menus — will
 /// not work in it, and ANSI colours are shown as plain text lines
-/// by the frontend panel). The child and its stdin live in managed
-/// state so start/stop/input are separate commands: output threads
-/// emit `run-output` per line, and a poll thread emits `run-exit`
-/// with the exit code once the child finishes on its own.
+/// by the frontend panel). Children and their stdins live in
+/// managed state keyed by the frontend's run id, so start/stop/
+/// input are separate commands per tab: output threads emit
+/// `run-output` per line and a poll thread emits `run-exit` with
+/// the exit code once a child finishes on its own, each payload
+/// carrying its run id so the frontend routes it to the right tab.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RunOutput {
+    run_id: u32,
+    line: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RunExit {
+    run_id: u32,
+    code: Option<i32>,
+}
+
 struct RunState {
-    child: std::sync::Mutex<Option<std::process::Child>>,
-    stdin: std::sync::Mutex<Option<std::process::ChildStdin>>,
+    children: std::sync::Mutex<std::collections::HashMap<u32, std::process::Child>>,
+    stdins: std::sync::Mutex<std::collections::HashMap<u32, std::process::ChildStdin>>,
 }
 
 impl Default for RunState {
     fn default() -> Self {
         RunState {
-            child: std::sync::Mutex::new(None),
-            stdin: std::sync::Mutex::new(None),
+            children: std::sync::Mutex::new(std::collections::HashMap::new()),
+            stdins: std::sync::Mutex::new(std::collections::HashMap::new()),
         }
     }
 }
 
-fn emit_run_line(app: &tauri::AppHandle, line: String) {
-    let _ = app.emit("run-output", line);
+fn emit_run_line(app: &tauri::AppHandle, run_id: u32, line: String) {
+    let _ = app.emit("run-output", RunOutput { run_id, line });
 }
 
 #[tauri::command]
 fn start_run(
     app: tauri::AppHandle,
     state: tauri::State<RunState>,
+    run_id: u32,
     path: String,
     command: String,
 ) -> Result<(), String> {
@@ -314,8 +331,13 @@ fn start_run(
     if command.trim().is_empty() || command.chars().any(|c| c.is_control()) {
         return Err("Invalid run command.".into());
     }
-    if state.child.lock().map_err(|_| "Terminal state locked")?.is_some() {
-        return Err("A command is already running — stop it first.".into());
+    if state
+        .children
+        .lock()
+        .map_err(|_| "Terminal state locked")?
+        .contains_key(&run_id)
+    {
+        return Err("That terminal tab is already running.".into());
     }
     #[cfg(target_os = "windows")]
     let mut cmd = {
@@ -348,7 +370,7 @@ fn start_run(
             let reader = std::io::BufReader::new(out);
             for line in reader.lines() {
                 match line {
-                    Ok(l) => emit_run_line(&app2, l),
+                    Ok(l) => emit_run_line(&app2, run_id, l),
                     Err(_) => break,
                 }
             }
@@ -361,31 +383,41 @@ fn start_run(
             let reader = std::io::BufReader::new(err);
             for line in reader.lines() {
                 match line {
-                    Ok(l) => emit_run_line(&app2, l),
+                    Ok(l) => emit_run_line(&app2, run_id, l),
                     Err(_) => break,
                 }
             }
         });
     }
-    *state.stdin.lock().map_err(|_| "Terminal state locked")? = stdin;
-    *state.child.lock().map_err(|_| "Terminal state locked")? = Some(child);
+    if let Some(s) = stdin {
+        state
+            .stdins
+            .lock()
+            .map_err(|_| "Terminal state locked")?
+            .insert(run_id, s);
+    }
+    state
+        .children
+        .lock()
+        .map_err(|_| "Terminal state locked")?
+        .insert(run_id, child);
     // Poll for exit: try_wait takes &mut, so each poll locks briefly
     // and stop (which takes the child out) never blocks on a wait.
     let app2 = app.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_millis(200));
         let run_state = app2.state::<RunState>();
-        let mut guard = match run_state.child.lock() {
+        let mut guard = match run_state.children.lock() {
             Ok(g) => g,
             Err(_) => break,
         };
-        match guard.as_mut() {
+        match guard.get_mut(&run_id) {
             None => break,
             Some(child) => match child.try_wait() {
                 Ok(Some(status)) => {
                     let code = status.code();
-                    *guard = None;
-                    let _ = app2.emit("run-exit", code);
+                    guard.remove(&run_id);
+                    let _ = app2.emit("run-exit", RunExit { run_id, code });
                     break;
                 }
                 Ok(None) => continue,
@@ -397,14 +429,18 @@ fn start_run(
 }
 
 #[tauri::command]
-fn stop_run(state: tauri::State<RunState>) -> Result<(), String> {
-    let mut child_guard = state.child.lock().map_err(|_| "Terminal state locked")?;
-    let mut child = match child_guard.take() {
+fn stop_run(state: tauri::State<RunState>, run_id: u32) -> Result<(), String> {
+    let mut child_guard = state.children.lock().map_err(|_| "Terminal state locked")?;
+    let mut child = match child_guard.remove(&run_id) {
         Some(c) => c,
         None => return Ok(()),
     };
     drop(child_guard);
-    *state.stdin.lock().map_err(|_| "Terminal state locked")? = None;
+    state
+        .stdins
+        .lock()
+        .map_err(|_| "Terminal state locked")?
+        .remove(&run_id);
     // On Windows, killing cmd alone leaves npm/node grandchildren
     // running, so kill the whole process tree first.
     #[cfg(target_os = "windows")]
@@ -420,12 +456,12 @@ fn stop_run(state: tauri::State<RunState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn terminal_input(state: tauri::State<RunState>, input: String) -> Result<(), String> {
+fn terminal_input(state: tauri::State<RunState>, run_id: u32, input: String) -> Result<(), String> {
     use std::io::Write;
-    let mut guard = state.stdin.lock().map_err(|_| "Terminal state locked")?;
-    let stdin = match guard.as_mut() {
+    let mut guard = state.stdins.lock().map_err(|_| "Terminal state locked")?;
+    let stdin = match guard.get_mut(&run_id) {
         Some(s) => s,
-        None => return Err("No command is running.".into()),
+        None => return Err("No command is running in that tab.".into()),
     };
     stdin
         .write_all(input.as_bytes())
