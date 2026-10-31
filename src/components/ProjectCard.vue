@@ -276,35 +276,51 @@ watch(() => props.statusKey, loadStatus);
       <span class="truncate">{{ project.repoUrl }}</span>
     </a>
 
-    <footer class="mt-auto grid grid-cols-7 gap-1.5">
-      <button class="action tooltip tooltip-top" data-tip="Open in VS Code" @click="emit('vscode')">
-        <VscodeIcon class="h-4 w-4" />
-        <span>VS Code</span>
-      </button>
-      <button class="action tooltip tooltip-top" data-tip="Open source folder" @click="emit('folder')">
-        <FolderOpen class="h-4 w-4" />
-        <span>Folder</span>
-      </button>
-      <button class="action tooltip tooltip-top" data-tip="Open terminal at project root" @click="emit('terminal')">
-        <Terminal class="h-4 w-4" />
-        <span>Terminal</span>
-      </button>
-      <button class="action tooltip tooltip-top" data-tip="SSH connections" @click="emit('ssh')">
-        <Server class="h-4 w-4" />
-        <span>SSH</span>
-      </button>
-      <button class="action tooltip tooltip-top" data-tip="Open README.md" @click="emit('readme')">
-        <FileText class="h-4 w-4" />
-        <span>README</span>
-      </button>
-      <button class="action tooltip tooltip-top" data-tip="Pull latest changes (fast-forward only)" @click="emit('pull')">
-        <ArrowDown class="h-4 w-4" />
-        <span>Pull</span>
-      </button>
-      <button class="action tooltip tooltip-top" data-tip="Build & run — command from README.md" @click="emit('buildrun')">
-        <Play class="h-4 w-4" />
-        <span>Run</span>
-      </button>
+    <!-- Footer actions, grouped so the row reads as three tools
+         instead of seven scattered buttons. Group widths are
+         proportional to their button count (4 / 1 / 2), so every
+         button keeps the same width it had in the old 7-column grid.
+         Labels and icons are unchanged on purpose. -->
+    <footer class="mt-auto flex items-stretch gap-2">
+      <!-- Open: VS Code, Folder, Terminal, SSH -->
+      <div class="flex flex-[4] gap-1.5">
+        <button class="action flex-1 tooltip tooltip-top" data-tip="Open in VS Code" @click="emit('vscode')">
+          <VscodeIcon class="h-4 w-4" />
+          <span>VS Code</span>
+        </button>
+        <button class="action flex-1 tooltip tooltip-top" data-tip="Open source folder" @click="emit('folder')">
+          <FolderOpen class="h-4 w-4" />
+          <span>Folder</span>
+        </button>
+        <button class="action flex-1 tooltip tooltip-top" data-tip="Open terminal at project root" @click="emit('terminal')">
+          <Terminal class="h-4 w-4" />
+          <span>Terminal</span>
+        </button>
+        <button class="action flex-1 tooltip tooltip-top" data-tip="SSH connections" @click="emit('ssh')">
+          <Server class="h-4 w-4" />
+          <span>SSH</span>
+        </button>
+      </div>
+      <div aria-hidden="true" class="my-1 w-px shrink-0 bg-neutral-300/70 dark:bg-white/20"></div>
+      <!-- View: README -->
+      <div class="flex flex-[1] gap-1.5">
+        <button class="action flex-1 tooltip tooltip-top" data-tip="Open README.md" @click="emit('readme')">
+          <FileText class="h-4 w-4" />
+          <span>README</span>
+        </button>
+      </div>
+      <div aria-hidden="true" class="my-1 w-px shrink-0 bg-neutral-300/70 dark:bg-white/20"></div>
+      <!-- Sync & run: Pull, Run -->
+      <div class="flex flex-[2] gap-1.5">
+        <button class="action flex-1 tooltip tooltip-top" data-tip="Pull latest changes (fast-forward only)" @click="emit('pull')">
+          <ArrowDown class="h-4 w-4" />
+          <span>Pull</span>
+        </button>
+        <button class="action flex-1 tooltip tooltip-top" data-tip="Build & run — command from README.md" @click="emit('buildrun')">
+          <Play class="h-4 w-4" />
+          <span>Run</span>
+        </button>
+      </div>
     </footer>
   </article>
 </template>

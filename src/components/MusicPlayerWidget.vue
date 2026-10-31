@@ -291,7 +291,7 @@ onUnmounted(() => {
     class="border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
     :class="{ dark: chromeDark }"
   >
-    <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
+    <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
       <div class="flex min-w-0 flex-1 items-center gap-3">
         <Music class="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
         <div class="min-w-0 overflow-hidden">
