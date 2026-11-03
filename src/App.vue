@@ -12,7 +12,9 @@ import {
   FolderOpen,
   Grip,
   History,
+  KeyRound,
   LayoutGrid,
+  ListTodo,
   Music,
   Network,
   Pencil,
@@ -39,6 +41,8 @@ import ReadmeDialog from "./components/ReadmeDialog.vue";
 import RunCommandDialog from "./components/RunCommandDialog.vue";
 import TerminalPanel, { type TerminalTab } from "./components/TerminalPanel.vue";
 import QuickAccessView from "./components/QuickAccessView.vue";
+import TodoManagerDialog from "./components/TodoManagerDialog.vue";
+import PasswordManagerDialog from "./components/PasswordManagerDialog.vue";
 import { listen } from "@tauri-apps/api/event";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
@@ -545,6 +549,11 @@ const projectCtxItems = computed<ContextMenuItem[]>(() => {
       action: () => (sshProject.value = project),
     },
     {
+      label: "Todos for this project",
+      icon: ListTodo,
+      action: () => openTodosForProject(project.id),
+    },
+    {
       label: "Open README",
       icon: BookOpen,
       action: () => (readmeProject.value = project),
@@ -620,6 +629,17 @@ const audioQueue = ref<import("./types").LibraryFile[]>([]);
 // even when nothing is playing yet; the widget mirrors it.
 const playerSource = ref<string>("all");
 const showPlaylistManager = ref(false);
+// Todos and Passwords, alongside Playlists in the header: global
+// managers, not per-tab. todoProjectFilter is set by the project
+// context menu ("Todos for this project") and reset when the dialog
+// closes, so the next header open shows all todos again.
+const showTodos = ref(false);
+const todoProjectFilter = ref<number | null>(null);
+const showPasswords = ref(false);
+function openTodosForProject(projectId: number | null) {
+  todoProjectFilter.value = projectId;
+  showTodos.value = true;
+}
 function onPlayAudio(
   file: import("./types").LibraryFile,
   queue: import("./types").LibraryFile[],
@@ -827,6 +847,12 @@ function openEdit(project: Project) {
           <div class="ml-auto flex items-center gap-2 min-[1600px]:absolute min-[1600px]:right-6 min-[1600px]:top-1/2 min-[1600px]:ml-0 min-[1600px]:-translate-y-1/2">
           <button class="toolbar-btn" @click="showPlaylistManager = true">
             <Music class="h-4 w-4" /> Playlists
+          </button>
+          <button class="toolbar-btn" @click="openTodosForProject(null)">
+            <ListTodo class="h-4 w-4" /> Todos
+          </button>
+          <button class="toolbar-btn" @click="showPasswords = true">
+            <KeyRound class="h-4 w-4" /> Passwords
           </button>
           <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Actions" @click="openNavMenu">
             <Grip class="h-4 w-4" />
@@ -1040,6 +1066,16 @@ function openEdit(project: Project) {
       :active-source="playerSource"
       @close="showPlaylistManager = false"
       @play="onManagerPlay"
+    />
+    <TodoManagerDialog
+      v-if="showTodos"
+      :projects="projects"
+      :initial-project-id="todoProjectFilter"
+      @close="showTodos = false; todoProjectFilter = null"
+    />
+    <PasswordManagerDialog
+      v-if="showPasswords"
+      @close="showPasswords = false"
     />
     <CloneDialog
       v-if="showClone && projectsDir"

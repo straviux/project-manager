@@ -89,6 +89,36 @@ export interface LibraryFile {
   size: number;
 }
 
+/** A global todo. projectId is optional: a todo with no project is
+ * just a global todo; one with a project shows up filtered per
+ * project as well. Deleting a project unlinks (not deletes) its todos. */
+export interface Todo {
+  id: number;
+  title: string;
+  notes: string;
+  done: boolean;
+  projectId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * A password entry's metadata only. The secret itself is NEVER in
+ * this type, in SQLite, or in any frontend state except briefly
+ * while revealed: it lives only in the OS keychain under
+ * `password-<id>` (see the password_* Rust commands, same pattern
+ * as SSH passwords). Revealing fetches it on demand; closing the
+ * manager drops it.
+ */
+export interface PasswordEntry {
+  id: number;
+  name: string;
+  username: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Library categories used by the (future) file manager. */
 export const FILE_CATEGORIES = [
   "Images",

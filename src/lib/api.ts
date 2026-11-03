@@ -87,6 +87,38 @@ export function sshCopyPassword(configId: number): Promise<void> {
   return invoke("ssh_copy_password", { configId });
 }
 
+/* Password manager: secrets live only in the OS keychain (Rust
+   password_*), never in SQLite or frontend storage except briefly
+   while revealed. See the PasswordEntry type. */
+
+/** Save (or overwrite) the keychain secret for a password entry. */
+export function passwordSetPassword(
+  entryId: number,
+  password: string,
+): Promise<void> {
+  return invoke("password_set_password", { entryId, password });
+}
+
+/** Reveal a password entry's secret on demand. */
+export function passwordGetPassword(entryId: number): Promise<string> {
+  return invoke("password_get_password", { entryId });
+}
+
+/** Whether a keychain secret exists for this entry. */
+export function passwordHasPassword(entryId: number): Promise<boolean> {
+  return invoke("password_has_password", { entryId });
+}
+
+/** Delete the keychain secret for an entry (metadata is deleted separately). */
+export function passwordDeletePassword(entryId: number): Promise<void> {
+  return invoke("password_delete_password", { entryId });
+}
+
+/** Copy the secret to the clipboard inside Rust (clears after 60s). */
+export function passwordCopyPassword(entryId: number): Promise<void> {
+  return invoke("password_copy_password", { entryId });
+}
+
 /**
  * Clone `repoUrl` into `parentDir` (folder name derived from the URL when
  * omitted). Resolves to the new project's absolute path.

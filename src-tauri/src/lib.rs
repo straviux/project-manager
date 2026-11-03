@@ -697,6 +697,89 @@ fn ssh_copy_password(config_id: i64) -> Result<(), String> {
     Ok(())
 }
 
+/* ===================== password manager (keychain) =====================
+   Same pattern as SSH passwords, but for general passwords the user
+   manages in the app: the SQLite password_entries table holds only
+   metadata (name, username, notes) — the secret itself lives ONLY
+   here, in the OS keychain, under `password-<id>`. It is never
+   written to SQLite, to a file, or to any log. Reveal fetches it
+   on demand into frontend memory only while the manager is open;
+   closing the manager drops it (the component unmounts). */
+
+fn password_entry(entry_id: i64) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYRING_SERVICE, &format!("password-{entry_id}"))
+        .map_err(|e| format!("Keychain unavailable: {e}"))
+}
+
+#[tauri::command]
+fn password_set_password(entry_id: i64, password: String) -> Result<(), String> {
+    let entry = password_entry(entry_id)?;
+    entry
+        .set_password(&password)
+        .map_err(|e| format!("Could not save password: {e}"))?;
+    // Same read-back proof as SSH passwords: never report success
+    // without confirming the vault actually kept the value.
+    match entry.get_password() {
+        Ok(back) if back == password => Ok(()),
+        Ok(_) => Err(
+            "Password was written but read back differently — the keychain entry is not reliable. Check Windows Credential Manager for an entry named like password-<id>.dev.straviux.projectmanager and tell me what you find."
+                .to_string(),
+        ),
+        Err(e) => Err(format!(
+            "Password was written but could not be read back from the keychain ({e}). It may not actually be saved — check Windows Credential Manager for an entry named like password-<id>.dev.straviux.projectmanager."
+        )),
+    }
+}
+
+#[tauri::command]
+fn password_get_password(entry_id: i64) -> Result<String, String> {
+    password_entry(entry_id)?
+        .get_password()
+        .map_err(|e| format!("Could not read password from keychain: {e}"))
+}
+
+#[tauri::command]
+fn password_has_password(entry_id: i64) -> bool {
+    match password_entry(entry_id) {
+        Ok(entry) => entry.get_password().is_ok(),
+        Err(_) => false,
+    }
+}
+
+#[tauri::command]
+fn password_delete_password(entry_id: i64) -> Result<(), String> {
+    match password_entry(entry_id)?.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(format!("Could not delete password: {e}")),
+    }
+}
+
+#[tauri::command]
+fn password_copy_password(entry_id: i64) -> Result<(), String> {
+    let password = password_entry(entry_id)?
+        .get_password()
+        .map_err(|e| format!("Could not read password from keychain: {e}"))?;
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| format!("Clipboard unavailable: {e}"))?;
+    clipboard
+        .set_text(password.clone())
+        .map_err(|e| format!("Could not copy password: {e}"))?;
+    // Same 60s hygiene as SSH copy: clear only if the clipboard still
+    // holds exactly this password, so a later copy is never wiped.
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+        if let Ok(mut cb) = arboard::Clipboard::new() {
+            if let Ok(text) = cb.get_text() {
+                if text == password {
+                    let _ = cb.set_text("");
+                }
+            }
+        }
+    });
+    Ok(())
+}
+
 /* ================================ git ================================== */
 
 fn folder_name_from_url(url: &str) -> String {
@@ -2167,6 +2250,11 @@ pub fn run() {
             ssh_has_password,
             ssh_delete_password,
             ssh_copy_password,
+            password_set_password,
+            password_get_password,
+            password_has_password,
+            password_delete_password,
+            password_copy_password,
             git_clone,
             git_status,
             scan_projects,
