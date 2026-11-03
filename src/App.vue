@@ -12,7 +12,9 @@ import {
   FolderOpen,
   Grip,
   History,
+  KeyRound,
   LayoutGrid,
+  ListTodo,
   Music,
   Network,
   Pencil,
@@ -24,6 +26,7 @@ import {
   SquareTerminal,
   Star,
   Trash2,
+  Zap,
 } from "@lucide/vue";
 import { chromeDark } from "./lib/theme";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -37,6 +40,9 @@ import SshDialog from "./components/SshDialog.vue";
 import ReadmeDialog from "./components/ReadmeDialog.vue";
 import RunCommandDialog from "./components/RunCommandDialog.vue";
 import TerminalPanel, { type TerminalTab } from "./components/TerminalPanel.vue";
+import QuickAccessView from "./components/QuickAccessView.vue";
+import TodoManagerDialog from "./components/TodoManagerDialog.vue";
+import PasswordManagerDialog from "./components/PasswordManagerDialog.vue";
 import { listen } from "@tauri-apps/api/event";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import FilesView from "./components/FilesView.vue";
@@ -94,10 +100,10 @@ const pointerDrag = ref<{
   after: boolean;
 } | null>(null);
 const searchInput = ref<HTMLInputElement | null>(null);
-const tab = ref<"projects" | "files">("projects");
+const tab = ref<"quickaccess" | "projects" | "files">("quickaccess");
 // Tab persistency: the last active tab is saved in settings on every
 // switch and restored at boot, so the app reopens where you left it
-// instead of always landing on Projects.
+// instead of always landing on Quick Access.
 const ACTIVE_TAB_KEY = "active_tab";
 watch(tab, (value) => void setSetting(ACTIVE_TAB_KEY, value));
 const projectsDir = ref<string | null>(null);
@@ -196,7 +202,12 @@ async function boot() {
   projectsDir.value = await getSetting(PROJECTS_DIR_KEY);
   filesDir.value = await getSetting(FILES_DIR_KEY);
   const savedTab = await getSetting(ACTIVE_TAB_KEY);
-  if (savedTab === "projects" || savedTab === "files") tab.value = savedTab;
+  if (
+    savedTab === "quickaccess" ||
+    savedTab === "projects" ||
+    savedTab === "files"
+  )
+    tab.value = savedTab as typeof tab.value;
   if (projectsDir.value) await refresh();
   ready.value = true;
 }
@@ -538,6 +549,11 @@ const projectCtxItems = computed<ContextMenuItem[]>(() => {
       action: () => (sshProject.value = project),
     },
     {
+      label: "Todos for this project",
+      icon: ListTodo,
+      action: () => openTodosForProject(project.id),
+    },
+    {
       label: "Open README",
       icon: BookOpen,
       action: () => (readmeProject.value = project),
@@ -606,27 +622,42 @@ const filesStats = ref("");
 // Music player: FilesView tells App which audio file to play and the
 // audio queue (all audio files in the library); the widget lives in
 // App (between main and footer) so playback survives tab switches.
-const audioTrack = ref<import("./types").LibraryFile | null>(null);
-const audioQueue = ref<import("./types").LibraryFile[]>([]);
+// The player queue holds PlayerTracks, not bare LibraryFiles, so a
+// playlist can mix local files with YouTube links (see types.ts).
+// FilesView/QuickAccess still emit LibraryFiles; onPlayAudio wraps
+// them here, at the boundary, so those views never see YouTube.
+const audioTrack = ref<import("./types").PlayerTrack | null>(null);
+const audioQueue = ref<import("./types").PlayerTrack[]>([]);
 // The playing source ('all', 'favorites', or a playlist id) is owned
 // here so the playlist manager modal can change it from the main nav
 // even when nothing is playing yet; the widget mirrors it.
 const playerSource = ref<string>("all");
 const showPlaylistManager = ref(false);
+// Todos and Passwords, alongside Playlists in the header: global
+// managers, not per-tab. todoProjectFilter is set by the project
+// context menu ("Todos for this project") and reset when the dialog
+// closes, so the next header open shows all todos again.
+const showTodos = ref(false);
+const todoProjectFilter = ref<number | null>(null);
+const showPasswords = ref(false);
+function openTodosForProject(projectId: number | null) {
+  todoProjectFilter.value = projectId;
+  showTodos.value = true;
+}
 function onPlayAudio(
   file: import("./types").LibraryFile,
   queue: import("./types").LibraryFile[],
 ) {
-  audioTrack.value = file;
-  audioQueue.value = queue;
+  audioTrack.value = { kind: "file", file };
+  audioQueue.value = queue.map((f) => ({ kind: "file" as const, file: f }));
   playerSource.value = "all";
 }
 function onManagerPlay(
-  file: import("./types").LibraryFile,
-  queue: import("./types").LibraryFile[],
+  track: import("./types").PlayerTrack,
+  queue: import("./types").PlayerTrack[],
   source: string,
 ) {
-  audioTrack.value = file;
+  audioTrack.value = track;
   audioQueue.value = queue;
   playerSource.value = source;
   showPlaylistManager.value = false;
@@ -635,9 +666,11 @@ function onBodyContext(event: MouseEvent) {
   if ((event.target as HTMLElement).closest("input, textarea, select")) return;
   if (tab.value === "projects") {
     onContainerContext(event);
-  } else {
+  } else if (tab.value === "files") {
     filesViewRef.value?.openContainerCtx(event);
   }
+  // Quick Access has no background context menu: right-clicking
+  // empty space there does nothing, by design.
 }
 function onContainerContext(event: MouseEvent) {
   // Leave the normal text menu alone inside form fields.
@@ -736,9 +769,11 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     focusSearch();
   } else if (e.key === "1") {
-    tab.value = "projects";
+    tab.value = "quickaccess";
   } else if (e.key === "2") {
     tab.value = "files";
+  } else if (e.key === "3") {
+    tab.value = "projects";
   } else if (e.key.toLowerCase() === "s" && tab.value === "projects" && projectsDir.value) {
     scan();
   } else if (e.key.toLowerCase() === "i" && tab.value === "projects" && projectsDir.value) {
@@ -785,13 +820,17 @@ function openEdit(project: Project) {
             <LayoutGrid class="h-6 w-6 text-blue-600" /> Project Manager
           </h1>
 
+          <!-- Tab order: Quick Access, Files, Projects. Keyboard
+               shortcuts follow the same order (1 = Quick Access,
+               2 = Files, 3 = Projects). The saved tab still wins
+               at boot — see ACTIVE_TAB_KEY. -->
           <nav class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
             <button
               class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'projects' ? 'switch-active tab-active' : ''"
-              @click="tab = 'projects'"
+              :class="tab === 'quickaccess' ? 'switch-active tab-active' : ''"
+              @click="tab = 'quickaccess'"
             >
-              <LayoutGrid class="h-4 w-4" /> Projects
+              <Zap class="h-4 w-4" /> Quick Access
             </button>
             <button
               class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
@@ -800,11 +839,24 @@ function openEdit(project: Project) {
             >
               <Files class="h-4 w-4" /> Files
             </button>
+            <button
+              class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
+              :class="tab === 'projects' ? 'switch-active tab-active' : ''"
+              @click="tab = 'projects'"
+            >
+              <LayoutGrid class="h-4 w-4" /> Projects
+            </button>
           </nav>
 
           <div class="ml-auto flex items-center gap-2 min-[1600px]:absolute min-[1600px]:right-6 min-[1600px]:top-1/2 min-[1600px]:ml-0 min-[1600px]:-translate-y-1/2">
           <button class="toolbar-btn" @click="showPlaylistManager = true">
             <Music class="h-4 w-4" /> Playlists
+          </button>
+          <button class="toolbar-btn" @click="openTodosForProject(null)">
+            <ListTodo class="h-4 w-4" /> Todos
+          </button>
+          <button class="toolbar-btn" @click="showPasswords = true">
+            <KeyRound class="h-4 w-4" /> Passwords
           </button>
           <button class="toolbar-btn tooltip tooltip-bottom" data-tip="Actions" @click="openNavMenu">
             <Grip class="h-4 w-4" />
@@ -862,6 +914,13 @@ function openEdit(project: Project) {
       </div>
 
       <main class="mx-auto w-full max-w-7xl flex-1 overflow-y-auto px-6 py-6" @contextmenu="onBodyContext">
+        <div v-show="tab === 'quickaccess'">
+          <QuickAccessView
+            :files-dir="filesDir"
+            :active="tab === 'quickaccess'"
+            @play-audio="onPlayAudio"
+          />
+        </div>
         <div v-show="tab === 'projects'">
         <div class="relative z-20 mb-4 flex flex-wrap items-center gap-2">
           <div class="relative min-w-52 flex-1 sm:max-w-md">
@@ -979,13 +1038,19 @@ function openEdit(project: Project) {
             <span class="tooltip tooltip-top truncate font-mono" :data-tip="projectsDir ?? ''">{{ projectsDir }}</span>
           </span>
           </template>
-          <template v-else>
+          <template v-else-if="tab === 'files'">
             <span class="flex min-w-0 items-baseline gap-1.5">
               <span class="shrink-0">Library:</span>
               <span class="tooltip tooltip-top truncate font-mono" :data-tip="filesDir ?? ''">{{ filesDir }}</span>
               <span class="shrink-0">— drop files anywhere here to add them.</span>
             </span>
             <span v-if="filesStats" class="ml-auto shrink-0 whitespace-nowrap">{{ filesStats }}</span>
+          </template>
+          <template v-else>
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="shrink-0">Library:</span>
+              <span class="tooltip tooltip-top truncate font-mono" :data-tip="filesDir ?? ''">{{ filesDir }}</span>
+            </span>
           </template>
         </div>
       </footer>
@@ -1005,6 +1070,16 @@ function openEdit(project: Project) {
       :active-source="playerSource"
       @close="showPlaylistManager = false"
       @play="onManagerPlay"
+    />
+    <TodoManagerDialog
+      v-if="showTodos"
+      :projects="projects"
+      :initial-project-id="todoProjectFilter"
+      @close="showTodos = false; todoProjectFilter = null"
+    />
+    <PasswordManagerDialog
+      v-if="showPasswords"
+      @close="showPasswords = false"
     />
     <CloneDialog
       v-if="showClone && projectsDir"

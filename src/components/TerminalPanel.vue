@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
-import { ChevronDown, ChevronUp, GripVertical, SquareTerminal, Trash2, X } from "@lucide/vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { ChevronDown, ChevronUp, ClipboardPaste, GripVertical, SquareTerminal, Trash2, X } from "@lucide/vue";
 import { useDialogDrag } from "../lib/useDialogDrag";
+import { loadTerminalHistory, saveTerminalHistory } from "../lib/terminalHistory";
+import { showToast } from "../lib/toast";
 
 export interface TerminalTab {
   id: number;
@@ -34,6 +36,7 @@ const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
 useDialogDrag(dialogPanel, dialogHandle);
 const outputEl = ref<HTMLElement | null>(null);
+const inputEl = ref<HTMLInputElement | null>(null);
 const input = ref("");
 const showHelp = ref(false);
 
@@ -46,11 +49,161 @@ watch(
   },
 );
 
+/* ------------------------- command history ------------------------ */
+// Shared across tabs, persisted in the settings table (see
+// terminalHistory.ts). historyIndex -1 means "not navigating": the
+// input holds what the user typed. Pressing Up captures that as the
+// draft/prefix, filters history (most recent first) to entries
+// starting with it, and steps older; Down steps back, and past the
+// newest match restores the draft.
+const history = ref<string[]>([]);
+let historyIndex = -1;
+let historyDraft = "";
+let historyMatches: string[] = [];
+
+onMounted(async () => {
+  history.value = await loadTerminalHistory();
+});
+
+// Switching tabs resets navigation, so an Up press in a new tab
+// never recalls a half-stepped entry from the old one.
+watch(
+  () => activeTab.value?.id,
+  () => {
+    historyIndex = -1;
+    historyMatches = [];
+  },
+);
+
+async function recordHistory(command: string) {
+  const trimmed = command.trim();
+  if (!trimmed) return;
+  if (history.value[history.value.length - 1] === trimmed) return;
+  history.value = [...history.value, trimmed];
+  try {
+    await saveTerminalHistory(history.value);
+  } catch {
+    // History is a convenience, never a reason to fail a send.
+  }
+}
+
+function onHistoryUp() {
+  if (!history.value.length) return;
+  // The user typed something new since the last Up press: restart
+  // the search from that new prefix instead of continuing the old one.
+  if (historyIndex >= 0 && input.value !== historyMatches[historyIndex]) {
+    historyIndex = -1;
+  }
+  if (historyIndex === -1) {
+    historyDraft = input.value;
+    const prefix = input.value;
+    historyMatches = [...history.value]
+      .reverse()
+      .filter((h) => h.startsWith(prefix));
+    if (!historyMatches.length) return;
+    historyIndex = 0;
+  } else if (historyIndex < historyMatches.length - 1) {
+    historyIndex++;
+  }
+  input.value = historyMatches[historyIndex];
+}
+
+function onHistoryDown() {
+  if (historyIndex === -1) return;
+  if (historyIndex > 0) {
+    historyIndex--;
+    input.value = historyMatches[historyIndex];
+  } else {
+    historyIndex = -1;
+    input.value = historyDraft;
+  }
+}
+
+/* ------------------------- paste + Ctrl+C ------------------------- */
+// Pasting used to sometimes leave a stray `~` in the input. The
+// usual suspect is a bracketed-paste marker (ESC[200~ … ESC[201~)
+// leaking through the webview's native paste path, so paste is now
+// handled here instead of left to the browser: markers and control
+// characters are stripped, newlines collapse to a space (this is a
+// single-line input — a pasted newline must never send the command
+// early), and the cleaned text is inserted at the cursor.
+function cleanPastedText(raw: string): string {
+  return raw
+    .replace(/\x1b\[[0-9;?]*[A-Za-z~]/g, "")
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "")
+    .replace(/\r\n?|\n/g, " ")
+    .trim();
+}
+
+function insertAtCursor(text: string) {
+  const el = inputEl.value;
+  if (!el) {
+    input.value += text;
+    return;
+  }
+  const start = el.selectionStart ?? input.value.length;
+  const end = el.selectionEnd ?? input.value.length;
+  input.value = input.value.slice(0, start) + text + input.value.slice(end);
+  nextTick(() => {
+    el.focus();
+    el.setSelectionRange(start + text.length, start + text.length);
+  });
+}
+
+function onPaste(e: ClipboardEvent) {
+  const raw = e.clipboardData?.getData("text");
+  if (raw == null) return;
+  e.preventDefault();
+  const cleaned = cleanPastedText(raw);
+  if (cleaned) insertAtCursor(cleaned);
+}
+
+// Fallback when Ctrl+V itself is blocked in the webview: the Paste
+// button reads the clipboard directly. If that read is also blocked,
+// say so instead of silently doing nothing.
+async function pasteFromClipboard() {
+  try {
+    const raw = await navigator.clipboard.readText();
+    const cleaned = cleanPastedText(raw);
+    if (cleaned) insertAtCursor(cleaned);
+  } catch {
+    showToast(
+      "Clipboard read was blocked — paste with Ctrl+V instead.",
+      "error",
+    );
+  }
+}
+
+// Ctrl+C in a real terminal interrupts the running command; in a
+// web input it only copies. So: copying a selection still copies,
+// but Ctrl+C with nothing selected stops the running tab, like a
+// terminal. Attached to the panel, so it works whether the input
+// or the output area has focus.
+function onPanelKeydown(e: KeyboardEvent) {
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "c") return;
+  const tab = activeTab.value;
+  if (!tab?.running) return;
+  const el = inputEl.value;
+  if (
+    el &&
+    document.activeElement === el &&
+    el.selectionStart !== el.selectionEnd
+  )
+    return;
+  if (window.getSelection()?.toString()) return;
+  e.preventDefault();
+  emit("stopTab", tab.id);
+}
+
 function send() {
   const tab = activeTab.value;
   const value = input.value;
   if (!tab || !value.trim() || !tab.running) return;
+  historyIndex = -1;
+  historyMatches = [];
   input.value = "";
+  void recordHistory(value);
   emit("send", tab.id, value);
 }
 </script>
@@ -102,6 +255,7 @@ function send() {
     <div
       ref="dialogPanel"
       class="pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-neutral-900/85 text-neutral-200 shadow-2xl ring-1 ring-white/10 backdrop-blur-xl"
+      @keydown="onPanelKeydown"
     >
       <header
         ref="dialogHandle"
@@ -144,8 +298,11 @@ function send() {
           terminal emulator — programs that need a real terminal
           (password prompts, interactive menus) will not work here. Drag
           the header to move it; minimizing keeps commands running;
-          closing a tab stops its command. Esc does not close it, so a
-          running command is never stopped by accident.
+          closing a tab stops its command. Ctrl+C stops the running
+          command (when nothing is selected), Ctrl+V pastes, and
+          Up/Down recalls saved command history — type a prefix first
+          to search it. Esc does not close it, so a running command is
+          never stopped by accident.
         </span>
         <button
           class="shrink-0 rounded p-0.5 text-neutral-400 hover:bg-white/10 hover:text-neutral-100"
@@ -228,16 +385,29 @@ function send() {
       >
         <span class="shrink-0 font-mono text-xs text-emerald-400">&gt;</span>
         <input
+          ref="inputEl"
           v-model="input"
           class="min-w-0 flex-1 bg-transparent font-mono text-xs outline-none placeholder:text-neutral-500"
           :disabled="!activeTab.running"
           :placeholder="
             activeTab.running
-              ? 'Type input for the running command, press Enter to send'
+              ? 'Type input, Enter to send — Up/Down for history, Ctrl+C stops'
               : 'No command running in this tab'
           "
           @keyup.enter="send"
+          @keydown.up.prevent="onHistoryUp"
+          @keydown.down.prevent="onHistoryDown"
+          @paste="onPaste"
         />
+        <button
+          v-if="activeTab.running"
+          class="shrink-0 rounded p-1 text-neutral-400 hover:bg-white/10 hover:text-neutral-100"
+          title="Paste from clipboard"
+          aria-label="Paste from clipboard"
+          @click="pasteFromClipboard"
+        >
+          <ClipboardPaste class="h-4 w-4" />
+        </button>
         <span class="shrink-0 text-xs text-neutral-500">
           {{
             activeTab.running

@@ -9,13 +9,15 @@ import { listLibraryFiles } from "../lib/api";
 import { isAudioFile } from "../lib/fileTypes";
 import {
   addToPlaylist,
+  addYoutubeToPlaylist,
   createPlaylist,
   deletePlaylist,
   loadFavorites,
   loadPlaylists,
+  youtubeVideoIdFromUrl,
   type Playlist,
 } from "../lib/playlists";
-import type { LibraryFile } from "../types";
+import type { LibraryFile, PlayerTrack } from "../types";
 
 // The playlist manager, as a modal (not the panel that used to sit
 // above the player bar). It can be opened from two places: the
@@ -27,12 +29,12 @@ import type { LibraryFile } from "../types";
 // audio files, so a file that was moved or deleted is skipped.
 const props = defineProps<{
   filesDir: string;
-  currentTrack: LibraryFile | null;
+  currentTrack: PlayerTrack | null;
   activeSource: string;
 }>();
 const emit = defineEmits<{
   close: [];
-  play: [file: LibraryFile, queue: LibraryFile[], source: string];
+  play: [track: PlayerTrack, queue: PlayerTrack[], source: string];
 }>();
 
 const dialogPanel = ref<HTMLElement | null>(null);
@@ -49,15 +51,37 @@ const favoriteFiles = computed(() =>
   audioFiles.value.filter((f) => favorites.value.includes(f.path)),
 );
 
-function queueFor(source: string): LibraryFile[] {
-  if (source === "all") return audioFiles.value;
-  if (source === "favorites") return favoriteFiles.value;
+// The currently playing local file's path, or null when nothing is
+// playing or the current track is a YouTube link (+ Current is
+// local-files only; see addCurrent).
+const currentFilePath = computed(() =>
+  props.currentTrack?.kind === "file" ? props.currentTrack.file.path : null,
+);
+
+function queueFor(source: string): PlayerTrack[] {
+  const asTracks = (files: LibraryFile[]): PlayerTrack[] =>
+    files.map((file) => ({ kind: "file" as const, file }));
+  if (source === "all") return asTracks(audioFiles.value);
+  if (source === "favorites") return asTracks(favoriteFiles.value);
   const playlist = playlists.value.find((p) => p.id === source);
-  if (!playlist) return audioFiles.value;
+  if (!playlist) return asTracks(audioFiles.value);
   const byPath = new Map(audioFiles.value.map((f) => [f.path, f]));
-  return playlist.tracks
-    .map((path) => byPath.get(path))
-    .filter((f): f is LibraryFile => !!f);
+  const queue: PlayerTrack[] = [];
+  for (const track of playlist.tracks) {
+    if (track.kind === "youtube") {
+      // YouTube links need no library file to resolve against, so
+      // they always play even when the library folder is unset.
+      queue.push({
+        kind: "youtube",
+        videoId: track.videoId,
+        title: track.title,
+      });
+    } else {
+      const file = byPath.get(track.path);
+      if (file) queue.push({ kind: "file", file });
+    }
+  }
+  return queue;
 }
 
 function playSource(source: string) {
@@ -94,11 +118,36 @@ async function deleteById(id: string) {
 }
 
 async function addCurrent(id: string) {
-  if (!props.currentTrack) return;
+  // + Current only makes sense for a local file: a YouTube track is
+  // already in the playlist it came from, and favorites/All tracks
+  // have no playlist to add a link back into this way.
+  if (!props.currentTrack || props.currentTrack.kind !== "file") return;
   const playlist = playlists.value.find((p) => p.id === id);
-  await addToPlaylist(id, props.currentTrack.path);
+  await addToPlaylist(id, props.currentTrack.file.path);
   await refresh();
   if (playlist) showToast(`Added to ${playlist.name}.`);
+}
+
+// Add a YouTube link to a chosen playlist. The title is the user's
+// own label (YouTube titles are not fetched), defaulting to the
+// video id when left blank.
+const youtubePlaylistId = ref("");
+const youtubeUrl = ref("");
+const youtubeTitle = ref("");
+
+async function addYoutube() {
+  const videoId = youtubeVideoIdFromUrl(youtubeUrl.value);
+  if (!videoId || !youtubePlaylistId.value) return;
+  const playlist = playlists.value.find((p) => p.id === youtubePlaylistId.value);
+  await addYoutubeToPlaylist(
+    youtubePlaylistId.value,
+    videoId,
+    youtubeTitle.value.trim() || `YouTube video ${videoId}`,
+  );
+  youtubeUrl.value = "";
+  youtubeTitle.value = "";
+  await refresh();
+  if (playlist) showToast(`Added YouTube link to ${playlist.name}.`);
 }
 
 onMounted(refresh);
@@ -148,8 +197,8 @@ onMounted(refresh);
           </button>
           <button
             class="rounded px-2 py-1 text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40"
-            :disabled="!currentTrack || playlist.tracks.includes(currentTrack.path)"
-            title="Add the currently playing track to this playlist"
+            :disabled="currentFilePath === null || playlist.tracks.some((t) => t.kind === 'file' && t.path === currentFilePath)"
+            title="Add the currently playing local track to this playlist"
             @click="addCurrent(playlist.id)"
           >
             + Current
@@ -182,10 +231,53 @@ onMounted(refresh);
         </button>
       </div>
 
+      <div v-if="playlists.length" class="mb-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <p class="mb-2 text-sm font-medium">Add a YouTube link to a playlist</p>
+        <div class="mb-2 flex gap-2">
+          <select
+            v-model="youtubePlaylistId"
+            class="rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <option value="" disabled>Choose a playlist…</option>
+            <option v-for="p in playlists" :key="p.id" :value="p.id">
+              {{ p.name }}
+            </option>
+          </select>
+          <input
+            v-model="youtubeUrl"
+            type="text"
+            placeholder="Paste a YouTube link…"
+            class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            @keyup.enter="addYoutube"
+          />
+        </div>
+        <div class="flex gap-2">
+          <input
+            v-model="youtubeTitle"
+            type="text"
+            placeholder="Name for this link (optional — defaults to the video id)"
+            class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            @keyup.enter="addYoutube"
+          />
+          <button
+            class="flex shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+            :disabled="!youtubePlaylistId || !youtubeVideoIdFromUrl(youtubeUrl)"
+            @click="addYoutube"
+          >
+            <Plus class="h-4 w-4" /> Add link
+          </button>
+        </div>
+        <p class="mt-1 text-xs text-neutral-500">
+          Watch, short, embed, and youtu.be links all work. The link
+          plays in the player bar alongside your local files.
+        </p>
+      </div>
+
       <p class="mb-5 text-xs text-neutral-500">
         Playlists and favorites are saved in the app database, so they
         survive restarts. Tracks are matched by file path — a file that
         was moved or deleted is skipped when its playlist plays.
+        YouTube links need no library file, so they always play.
       </p>
 
       <div class="flex justify-end">

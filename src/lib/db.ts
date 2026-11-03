@@ -1,10 +1,12 @@
 import Database from "@tauri-apps/plugin-sql";
 import type {
   FileMeta,
+  PasswordEntry,
   Project,
   ProjectDraft,
   SshConfig,
   SshConfigDraft,
+  Todo,
 } from "../types";
 
 let dbPromise: Promise<Database> | null = null;
@@ -81,6 +83,38 @@ function loadDb(): Promise<Database> {
           "ALTER TABLE file_meta ADD COLUMN starred INTEGER NOT NULL DEFAULT 0",
         );
       }
+      // Quick Access usage tracking (see recordFileOpen below).
+      const metaColNames = new Set(metaCols.map((c) => c.name));
+      if (!metaColNames.has("open_count")) {
+        await db.execute(
+          "ALTER TABLE file_meta ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+      if (!metaColNames.has("last_opened")) {
+        await db.execute("ALTER TABLE file_meta ADD COLUMN last_opened TEXT");
+      }
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS todos (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          title      TEXT NOT NULL,
+          notes      TEXT NOT NULL DEFAULT '',
+          done       INTEGER NOT NULL DEFAULT 0,
+          project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`);
+      // Password entries hold metadata only — name, username, notes.
+      // The secret itself is never a column here; it lives only in
+      // the OS keychain under `password-<id>` (Rust password_*).
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS password_entries (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          name       TEXT NOT NULL,
+          username   TEXT NOT NULL DEFAULT '',
+          notes      TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`);
       // NOTE: SSH passwords are intentionally NOT stored here.
       // Profiles hold connection details only; auth uses SSH keys.
       await db.execute(`
@@ -322,20 +356,57 @@ export async function deleteSshConfig(id: number): Promise<void> {
 export async function getAllFileMeta(): Promise<Record<string, FileMeta>> {
   const db = await loadDb();
   const rows = await db.select<
-    { path: string; status: string; notes: string; starred: number }[]
-  >("SELECT path, status, notes, starred FROM file_meta");
+    {
+      path: string;
+      status: string;
+      notes: string;
+      starred: number;
+      open_count: number;
+      last_opened: string | null;
+    }[]
+  >("SELECT path, status, notes, starred, open_count, last_opened FROM file_meta");
   const out: Record<string, FileMeta> = {};
   for (const r of rows)
-    out[r.path] = { status: r.status, notes: r.notes, starred: r.starred === 1 };
+    out[r.path] = {
+      status: r.status,
+      notes: r.notes,
+      starred: r.starred === 1,
+      openCount: r.open_count ?? 0,
+      lastOpened: r.last_opened ?? null,
+    };
   return out;
 }
 
+// Only status/notes/starred: open_count/last_opened are deliberately
+// NOT written here, so starring or editing a file in the same session
+// it was opened can never wipe its usage count with a stale value.
 export async function setFileMeta(path: string, meta: FileMeta): Promise<void> {
   const db = await loadDb();
   await db.execute(
     "INSERT INTO file_meta (path, status, notes, starred) VALUES ($1, $2, $3, $4) " +
       "ON CONFLICT(path) DO UPDATE SET status = excluded.status, notes = excluded.notes, starred = excluded.starred",
     [path, meta.status, meta.notes, meta.starred ? 1 : 0],
+  );
+}
+
+/**
+ * Record one open of a library file for Quick Access "Most opened".
+ * Creates the row (with empty status/notes, unstarred) when the file
+ * has no meta yet, otherwise only bumps open_count and last_opened —
+ * status, notes and starred are never touched here. Callers in
+ * FilesView/QuickAccessView invoke this for opens, previews and
+ * audio plays; opening a containing folder is not a file open and
+ * must not call it. Usage does not follow a file when it is moved
+ * inside the library (the move copies status/notes/starred only) —
+ * it starts counting again from the new path.
+ */
+export async function recordFileOpen(path: string): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "INSERT INTO file_meta (path, status, notes, starred, open_count, last_opened) " +
+      "VALUES ($1, '', '', 0, 1, $2) " +
+      "ON CONFLICT(path) DO UPDATE SET open_count = file_meta.open_count + 1, last_opened = excluded.last_opened",
+    [path, new Date().toISOString()],
   );
 }
 
@@ -382,4 +453,141 @@ export async function getActionHistory(): Promise<ActionHistoryEntry[]> {
 export async function clearActionHistory(): Promise<void> {
   const db = await loadDb();
   await db.execute("DELETE FROM action_history");
+}
+
+/* ------------------------------- todos ------------------------------ */
+
+interface TodoRow {
+  id: number;
+  title: string;
+  notes: string;
+  done: number;
+  project_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapTodo(r: TodoRow): Todo {
+  return {
+    id: r.id,
+    title: r.title,
+    notes: r.notes,
+    done: r.done === 1,
+    projectId: r.project_id,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+/** Global todo list, open first then newest first. */
+export async function listTodos(): Promise<Todo[]> {
+  const db = await loadDb();
+  const rows = await db.select<TodoRow[]>(
+    "SELECT * FROM todos ORDER BY done ASC, id DESC",
+  );
+  return rows.map(mapTodo);
+}
+
+export async function createTodo(
+  title: string,
+  notes: string,
+  projectId: number | null,
+): Promise<number> {
+  const db = await loadDb();
+  const result = await db.execute(
+    "INSERT INTO todos (title, notes, project_id) VALUES ($1, $2, $3)",
+    [title, notes, projectId],
+  );
+  return result.lastInsertId ?? 0;
+}
+
+export async function updateTodo(
+  id: number,
+  title: string,
+  notes: string,
+  projectId: number | null,
+): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "UPDATE todos SET title = $1, notes = $2, project_id = $3, " +
+      "updated_at = CURRENT_TIMESTAMP WHERE id = $4",
+    [title, notes, projectId, id],
+  );
+}
+
+export async function setTodoDone(id: number, done: boolean): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "UPDATE todos SET done = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+    [done ? 1 : 0, id],
+  );
+}
+
+export async function deleteTodo(id: number): Promise<void> {
+  const db = await loadDb();
+  await db.execute("DELETE FROM todos WHERE id = $1", [id]);
+}
+
+/* -------------------------- password entries ------------------------ */
+/* Metadata only — see the PasswordEntry type. The secret is handled
+   entirely by the Rust password_* commands (OS keychain). */
+
+interface PasswordRow {
+  id: number;
+  name: string;
+  username: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapPasswordEntry(r: PasswordRow): PasswordEntry {
+  return {
+    id: r.id,
+    name: r.name,
+    username: r.username,
+    notes: r.notes,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function listPasswordEntries(): Promise<PasswordEntry[]> {
+  const db = await loadDb();
+  const rows = await db.select<PasswordRow[]>(
+    "SELECT * FROM password_entries ORDER BY name COLLATE NOCASE ASC",
+  );
+  return rows.map(mapPasswordEntry);
+}
+
+export async function createPasswordEntry(
+  name: string,
+  username: string,
+  notes: string,
+): Promise<number> {
+  const db = await loadDb();
+  const result = await db.execute(
+    "INSERT INTO password_entries (name, username, notes) VALUES ($1, $2, $3)",
+    [name, username, notes],
+  );
+  return result.lastInsertId ?? 0;
+}
+
+export async function updatePasswordEntry(
+  id: number,
+  name: string,
+  username: string,
+  notes: string,
+): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "UPDATE password_entries SET name = $1, username = $2, notes = $3, " +
+      "updated_at = CURRENT_TIMESTAMP WHERE id = $4",
+    [name, username, notes, id],
+  );
+}
+
+export async function deletePasswordEntry(id: number): Promise<void> {
+  const db = await loadDb();
+  await db.execute("DELETE FROM password_entries WHERE id = $1", [id]);
 }

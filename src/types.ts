@@ -67,11 +67,17 @@ export interface FileCheck {
 }
 
 /** A file inside the managed file library (from the Rust scanner). */
-/** Per-file status & notes, stored in SQLite keyed by absolute path. */
+/** Per-file status & notes, stored in SQLite keyed by absolute path.
+ * openCount/lastOpened drive the Quick Access "Most opened" section:
+ * they are read here but never written by setFileMeta, which only
+ * touches status/notes/starred, so starring a file can never wipe
+ * its open count. Only recordFileOpen writes them. */
 export interface FileMeta {
   status: string;
   notes: string;
   starred: boolean;
+  openCount: number;
+  lastOpened: string | null;
 }
 
 export interface LibraryFile {
@@ -81,6 +87,56 @@ export interface LibraryFile {
   folder: string;
   category: string;
   size: number;
+}
+
+/**
+ * One track in the music player queue. Local files and YouTube links
+ * play through the same bar and the same queue: a file track wraps a
+ * LibraryFile, a YouTube track carries just its video id and the
+ * title the user gave it when adding the link (YouTube titles are
+ * not fetched — no API key, no extra network call).
+ */
+export type PlayerTrack =
+  | { kind: "file"; file: LibraryFile }
+  | { kind: "youtube"; videoId: string; title: string };
+
+export function playerTrackName(track: PlayerTrack): string {
+  return track.kind === "file" ? track.file.name : track.title;
+}
+
+/** Stable identity for finding a track in a queue: path or video id. */
+export function playerTrackKey(track: PlayerTrack): string {
+  return track.kind === "file" ? `file:${track.file.path}` : `youtube:${track.videoId}`;
+}
+
+/** A global todo. projectId is optional: a todo with no project is
+ * just a global todo; one with a project shows up filtered per
+ * project as well. Deleting a project unlinks (not deletes) its todos. */
+export interface Todo {
+  id: number;
+  title: string;
+  notes: string;
+  done: boolean;
+  projectId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * A password entry's metadata only. The secret itself is NEVER in
+ * this type, in SQLite, or in any frontend state except briefly
+ * while revealed: it lives only in the OS keychain under
+ * `password-<id>` (see the password_* Rust commands, same pattern
+ * as SSH passwords). Revealing fetches it on demand; closing the
+ * manager drops it.
+ */
+export interface PasswordEntry {
+  id: number;
+  name: string;
+  username: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Library categories used by the (future) file manager. */

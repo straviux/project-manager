@@ -63,6 +63,7 @@ import {
   deleteFileMeta,
   getAllFileMeta,
   logAction,
+  recordFileOpen,
   setFileMeta,
 } from "../lib/db";
 import { showToast } from "../lib/toast";
@@ -142,17 +143,28 @@ async function onFolderImported(warning: string | null, path?: string) {
 /* --------------------- document preview & create --------------------- */
 const previewTarget = ref<LibraryFile | null>(null);
 const showCreateDoc = ref(false);
+// Every way a library file is actually worked with counts as an open
+// for Quick Access: preview, media preview, audio play, and opening
+// in its own app (see openFile below). Opening a containing folder
+// is not a file open and does not record.
 function openPreview(file: LibraryFile) {
+  void recordFileOpen(file.path).catch(() => {});
   previewTarget.value = file;
 }
 const mediaPreviewTarget = ref<LibraryFile | null>(null);
 const playlistTarget = ref<LibraryFile | null>(null);
 function openMediaPreview(file: LibraryFile) {
+  void recordFileOpen(file.path).catch(() => {});
   mediaPreviewTarget.value = file;
 }
 function playAudio(file: LibraryFile) {
+  void recordFileOpen(file.path).catch(() => {});
   const queue = files.value.filter((f) => isAudioFile(f.name));
   emit("playAudio", file, queue);
+}
+function openFile(file: LibraryFile) {
+  void recordFileOpen(file.path).catch(() => {});
+  void openPath(file.path);
 }
 const favoritePaths = ref<Set<string>>(new Set());
 async function refreshFavorites() {
@@ -188,7 +200,15 @@ async function loadMeta() {
   meta.value = await getAllFileMeta().catch(() => meta.value);
 }
 function metaOf(file: LibraryFile): FileMeta {
-  return meta.value[file.path] ?? { status: "", notes: "", starred: false };
+  return (
+    meta.value[file.path] ?? {
+      status: "",
+      notes: "",
+      starred: false,
+      openCount: 0,
+      lastOpened: null,
+    }
+  );
 }
 
 async function toggleStar(file: LibraryFile) {
@@ -928,7 +948,7 @@ function fileMenuItems(file: LibraryFile): ContextMenuItem[] {
             } as ContextMenuItem,
           ]
         : []),
-    { label: "Open", icon: ExternalLink, action: () => openPath(file.path) },
+    { label: "Open", icon: ExternalLink, action: () => openFile(file) },
     {
       label: "Open containing folder",
       icon: FolderOpen,
@@ -1195,7 +1215,7 @@ function onFileTileClick(file: LibraryFile) {
 }
 function onFileTileDblClick(file: LibraryFile) {
   if (selectionMode.value) return;
-  void openPath(file.path);
+  openFile(file);
 }
 
 /* External drag & drop: dropping files anywhere on this view adds them. */

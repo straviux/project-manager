@@ -16,7 +16,7 @@ import {
   VolumeX,
   X,
 } from "@lucide/vue";
-import { openPath } from "../lib/api";
+import { openPath, openUrl } from "../lib/api";
 import { chromeDark } from "../lib/theme";
 import { showToast } from "../lib/toast";
 import {
@@ -25,7 +25,11 @@ import {
   toggleFavorite,
   type Playlist,
 } from "../lib/playlists";
-import type { LibraryFile } from "../types";
+import {
+  playerTrackKey,
+  playerTrackName,
+  type PlayerTrack,
+} from "../types";
 
 // A persistent mini player bar (not a modal): it sits between the main
 // content and the footer in App.vue, so music keeps playing while the
@@ -36,8 +40,8 @@ import type { LibraryFile } from "../types";
 // so they survive restarts; the effective queue is whatever source is
 // selected — All tracks, Favorites, or one custom playlist.
 const props = defineProps<{
-  track: LibraryFile;
-  queue: LibraryFile[];
+  track: PlayerTrack;
+  queue: PlayerTrack[];
   /** The source App selected ('all', 'favorites', or a playlist id). */
   source: string;
 }>();
@@ -60,20 +64,43 @@ const favorites = ref<string[]>([]);
 // so this widget only mirrors it — it never switches source itself.
 const source = ref<string>(props.source);
 
-const effectiveQueue = computed<LibraryFile[]>(() => {
+const effectiveQueue = computed<PlayerTrack[]>(() => {
   if (source.value === "all") return props.queue;
   if (source.value === "favorites")
-    return props.queue.filter((f) => favorites.value.includes(f.path));
+    return props.queue.filter(
+      (t) => t.kind === "file" && favorites.value.includes(t.file.path),
+    );
   const playlist = playlists.value.find((p) => p.id === source.value);
   if (!playlist) return props.queue;
-  const byPath = new Map(props.queue.map((f) => [f.path, f]));
-  return playlist.tracks
-    .map((path) => byPath.get(path))
-    .filter((f): f is LibraryFile => !!f);
+  const byPath = new Map(
+    props.queue
+      .filter((t) => t.kind === "file")
+      .map((t) => [t.file.path, t]),
+  );
+  const queue: PlayerTrack[] = [];
+  for (const track of playlist.tracks) {
+    if (track.kind === "youtube") {
+      // YouTube links resolve from the playlist itself, never from
+      // the library, so they play even with no library folder set.
+      queue.push({
+        kind: "youtube",
+        videoId: track.videoId,
+        title: track.title,
+      });
+    } else {
+      const file = byPath.get(track.path);
+      if (file) queue.push(file);
+    }
+  }
+  return queue;
 });
 
-const current = computed<LibraryFile | null>(
+const current = computed<PlayerTrack | null>(
   () => effectiveQueue.value[index.value] ?? null,
+);
+const isYoutube = computed(() => current.value?.kind === "youtube");
+const currentName = computed(() =>
+  current.value ? playerTrackName(current.value) : "",
 );
 const sourceLabel = computed(() => {
   if (source.value === "all") return "All tracks";
@@ -83,7 +110,10 @@ const sourceLabel = computed(() => {
   );
 });
 const isFavorite = computed(
-  () => !!current.value && favorites.value.includes(current.value.path),
+  () =>
+    !!current.value &&
+    current.value.kind === "file" &&
+    favorites.value.includes(current.value.file.path),
 );
 
 // Marquee: the track name is truncated by default, so a long mp3 name
@@ -106,6 +136,112 @@ function onResize() {
 
 let audio: HTMLAudioElement | null = null;
 
+// YouTube playback, via the IFrame API, so a YouTube link plays
+// through the same bar and queue as local files: same play/pause,
+// seek, volume, prev/next, and end-of-track advance. The player
+// itself is a small embed in the bar (v-if'd on the current track
+// being a link), not a hidden frame — hidden YouTube players get
+// throttled and the video is part of the track anyway. The API
+// script is loaded lazily, only when a YouTube track first plays;
+// the CSP in tauri.conf.json allows its script and frame hosts.
+const ytEl = ref<HTMLElement | null>(null);
+// Minimal typing for the IFrame API — the full @types/youtube
+// package is not worth adding for one small player.
+let ytPlayer: {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  setVolume: (volume: number) => void;
+  mute: () => void;
+  unMute: () => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  destroy: () => void;
+} | null = null;
+let ytApiPromise: Promise<void> | null = null;
+let ytInterval: ReturnType<typeof setInterval> | null = null;
+
+function loadYtApi(): Promise<void> {
+  const win = window as unknown as {
+    YT?: { Player: unknown };
+    onYouTubeIframeAPIReady?: () => void;
+  };
+  if (win.YT?.Player) return Promise.resolve();
+  if (ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise((resolve) => {
+    const previous = win.onYouTubeIframeAPIReady;
+    win.onYouTubeIframeAPIReady = () => {
+      previous?.();
+      resolve();
+    };
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(script);
+  });
+  return ytApiPromise;
+}
+
+function destroyYt() {
+  if (ytInterval) {
+    clearInterval(ytInterval);
+    ytInterval = null;
+  }
+  if (ytPlayer) {
+    try {
+      ytPlayer.destroy();
+    } catch {
+      // Already gone — destroying twice is harmless either way.
+    }
+    ytPlayer = null;
+  }
+}
+
+async function setupYt(videoId: string) {
+  await loadYtApi();
+  await nextTick();
+  // The track may have changed while the API was loading.
+  if (current.value?.kind !== "youtube" || current.value.videoId !== videoId)
+    return;
+  const el = ytEl.value;
+  if (!el) return;
+  const win = window as unknown as {
+    YT: {
+      Player: new (
+        el: HTMLElement,
+        opts: Record<string, unknown>,
+      ) => typeof ytPlayer;
+    };
+  };
+  ytPlayer = new win.YT.Player(el, {
+    videoId,
+    playerVars: { autoplay: 1, modestbranding: 1, rel: 0 },
+    events: {
+      onReady: () => {
+        if (!ytPlayer) return;
+        ytPlayer.setVolume(muted.value ? 0 : volume.value);
+        if (muted.value) ytPlayer.mute();
+        ytPlayer.playVideo();
+        ytInterval = setInterval(() => {
+          if (!ytPlayer) return;
+          currentTime.value = ytPlayer.getCurrentTime();
+          const d = ytPlayer.getDuration();
+          if (d > 0) duration.value = d;
+        }, 500);
+      },
+      onStateChange: (event: { data: number }) => {
+        // PlayerState: 0 ended, 1 playing, 2 paused.
+        if (event.data === 0) next(true);
+        else if (event.data === 1) playing.value = true;
+        else if (event.data === 2) playing.value = false;
+      },
+      onError: () => {
+        error.value = true;
+        playing.value = false;
+      },
+    },
+  });
+}
+
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
@@ -114,8 +250,8 @@ function formatTime(seconds: number): string {
 }
 
 function load(i: number) {
-  const file = effectiveQueue.value[i];
-  if (!file) {
+  const track = effectiveQueue.value[i];
+  if (!track) {
     playing.value = false;
     return;
   }
@@ -123,8 +259,15 @@ function load(i: number) {
   error.value = false;
   currentTime.value = 0;
   duration.value = 0;
+  destroyYt();
+  if (track.kind === "youtube") {
+    // The embed container renders from `current`, so the player is
+    // created after the next render, guarded by video id above.
+    void setupYt(track.videoId);
+    return;
+  }
   if (audio) {
-    audio.src = convertFileSrc(file.path);
+    audio.src = convertFileSrc(track.file.path);
     audio.volume = muted.value ? 0 : volume.value / 100;
     void audio.play().then(
       () => (playing.value = true),
@@ -134,7 +277,14 @@ function load(i: number) {
 }
 
 function togglePlay() {
-  if (!audio || !current.value) return;
+  if (!current.value) return;
+  if (current.value.kind === "youtube") {
+    if (!ytPlayer) return;
+    if (playing.value) ytPlayer.pauseVideo();
+    else ytPlayer.playVideo();
+    return;
+  }
+  if (!audio) return;
   if (playing.value) {
     audio.pause();
     playing.value = false;
@@ -158,7 +308,8 @@ function prev() {
   if (currentTime.value > 3) {
     // Like most players: pressing previous near the start of a track
     // restarts it; further in, it goes to the previous track.
-    if (audio) audio.currentTime = 0;
+    if (current.value?.kind === "youtube") ytPlayer?.seekTo(0, true);
+    else if (audio) audio.currentTime = 0;
     currentTime.value = 0;
     return;
   }
@@ -199,6 +350,11 @@ function playRandom() {
 }
 
 function seek(value: number) {
+  if (current.value?.kind === "youtube") {
+    ytPlayer?.seekTo(value, true);
+    currentTime.value = value;
+    return;
+  }
   if (!audio) return;
   audio.currentTime = value;
   currentTime.value = value;
@@ -208,11 +364,28 @@ function setVolume(value: number) {
   volume.value = value;
   muted.value = false;
   if (audio) audio.volume = value / 100;
+  if (ytPlayer) {
+    ytPlayer.setVolume(value);
+    ytPlayer.unMute();
+  }
 }
 
 function toggleMute() {
   muted.value = !muted.value;
   if (audio) audio.volume = muted.value ? 0 : volume.value / 100;
+  if (ytPlayer) {
+    if (muted.value) ytPlayer.mute();
+    else ytPlayer.unMute();
+  }
+}
+
+function openCurrent() {
+  if (!current.value) return;
+  if (current.value.kind === "youtube") {
+    void openUrl(`https://www.youtube.com/watch?v=${current.value.videoId}`);
+  } else {
+    void openPath(current.value.file.path);
+  }
 }
 
 async function refreshPlaylists() {
@@ -223,13 +396,14 @@ async function refreshPlaylists() {
 
 
 async function toggleCurrentFavorite() {
-  if (!current.value) return;
-  const nowFavorite = await toggleFavorite(current.value.path);
+  // Favorites are local file paths only — YouTube links are not
+  // favoritable (the button is disabled for them).
+  if (!current.value || current.value.kind !== "file") return;
+  const name = current.value.file.name;
+  const nowFavorite = await toggleFavorite(current.value.file.path);
   await refreshPlaylists();
   showToast(
-    nowFavorite
-      ? `Added ${current.value.name} to favorites.`
-      : `Removed ${current.value.name} from favorites.`,
+    nowFavorite ? `Added ${name} to favorites.` : `Removed ${name} from favorites.`,
   );
 }
 
@@ -238,19 +412,22 @@ async function toggleCurrentFavorite() {
 
 function close() {
   audio?.pause();
+  destroyYt();
   playing.value = false;
   emit("close");
 }
 
 watch(
   () => [props.track, props.source] as const,
-  ([file, newSource]) => {
+  ([track, newSource]) => {
     // One watcher for both, so a single App update (new track + new
     // source + new queue) is applied atomically: set the source first,
     // then find the track in the queue that source resolves to.
     source.value = newSource;
     shuffleHistory.value = [];
-    const i = effectiveQueue.value.findIndex((f) => f.path === file.path);
+    const i = effectiveQueue.value.findIndex(
+      (t) => playerTrackKey(t) === playerTrackKey(track),
+    );
     load(i >= 0 ? i : 0);
   },
 );
@@ -273,7 +450,7 @@ onMounted(async () => {
   window.addEventListener("resize", onResize);
   source.value = props.source;
   const i = effectiveQueue.value.findIndex(
-    (f) => f.path === props.track.path,
+    (t) => playerTrackKey(t) === playerTrackKey(props.track),
   );
   load(i >= 0 ? i : 0);
   void checkMarquee();
@@ -283,6 +460,7 @@ onUnmounted(() => {
   window.removeEventListener("resize", onResize);
   audio?.pause();
   audio = null;
+  destroyYt();
 });
 </script>
 
@@ -292,6 +470,11 @@ onUnmounted(() => {
     :class="{ dark: chromeDark }"
   >
     <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
+      <div
+        v-if="isYoutube"
+        ref="ytEl"
+        class="h-24 w-44 shrink-0 overflow-hidden rounded-lg bg-black"
+      ></div>
       <div class="flex min-w-0 flex-1 items-center gap-3">
         <Music class="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
         <div class="min-w-0 overflow-hidden">
@@ -299,22 +482,23 @@ onUnmounted(() => {
             v-if="!marquee"
             ref="nameEl"
             class="truncate text-sm font-medium"
-            :title="current?.name ?? ''"
+            :title="currentName"
           >
-            {{ current ? current.name : `No tracks in ${sourceLabel} yet` }}
+            {{ current ? currentName : `No tracks in ${sourceLabel} yet` }}
           </p>
-          <div v-else class="overflow-hidden" :title="current?.name ?? ''">
+          <div v-else class="overflow-hidden" :title="currentName">
             <div
               class="marquee-track flex w-max items-center whitespace-nowrap text-sm font-medium"
-              :style="{ animationDuration: `${Math.max(6, (current?.name.length ?? 0) * 0.25)}s` }"
+              :style="{ animationDuration: `${Math.max(6, currentName.length * 0.25)}s` }"
             >
-              <span class="pr-12">{{ current?.name }}</span>
-              <span class="pr-12">{{ current?.name }}</span>
+              <span class="pr-12">{{ currentName }}</span>
+              <span class="pr-12">{{ currentName }}</span>
             </div>
           </div>
           <p class="text-xs text-neutral-500">
             <template v-if="current">
               {{ index + 1 }} / {{ effectiveQueue.length }} · {{ sourceLabel }}
+              <span v-if="isYoutube">· YouTube</span>
               <span v-if="shuffle">· Shuffle on</span>
             </template>
             <span v-if="error" class="text-red-600 dark:text-red-400">
@@ -391,8 +575,8 @@ onUnmounted(() => {
       <div class="flex items-center gap-1">
         <button
           class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-          :disabled="!current"
+          :title="isYoutube ? 'YouTube links cannot be favorited' : isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+          :disabled="!current || isYoutube"
           @click="toggleCurrentFavorite"
         >
           <Heart
@@ -425,9 +609,9 @@ onUnmounted(() => {
         />
         <button
           class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          title="Open in its own app"
+          :title="isYoutube ? 'Open this video on YouTube' : 'Open in its own app'"
           :disabled="!current"
-          @click="current && openPath(current.path)"
+          @click="openCurrent"
         >
           <ExternalLink class="h-4 w-4" />
         </button>

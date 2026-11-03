@@ -68,12 +68,12 @@ onMounted(refresh);
         <li v-for="playlist in playlists" :key="playlist.id">
           <button
             class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-neutral-100 disabled:opacity-60 dark:hover:bg-neutral-800"
-            :disabled="playlist.tracks.includes(file.path)"
+            :disabled="playlist.tracks.some((t) => t.kind === 'file' && t.path === file.path)"
             @click="addTo(playlist)"
           >
             <span class="min-w-0 flex-1 truncate font-medium">{{ playlist.name }}</span>
             <span class="text-xs text-neutral-500">{{ playlist.tracks.length }} tracks</span>
-            <span v-if="playlist.tracks.includes(file.path)" class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+            <span v-if="playlist.tracks.some((t) => t.kind === 'file' && t.path === file.path)" class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
               <Check class="h-4 w-4" /> Added
             </span>
           </button>

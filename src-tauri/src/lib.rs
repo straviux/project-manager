@@ -66,25 +66,47 @@ fn no_console_window(cmd: &mut Command) {
 fn spawn_terminal(cwd: Option<&Path>, command: Option<&str>) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        // Set the working directory on the child process itself instead of
-        // embedding `cd /d "<path>"` into a `cmd /K` string: nested quotes
-        // get mangled by cmd's quote-stripping (and `start` reads the first
-        // quoted chunk as a window title), so the cd silently never ran.
-        // Spawning cmd directly still gets a fresh console window, so the
-        // `start` wrapper is not needed either.
-        let mut c = Command::new("cmd");
-        c.arg("/K");
+        // PowerShell, not cmd: this is what gives the external window
+        // Ctrl+C (interrupt) and Ctrl+V (paste) via PSReadLine, and
+        // correct bracketed-paste handling — cmd's console has neither,
+        // which is where pasted text could leak a stray `~` and Ctrl+C/V
+        // did nothing useful. The working directory is set on the child
+        // process itself instead of embedding a `cd` into the command
+        // string, so paths with quotes or spaces survive intact.
+        // `-NoExit` keeps the window open after a supplied command
+        // (e.g. an ssh session) ends, the same way `cmd /K` did.
+        let mut c = Command::new("powershell");
+        c.arg("-NoExit");
         if let Some(dir) = cwd {
             c.current_dir(dir);
         }
         if let Some(cmd) = command {
-            // One argument after /K: Rust passes it as a single quoted
-            // string, cmd strips those quotes and runs it (documented case).
-            c.arg(cmd);
+            // One argument after -Command: Rust passes it as a single
+            // argument, PowerShell parses it as script text.
+            c.args(["-Command", cmd]);
         }
-        c.spawn()
-            .map_err(|e| format!("Failed to open terminal: {e}"))?;
-        return Ok(());
+        match c.spawn() {
+            Ok(_) => return Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // PowerShell is present on every supported Windows, but
+                // if it is ever missing, a cmd window is better than
+                // no terminal at all.
+                let mut c = Command::new("cmd");
+                c.arg("/K");
+                if let Some(dir) = cwd {
+                    c.current_dir(dir);
+                }
+                if let Some(cmd) = command {
+                    c.arg(cmd);
+                }
+                c.spawn()
+                    .map_err(|e| format!("Failed to open terminal: {e}"))?;
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(format!("Failed to open PowerShell terminal: {e}"));
+            }
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -257,9 +279,10 @@ fn open_terminal(path: String) -> Result<(), String> {
 /// found by the frontend, and is shown in the terminal as it runs, so
 /// a long-running dev server stays visible and stoppable with Ctrl+C
 /// instead of being swallowed by the app). The command string is
-/// executed by cmd on Windows, so it must not contain control
-/// characters; the project is the user's own, so its README command
-/// is trusted the same way opening a terminal in it already is.
+/// executed by PowerShell on Windows (via spawn_terminal), so it must
+/// not contain control characters; the project is the user's own, so
+/// its README command is trusted the same way opening a terminal in
+/// it already is.
 #[tauri::command]
 fn open_terminal_command(path: String, command: String) -> Result<(), String> {
     let dir = PathBuf::from(&path);
@@ -339,6 +362,12 @@ fn start_run(
     {
         return Err("That terminal tab is already running.".into());
     }
+    // Deliberately still cmd /C, not PowerShell: the internal run
+    // shell is NOT part of the "open terminal in PowerShell" switch.
+    // Its commands come from READMEs written for cmd, and changing
+    // the shell would change how those commands parse (e.g. `&&`
+    // works in cmd but not in Windows PowerShell 5.1). Only the
+    // external terminal windows (spawn_terminal) use PowerShell.
     #[cfg(target_os = "windows")]
     let mut cmd = {
         let mut c = Command::new("cmd");
@@ -541,8 +570,8 @@ fn git_pull(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-/// The ssh command string is eventually executed by a shell (cmd on
-/// Windows, bash elsewhere), so host/username/key values must never be able
+/// The ssh command string is eventually executed by a shell (PowerShell
+/// on Windows, bash elsewhere), so host/username/key values must never be able
 /// to smuggle shell syntax in: a username like `x & calc` used to run
 /// `calc` as a second command. Allowlists beat quoting here — there is no
 /// legitimate SSH username or hostname that needs `& | ; $ ( )` or quotes.
@@ -655,6 +684,89 @@ fn ssh_copy_password(config_id: i64) -> Result<(), String> {
     // Hygiene: a server password should not sit in the clipboard forever.
     // After 60s, clear it — but only if the clipboard still holds exactly
     // this password, so we never wipe something the user copied afterwards.
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+        if let Ok(mut cb) = arboard::Clipboard::new() {
+            if let Ok(text) = cb.get_text() {
+                if text == password {
+                    let _ = cb.set_text("");
+                }
+            }
+        }
+    });
+    Ok(())
+}
+
+/* ===================== password manager (keychain) =====================
+   Same pattern as SSH passwords, but for general passwords the user
+   manages in the app: the SQLite password_entries table holds only
+   metadata (name, username, notes) — the secret itself lives ONLY
+   here, in the OS keychain, under `password-<id>`. It is never
+   written to SQLite, to a file, or to any log. Reveal fetches it
+   on demand into frontend memory only while the manager is open;
+   closing the manager drops it (the component unmounts). */
+
+fn password_entry(entry_id: i64) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYRING_SERVICE, &format!("password-{entry_id}"))
+        .map_err(|e| format!("Keychain unavailable: {e}"))
+}
+
+#[tauri::command]
+fn password_set_password(entry_id: i64, password: String) -> Result<(), String> {
+    let entry = password_entry(entry_id)?;
+    entry
+        .set_password(&password)
+        .map_err(|e| format!("Could not save password: {e}"))?;
+    // Same read-back proof as SSH passwords: never report success
+    // without confirming the vault actually kept the value.
+    match entry.get_password() {
+        Ok(back) if back == password => Ok(()),
+        Ok(_) => Err(
+            "Password was written but read back differently — the keychain entry is not reliable. Check Windows Credential Manager for an entry named like password-<id>.dev.straviux.projectmanager and tell me what you find."
+                .to_string(),
+        ),
+        Err(e) => Err(format!(
+            "Password was written but could not be read back from the keychain ({e}). It may not actually be saved — check Windows Credential Manager for an entry named like password-<id>.dev.straviux.projectmanager."
+        )),
+    }
+}
+
+#[tauri::command]
+fn password_get_password(entry_id: i64) -> Result<String, String> {
+    password_entry(entry_id)?
+        .get_password()
+        .map_err(|e| format!("Could not read password from keychain: {e}"))
+}
+
+#[tauri::command]
+fn password_has_password(entry_id: i64) -> bool {
+    match password_entry(entry_id) {
+        Ok(entry) => entry.get_password().is_ok(),
+        Err(_) => false,
+    }
+}
+
+#[tauri::command]
+fn password_delete_password(entry_id: i64) -> Result<(), String> {
+    match password_entry(entry_id)?.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(format!("Could not delete password: {e}")),
+    }
+}
+
+#[tauri::command]
+fn password_copy_password(entry_id: i64) -> Result<(), String> {
+    let password = password_entry(entry_id)?
+        .get_password()
+        .map_err(|e| format!("Could not read password from keychain: {e}"))?;
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| format!("Clipboard unavailable: {e}"))?;
+    clipboard
+        .set_text(password.clone())
+        .map_err(|e| format!("Could not copy password: {e}"))?;
+    // Same 60s hygiene as SSH copy: clear only if the clipboard still
+    // holds exactly this password, so a later copy is never wiped.
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(60));
         if let Ok(mut cb) = arboard::Clipboard::new() {
@@ -2138,6 +2250,11 @@ pub fn run() {
             ssh_has_password,
             ssh_delete_password,
             ssh_copy_password,
+            password_set_password,
+            password_get_password,
+            password_has_password,
+            password_delete_password,
+            password_copy_password,
             git_clone,
             git_status,
             scan_projects,
