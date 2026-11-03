@@ -81,6 +81,16 @@ function loadDb(): Promise<Database> {
           "ALTER TABLE file_meta ADD COLUMN starred INTEGER NOT NULL DEFAULT 0",
         );
       }
+      // Quick Access usage tracking (see recordFileOpen below).
+      const metaColNames = new Set(metaCols.map((c) => c.name));
+      if (!metaColNames.has("open_count")) {
+        await db.execute(
+          "ALTER TABLE file_meta ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+      if (!metaColNames.has("last_opened")) {
+        await db.execute("ALTER TABLE file_meta ADD COLUMN last_opened TEXT");
+      }
       // NOTE: SSH passwords are intentionally NOT stored here.
       // Profiles hold connection details only; auth uses SSH keys.
       await db.execute(`
@@ -322,20 +332,57 @@ export async function deleteSshConfig(id: number): Promise<void> {
 export async function getAllFileMeta(): Promise<Record<string, FileMeta>> {
   const db = await loadDb();
   const rows = await db.select<
-    { path: string; status: string; notes: string; starred: number }[]
-  >("SELECT path, status, notes, starred FROM file_meta");
+    {
+      path: string;
+      status: string;
+      notes: string;
+      starred: number;
+      open_count: number;
+      last_opened: string | null;
+    }[]
+  >("SELECT path, status, notes, starred, open_count, last_opened FROM file_meta");
   const out: Record<string, FileMeta> = {};
   for (const r of rows)
-    out[r.path] = { status: r.status, notes: r.notes, starred: r.starred === 1 };
+    out[r.path] = {
+      status: r.status,
+      notes: r.notes,
+      starred: r.starred === 1,
+      openCount: r.open_count ?? 0,
+      lastOpened: r.last_opened ?? null,
+    };
   return out;
 }
 
+// Only status/notes/starred: open_count/last_opened are deliberately
+// NOT written here, so starring or editing a file in the same session
+// it was opened can never wipe its usage count with a stale value.
 export async function setFileMeta(path: string, meta: FileMeta): Promise<void> {
   const db = await loadDb();
   await db.execute(
     "INSERT INTO file_meta (path, status, notes, starred) VALUES ($1, $2, $3, $4) " +
       "ON CONFLICT(path) DO UPDATE SET status = excluded.status, notes = excluded.notes, starred = excluded.starred",
     [path, meta.status, meta.notes, meta.starred ? 1 : 0],
+  );
+}
+
+/**
+ * Record one open of a library file for Quick Access "Most opened".
+ * Creates the row (with empty status/notes, unstarred) when the file
+ * has no meta yet, otherwise only bumps open_count and last_opened —
+ * status, notes and starred are never touched here. Callers in
+ * FilesView/QuickAccessView invoke this for opens, previews and
+ * audio plays; opening a containing folder is not a file open and
+ * must not call it. Usage does not follow a file when it is moved
+ * inside the library (the move copies status/notes/starred only) —
+ * it starts counting again from the new path.
+ */
+export async function recordFileOpen(path: string): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "INSERT INTO file_meta (path, status, notes, starred, open_count, last_opened) " +
+      "VALUES ($1, '', '', 0, 1, $2) " +
+      "ON CONFLICT(path) DO UPDATE SET open_count = file_meta.open_count + 1, last_opened = excluded.last_opened",
+    [path, new Date().toISOString()],
   );
 }
 

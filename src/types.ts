@@ -67,11 +67,17 @@ export interface FileCheck {
 }
 
 /** A file inside the managed file library (from the Rust scanner). */
-/** Per-file status & notes, stored in SQLite keyed by absolute path. */
+/** Per-file status & notes, stored in SQLite keyed by absolute path.
+ * openCount/lastOpened drive the Quick Access "Most opened" section:
+ * they are read here but never written by setFileMeta, which only
+ * touches status/notes/starred, so starring a file can never wipe
+ * its open count. Only recordFileOpen writes them. */
 export interface FileMeta {
   status: string;
   notes: string;
   starred: boolean;
+  openCount: number;
+  lastOpened: string | null;
 }
 
 export interface LibraryFile {
