@@ -159,7 +159,7 @@ onMounted(refresh);
     :class="{ dark: chromeDark }"
     @click.self="emit('close')"
   >
-    <div ref="dialogPanel" class="glass-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+    <div ref="dialogPanel" class="glass-panel w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
       <h2 ref="dialogHandle" class="mb-4 flex cursor-grab items-center gap-2 text-lg font-semibold active:cursor-grabbing">
         <ListMusic class="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" /> Playlists
       </h2>
@@ -173,7 +173,7 @@ onMounted(refresh);
             All tracks
             <span class="text-neutral-500">· {{ audioFiles.length }} tracks</span>
           </button>
-          <button class="rounded bg-blue-600 p-1.5 text-white disabled:opacity-40" title="Play" :disabled="!audioFiles.length" @click="playSource('all')"><Play class="h-4 w-4" /></button>
+          <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" title="Play" :disabled="!audioFiles.length" @click="playSource('all')"><Play class="h-4 w-4" /></button>
         </li>
         <li
           class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
@@ -183,7 +183,7 @@ onMounted(refresh);
             <Heart class="mr-1 inline h-4 w-4 fill-red-500 text-red-500" /> Favorites
             <span class="text-neutral-500">· {{ favoriteFiles.length }} tracks</span>
           </button>
-          <button class="rounded bg-blue-600 p-1.5 text-white disabled:opacity-40" title="Play" :disabled="!favoriteFiles.length" @click="playSource('favorites')"><Play class="h-4 w-4" /></button>
+          <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" title="Play" :disabled="!favoriteFiles.length" @click="playSource('favorites')"><Play class="h-4 w-4" /></button>
         </li>
         <li
           v-for="playlist in playlists"
@@ -196,16 +196,16 @@ onMounted(refresh);
             <span class="text-neutral-500">· {{ queueFor(playlist.id).length }} tracks</span>
           </button>
           <button
-            class="rounded px-2 py-1 text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40"
+            class="flex h-8 shrink-0 items-center rounded px-2 text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40"
             :disabled="currentFilePath === null || playlist.tracks.some((t) => t.kind === 'file' && t.path === currentFilePath)"
             title="Add the currently playing local track to this playlist"
             @click="addCurrent(playlist.id)"
           >
             + Current
           </button>
-          <button class="rounded bg-blue-600 p-1.5 text-white disabled:opacity-40" title="Play" :disabled="!queueFor(playlist.id).length" @click="playSource(playlist.id)"><Play class="h-4 w-4" /></button>
+          <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" title="Play" :disabled="!queueFor(playlist.id).length" @click="playSource(playlist.id)"><Play class="h-4 w-4" /></button>
           <button
-            class="rounded p-1 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
             title="Delete playlist"
             @click="deleteById(playlist.id)"
           >
@@ -219,11 +219,11 @@ onMounted(refresh);
           v-model="newPlaylistName"
           type="text"
           placeholder="New playlist name…"
-          class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          class="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-900"
           @keyup.enter="createNew"
         />
         <button
-          class="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+          class="flex h-10 items-center gap-1 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-40"
           :disabled="!newPlaylistName.trim()"
           @click="createNew"
         >
@@ -236,7 +236,7 @@ onMounted(refresh);
         <div class="mb-2 flex gap-2">
           <select
             v-model="youtubePlaylistId"
-            class="rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            class="h-10 rounded-lg border border-neutral-300 bg-white px-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
           >
             <option value="" disabled>Choose a playlist…</option>
             <option v-for="p in playlists" :key="p.id" :value="p.id">
@@ -247,7 +247,7 @@ onMounted(refresh);
             v-model="youtubeUrl"
             type="text"
             placeholder="Paste a YouTube link…"
-            class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            class="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-900"
             @keyup.enter="addYoutube"
           />
         </div>
@@ -256,11 +256,11 @@ onMounted(refresh);
             v-model="youtubeTitle"
             type="text"
             placeholder="Name for this link (optional — defaults to the video id)"
-            class="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            class="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-900"
             @keyup.enter="addYoutube"
           />
           <button
-            class="flex shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+            class="flex h-10 shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-40"
             :disabled="!youtubePlaylistId || !youtubeVideoIdFromUrl(youtubeUrl)"
             @click="addYoutube"
           >
