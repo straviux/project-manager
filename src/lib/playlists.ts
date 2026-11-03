@@ -9,11 +9,21 @@ import { getSetting, setSetting } from "./db";
  * library file when a playlist is played, and is skipped then.
  */
 
+/**
+ * One entry in a playlist, in playlist order. A file track is a
+ * library file path; a YouTube track is a video id plus the title
+ * the user gave it. Older saved playlists stored tracks as plain
+ * strings (file paths only) — loadPlaylists normalizes those to
+ * file tracks, so nothing saved before is lost.
+ */
+export type PlaylistTrack =
+  | { kind: "file"; path: string }
+  | { kind: "youtube"; videoId: string; title: string };
+
 export interface Playlist {
   id: string;
   name: string;
-  /** Library file paths, in playlist order. */
-  tracks: string[];
+  tracks: PlaylistTrack[];
 }
 
 const PLAYLISTS_KEY = "playlists";
@@ -35,9 +45,33 @@ async function loadJson<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
+function normalizeTrack(raw: unknown): PlaylistTrack | null {
+  if (typeof raw === "string") return { kind: "file", path: raw };
+  if (raw && typeof raw === "object") {
+    const t = raw as { kind?: unknown; path?: unknown; videoId?: unknown; title?: unknown };
+    if (t.kind === "file" && typeof t.path === "string")
+      return { kind: "file", path: t.path };
+    if (
+      t.kind === "youtube" &&
+      typeof t.videoId === "string" &&
+      typeof t.title === "string"
+    )
+      return { kind: "youtube", videoId: t.videoId, title: t.title };
+  }
+  return null;
+}
+
 export async function loadPlaylists(): Promise<Playlist[]> {
   const list = await loadJson<Playlist[]>(PLAYLISTS_KEY, []);
-  return Array.isArray(list) ? list : [];
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((p) => p && typeof p.id === "string" && Array.isArray(p.tracks))
+    .map((p) => ({
+      ...p,
+      tracks: (p.tracks as unknown[])
+        .map(normalizeTrack)
+        .filter((t): t is PlaylistTrack => t !== null),
+    }));
 }
 
 export async function savePlaylists(playlists: Playlist[]): Promise<void> {
@@ -60,8 +94,12 @@ export async function deletePlaylist(id: string): Promise<void> {
 export async function addToPlaylist(id: string, path: string): Promise<void> {
   const playlists = await loadPlaylists();
   const playlist = playlists.find((p) => p.id === id);
-  if (!playlist || playlist.tracks.includes(path)) return;
-  playlist.tracks.push(path);
+  if (!playlist) return;
+  const already = playlist.tracks.some(
+    (t) => t.kind === "file" && t.path === path,
+  );
+  if (already) return;
+  playlist.tracks.push({ kind: "file", path });
   await savePlaylists(playlists);
 }
 
@@ -69,8 +107,47 @@ export async function removeFromPlaylist(id: string, path: string): Promise<void
   const playlists = await loadPlaylists();
   const playlist = playlists.find((p) => p.id === id);
   if (!playlist) return;
-  playlist.tracks = playlist.tracks.filter((t) => t !== path);
+  playlist.tracks = playlist.tracks.filter(
+    (t) => !(t.kind === "file" && t.path === path),
+  );
   await savePlaylists(playlists);
+}
+
+/** Add a YouTube link to a playlist. No-op if that video is already in it. */
+export async function addYoutubeToPlaylist(
+  id: string,
+  videoId: string,
+  title: string,
+): Promise<void> {
+  const playlists = await loadPlaylists();
+  const playlist = playlists.find((p) => p.id === id);
+  if (!playlist) return;
+  const already = playlist.tracks.some(
+    (t) => t.kind === "youtube" && t.videoId === videoId,
+  );
+  if (already) return;
+  playlist.tracks.push({ kind: "youtube", videoId, title });
+  await savePlaylists(playlists);
+}
+
+/**
+ * Pull a YouTube video id out of a pasted link. Accepts watch, short,
+ * embed, live, and youtu.be links, plus music.youtube.com — anything
+ * else returns null so the UI can say the link was not understood.
+ */
+export function youtubeVideoIdFromUrl(raw: string): string | null {
+  const url = raw.trim();
+  if (!url) return null;
+  const patterns = [
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+    /[?&]v=([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 export async function loadFavorites(): Promise<string[]> {

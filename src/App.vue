@@ -622,8 +622,12 @@ const filesStats = ref("");
 // Music player: FilesView tells App which audio file to play and the
 // audio queue (all audio files in the library); the widget lives in
 // App (between main and footer) so playback survives tab switches.
-const audioTrack = ref<import("./types").LibraryFile | null>(null);
-const audioQueue = ref<import("./types").LibraryFile[]>([]);
+// The player queue holds PlayerTracks, not bare LibraryFiles, so a
+// playlist can mix local files with YouTube links (see types.ts).
+// FilesView/QuickAccess still emit LibraryFiles; onPlayAudio wraps
+// them here, at the boundary, so those views never see YouTube.
+const audioTrack = ref<import("./types").PlayerTrack | null>(null);
+const audioQueue = ref<import("./types").PlayerTrack[]>([]);
 // The playing source ('all', 'favorites', or a playlist id) is owned
 // here so the playlist manager modal can change it from the main nav
 // even when nothing is playing yet; the widget mirrors it.
@@ -644,16 +648,16 @@ function onPlayAudio(
   file: import("./types").LibraryFile,
   queue: import("./types").LibraryFile[],
 ) {
-  audioTrack.value = file;
-  audioQueue.value = queue;
+  audioTrack.value = { kind: "file", file };
+  audioQueue.value = queue.map((f) => ({ kind: "file" as const, file: f }));
   playerSource.value = "all";
 }
 function onManagerPlay(
-  file: import("./types").LibraryFile,
-  queue: import("./types").LibraryFile[],
+  track: import("./types").PlayerTrack,
+  queue: import("./types").PlayerTrack[],
   source: string,
 ) {
-  audioTrack.value = file;
+  audioTrack.value = track;
   audioQueue.value = queue;
   playerSource.value = source;
   showPlaylistManager.value = false;

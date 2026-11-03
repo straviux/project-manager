@@ -89,6 +89,26 @@ export interface LibraryFile {
   size: number;
 }
 
+/**
+ * One track in the music player queue. Local files and YouTube links
+ * play through the same bar and the same queue: a file track wraps a
+ * LibraryFile, a YouTube track carries just its video id and the
+ * title the user gave it when adding the link (YouTube titles are
+ * not fetched — no API key, no extra network call).
+ */
+export type PlayerTrack =
+  | { kind: "file"; file: LibraryFile }
+  | { kind: "youtube"; videoId: string; title: string };
+
+export function playerTrackName(track: PlayerTrack): string {
+  return track.kind === "file" ? track.file.name : track.title;
+}
+
+/** Stable identity for finding a track in a queue: path or video id. */
+export function playerTrackKey(track: PlayerTrack): string {
+  return track.kind === "file" ? `file:${track.file.path}` : `youtube:${track.videoId}`;
+}
+
 /** A global todo. projectId is optional: a todo with no project is
  * just a global todo; one with a project shows up filtered per
  * project as well. Deleting a project unlinks (not deletes) its todos. */
