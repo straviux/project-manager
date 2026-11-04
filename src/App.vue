@@ -913,7 +913,7 @@ function openEdit(project: Project) {
         {{ error }}
       </div>
 
-      <main class="mx-auto w-full max-w-[1600px] flex-1 overflow-y-auto px-6 py-6" @contextmenu="onBodyContext">
+      <main class="mx-auto w-full max-w-[1600px] flex-1 overflow-x-hidden overflow-y-auto px-6 py-6" @contextmenu="onBodyContext">
         <div v-show="tab === 'quickaccess'">
           <QuickAccessView
             :files-dir="filesDir"

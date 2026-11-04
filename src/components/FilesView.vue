@@ -1549,7 +1549,7 @@ onUnmounted(() => {
           <li
             v-for="file in items"
             :key="file.path"
-            class="group relative flex flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
+            class="group relative flex min-w-0 flex-col items-center rounded-xl px-2 pb-3 pt-4 text-center transition hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
             :class="[isDragged(file.path) ? 'z-10 cursor-grabbing opacity-70 shadow-xl ring-2 ring-blue-500 scale-[1.02]' : '']"
             title="Double-click to open"
             @click="onFileTileClick(file)"
