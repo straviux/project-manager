@@ -86,6 +86,16 @@ export async function createPlaylist(name: string): Promise<Playlist> {
   return playlist;
 }
 
+/** Rename a playlist. A blank name is ignored, keeping the old one. */
+export async function renamePlaylist(id: string, name: string): Promise<void> {
+  const playlists = await loadPlaylists();
+  const playlist = playlists.find((p) => p.id === id);
+  if (!playlist) return;
+  const trimmed = name.trim();
+  if (trimmed) playlist.name = trimmed;
+  await savePlaylists(playlists);
+}
+
 export async function deletePlaylist(id: string): Promise<void> {
   const playlists = await loadPlaylists();
   await savePlaylists(playlists.filter((p) => p.id !== id));
@@ -110,6 +120,39 @@ export async function removeFromPlaylist(id: string, path: string): Promise<void
   playlist.tracks = playlist.tracks.filter(
     (t) => !(t.kind === "file" && t.path === path),
   );
+  await savePlaylists(playlists);
+}
+
+/** Remove one track from a playlist by its position, so a playlist
+ *  can drop a single item without deleting the whole playlist.
+ *  Index-based (not path/video-id based) so it works even if two
+ *  entries somehow share an id. */
+export async function removeTrackFromPlaylist(
+  id: string,
+  index: number,
+): Promise<void> {
+  const playlists = await loadPlaylists();
+  const playlist = playlists.find((p) => p.id === id);
+  if (!playlist) return;
+  playlist.tracks.splice(index, 1);
+  await savePlaylists(playlists);
+}
+
+/** Rename a YouTube track's title (the user's own label). File
+ *  tracks have no stored title — their name is the file name — so
+ *  this is a no-op for them. */
+export async function renameYoutubeTrack(
+  id: string,
+  index: number,
+  title: string,
+): Promise<void> {
+  const playlists = await loadPlaylists();
+  const playlist = playlists.find((p) => p.id === id);
+  if (!playlist) return;
+  const track = playlist.tracks[index];
+  if (!track || track.kind !== "youtube") return;
+  const name = title.trim();
+  if (name) track.title = name;
   await savePlaylists(playlists);
 }
 
