@@ -29,7 +29,6 @@ import {
   Zap,
 } from "@lucide/vue";
 import { chromeDark } from "./lib/theme";
-import { BRAND_LOGO as brandLogo } from "./lib/brandLogo";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import SetupWizard from "./components/SetupWizard.vue";
@@ -817,10 +816,6 @@ function openEdit(project: Project) {
     <template v-else-if="ready">
       <header class="relative z-30 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900" :class="{ dark: chromeDark }">
         <div class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-3 px-6 py-4">
-          <h1 class="flex items-center gap-2 text-xl font-bold min-[1600px]:absolute min-[1600px]:left-6 min-[1600px]:top-1/2 min-[1600px]:-translate-y-1/2">
-            <img :src="brandLogo" alt="" class="h-6 w-6" /> Project Manager
-          </h1>
-
           <!-- Tab order: Quick Access, Files, Projects. Keyboard
                shortcuts follow the same order (1 = Quick Access,
                2 = Files, 3 = Projects). The saved tab still wins
