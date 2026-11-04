@@ -338,7 +338,7 @@ onMounted(refresh);
           class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
           :class="activeSource === 'all' ? 'bg-blue-100 dark:bg-blue-900/40' : ''"
         >
-          <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" title="Play" :disabled="!audioFiles.length" @click="playSource('all')"><Play class="h-4 w-4" /></button>
+          <button class="tooltip tooltip-left flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" data-tip="Play" :disabled="!audioFiles.length" @click="playSource('all')"><Play class="h-4 w-4" /></button>
           <button class="min-w-0 flex-1 text-left" @click="playSource('all')">
             <span class="block truncate font-medium">All tracks</span>
             <span class="block text-xs text-neutral-500">{{ audioFiles.length }} tracks</span>
@@ -348,7 +348,7 @@ onMounted(refresh);
           class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
           :class="activeSource === 'favorites' ? 'bg-blue-100 dark:bg-blue-900/40' : ''"
         >
-          <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" title="Play" :disabled="!favoriteFiles.length" @click="playSource('favorites')"><Play class="h-4 w-4" /></button>
+          <button class="tooltip tooltip-left flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" data-tip="Play" :disabled="!favoriteFiles.length" @click="playSource('favorites')"><Play class="h-4 w-4" /></button>
           <button class="min-w-0 flex-1 text-left" @click="playSource('favorites')">
             <span class="block truncate font-medium"><Heart class="mr-1 inline h-4 w-4 fill-red-500 text-red-500" /> Favorites</span>
             <span class="block text-xs text-neutral-500">{{ favoriteFiles.length }} tracks</span>
@@ -361,7 +361,7 @@ onMounted(refresh);
           :class="activeSource === playlist.id ? 'bg-blue-100 dark:bg-blue-900/40' : ''"
         >
           <div class="flex items-center gap-2">
-            <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" title="Play" :disabled="!queueFor(playlist.id).length" @click="playSource(playlist.id)"><Play class="h-4 w-4" /></button>
+            <button class="tooltip tooltip-left flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40" data-tip="Play" :disabled="!queueFor(playlist.id).length" @click="playSource(playlist.id)"><Play class="h-4 w-4" /></button>
             <template v-if="renamingId === playlist.id">
               <input
                 v-model="renameName"
@@ -383,16 +383,16 @@ onMounted(refresh);
                 </span>
               </button>
               <button
-                class="flex h-8 shrink-0 items-center rounded px-2 text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40"
+                class="tooltip tooltip-left flex h-8 shrink-0 items-center rounded px-2 text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40"
                 :disabled="currentFilePath === null || playlist.tracks.some((t) => t.kind === 'file' && t.path === currentFilePath)"
-                title="Add the currently playing local track to this playlist"
+                data-tip="Add the currently playing local track to this playlist"
                 @click="addCurrent(playlist.id)"
               >
                 + Current
               </button>
               <button
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                title="More actions"
+                class="tooltip tooltip-left flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                data-tip="More actions"
                 @click="openMenu($event, playlist.id)"
               >
                 <Settings2 class="h-4 w-4" />
@@ -425,32 +425,32 @@ onMounted(refresh);
                 </template>
                 <template v-else>
                   <span
-                    class="min-w-0 flex-1 truncate"
+                    class="tooltip tooltip-top min-w-0 flex-1 truncate"
                     :class="trackMissing(entry.track) ? 'text-neutral-400 line-through' : ''"
-                    :title="entry.track.kind === 'file' ? entry.track.path : `https://www.youtube.com/watch?v=${entry.track.videoId}`"
+                    :data-tip="entry.track.kind === 'file' ? entry.track.path : `https://www.youtube.com/watch?v=${entry.track.videoId}`"
                   >
                     {{ trackLabel(entry.track) }}
                   </span>
                   <span v-if="trackMissing(entry.track)" class="shrink-0 text-neutral-400">file missing</span>
                   <button
                     v-if="entry.track.kind === 'youtube'"
-                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                    title="Rename this link"
+                    class="tooltip tooltip-left flex h-7 w-7 shrink-0 items-center justify-center rounded hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                    data-tip="Rename this link"
                     @click="startEditTitle(index, entry.track.title)"
                   >
                     <Pencil class="h-3.5 w-3.5" />
                   </button>
                   <button
-                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40"
-                    title="Play this item (in this playlist's order)"
+                    class="tooltip tooltip-left flex h-7 w-7 shrink-0 items-center justify-center rounded bg-blue-600 text-white disabled:opacity-40"
+                    data-tip="Play this item (in this playlist's order)"
                     :disabled="!entry.player"
                     @click="playTrack(playlist, index)"
                   >
                     <Play class="h-3.5 w-3.5" />
                   </button>
                   <button
-                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
-                    title="Remove this item from the playlist"
+                    class="tooltip tooltip-left flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
+                    data-tip="Remove this item from the playlist"
                     @click="removeTrack(playlist.id, index)"
                   >
                     <Trash2 class="h-3.5 w-3.5" />

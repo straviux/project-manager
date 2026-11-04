@@ -562,16 +562,16 @@ onUnmounted(() => {
 
       <div class="flex items-center gap-1">
         <button
-          class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          title="Previous track"
+          class="tooltip tooltip-top rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          data-tip="Previous track"
           :disabled="!current"
           @click="prev"
         >
           <SkipBack class="h-5 w-5" />
         </button>
         <button
-          class="rounded-full bg-blue-600 p-2.5 text-white hover:bg-blue-700 disabled:opacity-40"
-          :title="playing ? 'Pause' : 'Play'"
+          class="tooltip tooltip-top rounded-full bg-blue-600 p-2.5 text-white hover:bg-blue-700 disabled:opacity-40"
+          :data-tip="playing ? 'Pause' : 'Play'"
           :disabled="!current"
           @click="togglePlay"
         >
@@ -579,25 +579,25 @@ onUnmounted(() => {
           <Play v-else class="h-5 w-5" />
         </button>
         <button
-          class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          title="Next track"
+          class="tooltip tooltip-top rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          data-tip="Next track"
           :disabled="!current"
           @click="next()"
         >
           <SkipForward class="h-5 w-5" />
         </button>
         <button
-          class="rounded p-2"
+          class="tooltip tooltip-top rounded p-2"
           :class="shuffle ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
-          title="Shuffle on/off — next track is random"
+          data-tip="Shuffle on/off — next track is random"
           :disabled="!current"
           @click="shuffle = !shuffle; shuffleHistory = []"
         >
           <Shuffle class="h-5 w-5" />
         </button>
         <button
-          class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          title="Play a random track"
+          class="tooltip tooltip-top rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          data-tip="Play a random track"
           :disabled="!current"
           @click="playRandom"
         >
@@ -626,8 +626,8 @@ onUnmounted(() => {
 
       <div class="flex items-center gap-1">
         <button
-          class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          :title="isYoutube ? 'YouTube links cannot be favorited' : isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+          class="tooltip tooltip-top rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          :data-tip="isYoutube ? 'YouTube links cannot be favorited' : isFavorite ? 'Remove from favorites' : 'Add to favorites'"
           :disabled="!current || isYoutube"
           @click="toggleCurrentFavorite"
         >
@@ -637,15 +637,15 @@ onUnmounted(() => {
           />
         </button>
         <button
-          class="flex items-center gap-1.5 rounded px-2 py-2 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          title="Open the playlist manager"
+          class="tooltip tooltip-top flex items-center gap-1.5 rounded px-2 py-2 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          data-tip="Open the playlist manager"
           @click="emit('openPlaylists')"
         >
           <ListMusic class="h-4 w-4" /> Playlists
         </button>
         <button
-          class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          :title="muted ? 'Unmute' : 'Mute'"
+          class="tooltip tooltip-top rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          :data-tip="muted ? 'Unmute' : 'Mute'"
           @click="toggleMute"
         >
           <VolumeX v-if="muted || volume === 0" class="h-4 w-4" />
@@ -660,16 +660,16 @@ onUnmounted(() => {
           @input="setVolume(Number(($event.target as HTMLInputElement).value))"
         />
         <button
-          class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          :title="isYoutube ? 'Open this video on YouTube' : 'Open in its own app'"
+          class="tooltip tooltip-top rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          :data-tip="isYoutube ? 'Open this video on YouTube' : 'Open in its own app'"
           :disabled="!current"
           @click="openCurrent"
         >
           <ExternalLink class="h-4 w-4" />
         </button>
         <button
-          class="rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          title="Stop and close player"
+          class="tooltip tooltip-top rounded p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          data-tip="Stop and close player"
           @click="close"
         >
           <X class="h-4 w-4" />
