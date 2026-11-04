@@ -103,9 +103,9 @@ function loadDb(): Promise<Database> {
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`);
-      // Password entries hold metadata only — name, username, notes.
-      // The secret itself is never a column here; it lives only in
-      // the OS keychain under `password-<id>` (Rust password_*).
+      // Password entries hold metadata plus the vault secret column
+      // (AES-GCM ciphertext from src/lib/vault.ts, or NULL). Older
+      // databases predate the column, so it is added by migration.
       await db.execute(`
         CREATE TABLE IF NOT EXISTS password_entries (
           id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,6 +115,14 @@ function loadDb(): Promise<Database> {
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`);
+      const pwCols = await db.select<{ name: string }[]>(
+        "PRAGMA table_info(password_entries)",
+      );
+      if (!new Set(pwCols.map((c) => c.name)).has("secret")) {
+        await db.execute(
+          "ALTER TABLE password_entries ADD COLUMN secret TEXT",
+        );
+      }
       // NOTE: SSH passwords are intentionally NOT stored here.
       // Profiles hold connection details only; auth uses SSH keys.
       await db.execute(`
@@ -544,14 +552,18 @@ export async function deleteTodo(id: number): Promise<void> {
 }
 
 /* -------------------------- password entries ------------------------ */
-/* Metadata only — see the PasswordEntry type. The secret is handled
-   entirely by the Rust password_* commands (OS keychain). */
+/* Metadata (name, username, notes) plus the vault secret: an AES-GCM
+   ciphertext produced by src/lib/vault.ts, or NULL when no password
+   is saved. The secret is never plaintext here and never in the OS
+   keychain — the vault key that decrypts it lives only in dialog
+   memory while the manager is unlocked. */
 
 interface PasswordRow {
   id: number;
   name: string;
   username: string;
   notes: string;
+  has_secret: number;
   created_at: string;
   updated_at: string;
 }
@@ -562,6 +574,7 @@ function mapPasswordEntry(r: PasswordRow): PasswordEntry {
     name: r.name,
     username: r.username,
     notes: r.notes,
+    hasSecret: r.has_secret === 1,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -570,9 +583,39 @@ function mapPasswordEntry(r: PasswordRow): PasswordEntry {
 export async function listPasswordEntries(): Promise<PasswordEntry[]> {
   const db = await loadDb();
   const rows = await db.select<PasswordRow[]>(
-    "SELECT * FROM password_entries ORDER BY name COLLATE NOCASE ASC",
+    "SELECT *, (secret IS NOT NULL) AS has_secret FROM password_entries " +
+      "ORDER BY name COLLATE NOCASE ASC",
   );
   return rows.map(mapPasswordEntry);
+}
+
+/** Fetch one entry's vault ciphertext (null when none saved). */
+export async function getPasswordSecret(id: number): Promise<string | null> {
+  const db = await loadDb();
+  const rows = await db.select<{ secret: string | null }[]>(
+    "SELECT secret FROM password_entries WHERE id = $1",
+    [id],
+  );
+  return rows.length ? rows[0].secret : null;
+}
+
+/** Store (or clear, with null) an entry's vault ciphertext. */
+export async function updatePasswordSecret(
+  id: number,
+  secret: string | null,
+): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "UPDATE password_entries SET secret = $1, updated_at = CURRENT_TIMESTAMP " +
+      "WHERE id = $2",
+    [secret, id],
+  );
+}
+
+/** Forget-PIN reset helper: wipe every vault secret, keep metadata. */
+export async function clearAllPasswordSecrets(): Promise<void> {
+  const db = await loadDb();
+  await db.execute("UPDATE password_entries SET secret = NULL");
 }
 
 export async function createPasswordEntry(

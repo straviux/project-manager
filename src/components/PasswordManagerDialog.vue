@@ -6,39 +6,48 @@ import { useEscapeClose } from "../lib/useEscapeClose";
 import { chromeDark } from "../lib/theme";
 import { showToast } from "../lib/toast";
 import {
+  clearAllPasswordSecrets,
   createPasswordEntry,
   deletePasswordEntry,
+  getPasswordSecret,
   listPasswordEntries,
   updatePasswordEntry,
+  updatePasswordSecret,
 } from "../lib/db";
-import {
-  passwordCopyPassword,
-  passwordDeletePassword,
-  passwordGetPassword,
-  passwordHasPassword,
-  passwordSetPassword,
-} from "../lib/api";
+import { passwordDeletePassword } from "../lib/api";
 import type { PasswordEntry } from "../types";
 import {
-  changePin,
   clearPin,
   createPin,
   hasPin,
+  replacePin,
   verifyPin,
 } from "../lib/pinLock";
+import {
+  VaultNotInitialized,
+  vaultChangePin,
+  vaultDecrypt,
+  vaultEncrypt,
+  vaultInit,
+  vaultReset,
+  vaultUnlock,
+} from "../lib/vault";
 
 // Password manager, opened from the header "Passwords" button next to
-// Playlists. Secrets live ONLY in the OS keychain (Rust password_*,
-// same service as SSH passwords) — the database holds name, username
-// and notes, never a password, and this component only holds a
-// revealed password in memory while its eye toggle is on for that
-// entry. Closing the dialog unmounts it and drops every revealed
-// value. Reveal is explicit per entry (eye button); copy uses the
-// Rust path, which clears the clipboard after 60 seconds.
+// Playlists. Secrets live in the app-local vault (see vault.ts):
+// AES-GCM ciphertext in the password_entries table, decrypted only
+// with the vault key that the PIN unwraps into this dialog's memory.
+// Closing the dialog unmounts it and drops the vault key plus every
+// revealed value. Nothing here touches the OS keychain anymore —
+// passwordDeletePassword is called best-effort only to clean up a
+// stale keychain copy when an entry's password is re-saved or the
+// entry is deleted. Reveal is explicit per entry (eye button); copy
+// clears the clipboard after 60 seconds.
 // Before any of that shows, a 4-digit PIN gates the dialog: the first
 // open creates it, every later open asks for it. The PIN itself is
-// stored only as a salted hash (see pinLock.ts); forgetting it just
-// resets the lock, never any saved password.
+// stored only as a salted hash (see pinLock.ts). Forgetting it
+// resets the lock AND deletes the vault secrets (they cannot be
+// decrypted without the PIN); entry names, usernames and notes stay.
 const emit = defineEmits<{ close: [] }>();
 
 const dialogPanel = ref<HTMLElement | null>(null);
@@ -47,9 +56,11 @@ useDialogDrag(dialogPanel, dialogHandle);
 useEscapeClose(() => emit("close"));
 
 const entries = ref<PasswordEntry[]>([]);
-const hasSecret = ref<Record<number, boolean>>({});
 const revealed = ref<Record<number, string>>({});
 const error = ref<string | null>(null);
+// The unwrapped vault key, held only while this dialog is unlocked.
+// Dropped on close with everything else (component unmount).
+const vaultKey = ref<CryptoKey | null>(null);
 
 // --- PIN gate. The dialog mounts locked every time it opens; nothing
 // below loads until the PIN passes, so entries are never even listed
@@ -78,13 +89,35 @@ async function submitPin() {
       if (pin.value !== pinConfirm.value)
         throw new Error("The PINs do not match.");
       await createPin(pin.value);
+      vaultKey.value = await vaultInit(pin.value);
     } else if (pinMode.value === "change") {
       if (pin.value !== pinConfirm.value)
         throw new Error("The new PINs do not match.");
-      await changePin(pinCurrent.value, pin.value);
+      if (!(await verifyPin(pinCurrent.value)))
+        throw new Error("The current PIN is incorrect.");
+      try {
+        vaultKey.value = await vaultChangePin(pinCurrent.value, pin.value);
+        await replacePin(pin.value);
+      } catch (e) {
+        // If the hash change failed after the re-wrap, wrap back
+        // with the old PIN so the old PIN still opens the vault.
+        await vaultChangePin(pin.value, pinCurrent.value).catch(() => {});
+        throw e;
+      }
     } else {
       if (!(await verifyPin(pin.value)))
         throw new Error("Incorrect PIN — try again.");
+      try {
+        vaultKey.value = await vaultUnlock(pin.value);
+      } catch (e) {
+        if (e instanceof VaultNotInitialized) {
+          // A PIN from before the vault existed (gate-only build):
+          // initialize the vault with this PIN and carry on.
+          vaultKey.value = await vaultInit(pin.value);
+        } else {
+          throw e;
+        }
+      }
     }
     pin.value = "";
     pinConfirm.value = "";
@@ -115,7 +148,13 @@ function cancelChangePin() {
 }
 
 async function resetPin() {
+  // A forgotten PIN cannot be recovered: the wrapped vault key is
+  // destroyed with it, so every vault secret goes too. Metadata
+  // (names, usernames, notes) is kept — only the secrets are wiped.
   await clearPin().catch(() => {});
+  await vaultReset().catch(() => {});
+  await clearAllPasswordSecrets().catch(() => {});
+  vaultKey.value = null;
   pin.value = "";
   pinConfirm.value = "";
   pinCurrent.value = "";
@@ -136,12 +175,14 @@ const editPassword = ref("");
 const confirmDeleteId = ref<number | null>(null);
 
 async function refresh() {
+  // No keychain calls anymore: whether an entry has a secret comes
+  // from the listing itself (secret IS NOT NULL).
   entries.value = await listPasswordEntries();
-  const flags: Record<number, boolean> = {};
-  for (const e of entries.value) {
-    flags[e.id] = await passwordHasPassword(e.id).catch(() => false);
-  }
-  hasSecret.value = flags;
+}
+
+function requireVaultKey(): CryptoKey {
+  if (!vaultKey.value) throw new Error("Unlock the manager first.");
+  return vaultKey.value;
 }
 
 async function add() {
@@ -157,7 +198,8 @@ async function add() {
     );
     if (!id) throw new Error("Could not create the entry.");
     try {
-      await passwordSetPassword(id, password);
+      const ciphertext = await vaultEncrypt(requireVaultKey(), password);
+      await updatePasswordSecret(id, ciphertext);
     } catch (e) {
       // Metadata without a secret is a half-saved entry: remove it
       // rather than leaving a name that looks saved but has no password.
@@ -182,7 +224,11 @@ async function toggleReveal(entry: PasswordEntry) {
     return;
   }
   try {
-    const password = await passwordGetPassword(entry.id);
+    // The listing carries only the hasSecret flag, not the
+    // ciphertext — fetch it fresh so secrets never sit in the list.
+    const stored = await getPasswordSecret(entry.id);
+    if (!stored) throw new Error("No password saved for this entry.");
+    const password = await vaultDecrypt(requireVaultKey(), stored);
     revealed.value = { ...revealed.value, [entry.id]: password };
   } catch (e) {
     error.value = String(e);
@@ -191,8 +237,23 @@ async function toggleReveal(entry: PasswordEntry) {
 
 async function copy(entry: PasswordEntry) {
   try {
-    await passwordCopyPassword(entry.id);
+    const stored = await getPasswordSecret(entry.id);
+    if (!stored) throw new Error("No password saved for this entry.");
+    const password = await vaultDecrypt(requireVaultKey(), stored);
+    await navigator.clipboard.writeText(password);
     showToast("Password copied — it clears from the clipboard after 60 seconds.");
+    // Clear it after 60s, but only if the clipboard still holds
+    // exactly this password, so we never wipe something the user
+    // copied afterwards.
+    window.setTimeout(async () => {
+      try {
+        if ((await navigator.clipboard.readText()) === password) {
+          await navigator.clipboard.writeText("");
+        }
+      } catch {
+        // Clipboard unreadable (permissions) — leave it alone.
+      }
+    }, 60_000);
   } catch (e) {
     error.value = String(e);
   }
@@ -219,7 +280,15 @@ async function saveEdit(entry: PasswordEntry) {
     );
     // A blank password field means "keep the existing secret".
     if (editPassword.value) {
-      await passwordSetPassword(entry.id, editPassword.value);
+      const ciphertext = await vaultEncrypt(
+        requireVaultKey(),
+        editPassword.value,
+      );
+      await updatePasswordSecret(entry.id, ciphertext);
+      // Best-effort cleanup of a stale keychain copy for this entry
+      // (from before the vault move). Failures are ignored: the
+      // vault already holds the secret.
+      await passwordDeletePassword(entry.id).catch(() => {});
     }
     editingId.value = null;
     await refresh();
@@ -231,6 +300,8 @@ async function saveEdit(entry: PasswordEntry) {
 async function remove(entry: PasswordEntry) {
   confirmDeleteId.value = null;
   try {
+    // Best-effort keychain cleanup (see saveEdit); the row delete
+    // below removes the vault secret with the entry itself.
     await passwordDeletePassword(entry.id).catch(() => {});
     await deletePasswordEntry(entry.id);
     await refresh();
@@ -264,8 +335,10 @@ onMounted(initLock);
           <template v-else>Enter your PIN to view your passwords.</template>
         </p>
         <p class="mb-4 text-xs text-neutral-500">
-          The PIN only locks this screen — your passwords stay in the
-          OS keychain, and resetting a forgotten PIN never deletes them.
+          The PIN unlocks this screen and the vault behind it.
+          Resetting a forgotten PIN also deletes every saved vault
+          password (they cannot be decrypted without it) — entry
+          names, usernames and notes are kept.
         </p>
 
         <div v-if="pinError" class="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -320,7 +393,7 @@ onMounted(initLock);
             Forgot PIN?
           </button>
           <span v-else class="flex flex-wrap items-center gap-2 text-neutral-500">
-            Reset the PIN lock? Your passwords stay saved.
+            Resetting also deletes all saved vault passwords.
             <button class="rounded bg-red-600 px-2 py-1 font-medium text-white" @click="resetPin">Reset PIN</button>
             <button class="hover:text-neutral-700 dark:hover:text-neutral-300" @click="confirmReset = false">Cancel</button>
           </span>
@@ -329,8 +402,8 @@ onMounted(initLock);
 
       <div v-else>
       <p class="mb-4 text-xs text-neutral-500">
-        Passwords are stored only in your operating system's keychain
-        (Windows Credential Manager) — never in the app database.
+        Passwords are encrypted in the app's own database and unlocked
+        only by your PIN — never in Windows Credential Manager.
         Reveal shows a password here until you hide it or close this
         dialog; Copy clears it from the clipboard after 60 seconds.
       </p>
@@ -392,12 +465,12 @@ onMounted(initLock);
                 <span v-if="revealed[entry.id] !== undefined" class="mt-1 block select-all break-all rounded bg-neutral-100 px-2 py-1 font-mono text-xs dark:bg-neutral-800">
                   {{ revealed[entry.id] }}
                 </span>
-                <span v-else-if="!hasSecret[entry.id]" class="mt-1 block text-xs text-amber-600 dark:text-amber-400">
+                <span v-else-if="!entry.hasSecret" class="mt-1 block text-xs text-amber-600 dark:text-amber-400">
                   No password saved for this entry.
                 </span>
               </span>
               <button
-                v-if="hasSecret[entry.id]"
+                v-if="entry.hasSecret"
                 class="rounded p-1 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                 :title="revealed[entry.id] !== undefined ? 'Hide password' : 'Reveal password'"
                 @click="toggleReveal(entry)"
@@ -406,7 +479,7 @@ onMounted(initLock);
                 <Eye v-else class="h-4 w-4" />
               </button>
               <button
-                v-if="hasSecret[entry.id]"
+                v-if="entry.hasSecret"
                 class="rounded p-1 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                 title="Copy password"
                 @click="copy(entry)"
@@ -464,8 +537,8 @@ onMounted(initLock);
         </button>
       </div>
       <p class="mb-5 text-xs text-neutral-500">
-        If saving to the keychain fails, the entry is removed again
-        rather than left looking saved with no password behind it.
+        If saving fails, the entry is removed again rather than left
+        looking saved with no password behind it.
       </p>
 
       <div class="flex justify-end gap-2">

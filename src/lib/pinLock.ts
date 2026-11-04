@@ -77,6 +77,18 @@ export async function changePin(
   await savePin(newPin);
 }
 
+/**
+ * Replace the stored PIN hash without re-checking the current PIN.
+ * Callers that already verified it (the vault re-wrap flow verifies
+ * the current PIN when unwrapping) use this, so a second check
+ * cannot fail between the vault change and the hash change.
+ */
+export async function replacePin(newPin: string): Promise<void> {
+  if (!isPinFormat(newPin))
+    throw new Error("The new PIN must be exactly 4 digits.");
+  await savePin(newPin);
+}
+
 /** Remove the PIN lock. Saved passwords are untouched. */
 export async function clearPin(): Promise<void> {
   await setSetting(SALT_KEY, "");

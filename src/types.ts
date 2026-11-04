@@ -123,18 +123,20 @@ export interface Todo {
 }
 
 /**
- * A password entry's metadata only. The secret itself is NEVER in
- * this type, in SQLite, or in any frontend state except briefly
- * while revealed: it lives only in the OS keychain under
- * `password-<id>` (see the password_* Rust commands, same pattern
- * as SSH passwords). Revealing fetches it on demand; closing the
- * manager drops it.
+ * A password entry: metadata plus a flag saying whether a vault
+ * secret is stored. The secret itself is NEVER plaintext in this
+ * type — only its AES-GCM ciphertext sits in SQLite (see the
+ * `secret` column and src/lib/vault.ts), and revealing decrypts it
+ * into frontend memory only while the manager is unlocked; closing
+ * the manager drops both the revealed values and the vault key.
  */
 export interface PasswordEntry {
   id: number;
   name: string;
   username: string;
   notes: string;
+  /** True when a vault secret is stored for this entry. */
+  hasSecret: boolean;
   createdAt: string;
   updatedAt: string;
 }
