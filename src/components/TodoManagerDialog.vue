@@ -50,13 +50,33 @@ function projectName(id: number | null): string {
   return props.projects.find((p) => p.id === id)?.name ?? "Deleted project";
 }
 
-const filtered = computed(() => {
-  if (filterValue.value === "all") return todos.value;
+// View switcher: All / Open / Done, combined with the project
+// filter above — both filters apply at once, so "Done" + a project
+// shows that project's completed todos, and so on.
+const view = ref<"all" | "open" | "done">("all");
+const projectFiltered = computed(() => {
   if (filterValue.value === "none")
     return todos.value.filter((t) => t.projectId == null);
-  return todos.value.filter((t) => t.projectId === Number(filterValue.value));
+  if (filterValue.value !== "all")
+    return todos.value.filter((t) => t.projectId === Number(filterValue.value));
+  return todos.value;
+});
+const filtered = computed(() => {
+  if (view.value === "open")
+    return projectFiltered.value.filter((t) => !t.done);
+  if (view.value === "done")
+    return projectFiltered.value.filter((t) => t.done);
+  return projectFiltered.value;
 });
 const openCount = computed(() => todos.value.filter((t) => !t.done).length);
+// Switcher counts follow the project filter, so they always match
+// the list below them; the header's open count stays global.
+const openInFilter = computed(
+  () => projectFiltered.value.filter((t) => !t.done).length,
+);
+const doneInFilter = computed(
+  () => projectFiltered.value.filter((t) => t.done).length,
+);
 
 async function refresh() {
   todos.value = await listTodos();
@@ -131,6 +151,32 @@ onMounted(refresh);
             {{ p.name }}
           </option>
         </select>
+        <span class="ml-auto flex overflow-hidden rounded-lg border border-neutral-300 dark:border-neutral-700">
+          <button
+            class="px-3 py-1.5 text-sm"
+            :class="view === 'all' ? 'bg-blue-600 font-medium text-white' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+            title="Show all todos"
+            @click="view = 'all'"
+          >
+            All ({{ projectFiltered.length }})
+          </button>
+          <button
+            class="border-x border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-700"
+            :class="view === 'open' ? 'bg-blue-600 font-medium text-white' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+            title="Show only open todos"
+            @click="view = 'open'"
+          >
+            Open ({{ openInFilter }})
+          </button>
+          <button
+            class="px-3 py-1.5 text-sm"
+            :class="view === 'done' ? 'bg-blue-600 font-medium text-white' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+            title="Show only completed todos"
+            @click="view = 'done'"
+          >
+            Done ({{ doneInFilter }})
+          </button>
+        </span>
       </div>
 
       <ul class="mb-4 max-h-80 space-y-1 overflow-y-auto pr-1">

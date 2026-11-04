@@ -410,6 +410,21 @@ export async function recordFileOpen(path: string): Promise<void> {
   );
 }
 
+/**
+ * Remove a file from Quick Access only: unstar it and clear its open
+ * count / last-opened, so it drops out of both the Pinned and the
+ * Most opened sections. Status and notes are deliberately kept —
+ * this is not a delete: the file itself stays in the library, and
+ * opening it again will make it reappear under Most opened.
+ */
+export async function removeFromQuickAccess(path: string): Promise<void> {
+  const db = await loadDb();
+  await db.execute(
+    "UPDATE file_meta SET starred = 0, open_count = 0, last_opened = NULL WHERE path = $1",
+    [path],
+  );
+}
+
 export async function deleteFileMeta(path: string): Promise<void> {
   const db = await loadDb();
   await db.execute("DELETE FROM file_meta WHERE path = $1", [path]);

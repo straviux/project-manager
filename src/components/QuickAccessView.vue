@@ -9,13 +9,16 @@ import {
   Play,
   Search,
   Star,
+  Trash2,
 } from "@lucide/vue";
 import { listLibraryFiles, openPath } from "../lib/api";
 import {
   getAllFileMeta,
   recordFileOpen,
+  removeFromQuickAccess,
   setFileMeta,
 } from "../lib/db";
+import { showToast } from "../lib/toast";
 import { isPreviewable } from "../lib/documents";
 import {
   fileTypeBadgeClasses,
@@ -134,6 +137,28 @@ async function toggleStar(file: LibraryFile) {
       ...meta.value,
       [file.path]: { ...metaOf(file), starred: !metaOf(file).starred },
     };
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
+// Remove a row from Quick Access entirely (both sections at once:
+// unstar + clear usage, see removeFromQuickAccess in db.ts). The
+// file itself is untouched and stays in the library — opening it
+// again puts it back under Most opened.
+async function removeFile(file: LibraryFile) {
+  try {
+    await removeFromQuickAccess(file.path);
+    meta.value = {
+      ...meta.value,
+      [file.path]: {
+        ...metaOf(file),
+        starred: false,
+        openCount: 0,
+        lastOpened: null,
+      },
+    };
+    showToast("Removed from Quick Access — the file stays in your library.");
   } catch (e) {
     error.value = String(e);
   }
@@ -286,6 +311,13 @@ function folderOf(file: LibraryFile): string {
               >
                 <Star class="h-4 w-4 fill-amber-500" />
               </button>
+              <button
+                class="rounded p-1.5 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
+                title="Remove from Quick Access (the file stays in your library)"
+                @click="removeFile(file)"
+              >
+                <Trash2 class="h-4 w-4" />
+              </button>
             </span>
           </li>
         </ul>
@@ -350,6 +382,13 @@ function folderOf(file: LibraryFile): string {
                 @click="toggleStar(file)"
               >
                 <Star class="h-4 w-4" />
+              </button>
+              <button
+                class="rounded p-1.5 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
+                title="Remove from Quick Access (the file stays in your library)"
+                @click="removeFile(file)"
+              >
+                <Trash2 class="h-4 w-4" />
               </button>
             </span>
           </li>
