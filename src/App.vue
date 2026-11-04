@@ -1010,27 +1010,6 @@ function openEdit(project: Project) {
           />
         </div>
       </main>
-      <MusicPlayerWidget
-        v-if="audioTrack"
-        :track="audioTrack"
-        :queue="audioQueue"
-        :source="playerSource"
-        @close="audioTrack = null; playerSource = 'all'"
-        @open-playlists="showPlaylistManager = true"
-      />
-      <TerminalPanel
-        v-if="terminalTabs.length"
-        :tabs="terminalTabs"
-        :active-tab-id="terminalActiveTabId"
-        :minimized="terminalMinimized"
-        @select-tab="terminalActiveTabId = $event"
-        @close-tab="closeTerminalTab"
-        @stop-tab="stopTerminalTab"
-        @clear-tab="(id) => { const tab = terminalTabs.find((t) => t.id === id); if (tab) tab.lines = []; }"
-        @send="sendTerminalInput"
-        @minimize="terminalMinimized = true"
-        @restore="terminalMinimized = false"
-      />
       <footer @contextmenu="onBodyContext"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
         :class="{ dark: chromeDark }"
@@ -1058,6 +1037,27 @@ function openEdit(project: Project) {
           </template>
         </div>
       </footer>
+      <MusicPlayerWidget
+        v-if="audioTrack"
+        :track="audioTrack"
+        :queue="audioQueue"
+        :source="playerSource"
+        @close="audioTrack = null; playerSource = 'all'"
+        @open-playlists="showPlaylistManager = true"
+      />
+      <TerminalPanel
+        v-if="terminalTabs.length"
+        :tabs="terminalTabs"
+        :active-tab-id="terminalActiveTabId"
+        :minimized="terminalMinimized"
+        @select-tab="terminalActiveTabId = $event"
+        @close-tab="closeTerminalTab"
+        @stop-tab="stopTerminalTab"
+        @clear-tab="(id) => { const tab = terminalTabs.find((t) => t.id === id); if (tab) tab.lines = []; }"
+        @send="sendTerminalInput"
+        @minimize="terminalMinimized = true"
+        @restore="terminalMinimized = false"
+      />
     </template>
 
     <ProjectDialog

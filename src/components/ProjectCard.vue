@@ -167,7 +167,7 @@ watch(() => props.statusKey, loadStatus);
       :class="dropAfter ? '-bottom-2' : '-top-2'"
     />
     <header class="mb-1 flex items-start justify-between gap-2">
-      <h3 class="flex items-center gap-2 text-lg font-semibold">
+      <h3 class="flex min-w-0 items-center gap-2 text-lg font-semibold">
         <GripVertical
           v-if="reorderEnabled"
           class="h-4 w-4 shrink-0 cursor-grab text-neutral-400"
@@ -315,7 +315,7 @@ watch(() => props.statusKey, loadStatus);
          Labels and icons are unchanged on purpose. -->
     <footer class="mt-auto flex items-stretch gap-2">
       <!-- Open: VS Code, Folder, Terminal, SSH -->
-      <div class="flex flex-[4] gap-1.5">
+      <div class="flex min-w-0 flex-[4] gap-1.5">
         <button class="action flex-1 tooltip tooltip-top" data-tip="Open in VS Code" @click="emit('vscode')">
           <VscodeIcon class="h-4 w-4" />
           <span>VS Code</span>
@@ -335,7 +335,7 @@ watch(() => props.statusKey, loadStatus);
       </div>
       <div aria-hidden="true" class="my-1 w-px shrink-0 bg-neutral-300/70 dark:bg-white/20"></div>
       <!-- Run -->
-      <div class="flex flex-[1] gap-1.5">
+      <div class="flex min-w-0 flex-[1] gap-1.5">
         <button class="action flex-1 tooltip tooltip-top" data-tip="Build & run — command from README.md" @click="emit('buildrun')">
           <Play class="h-4 w-4" />
           <span>Run</span>
@@ -347,6 +347,6 @@ watch(() => props.statusKey, loadStatus);
 
 <style scoped>
 .action {
-  @apply flex flex-col items-center justify-center gap-0.5 rounded-lg bg-neutral-200/80 px-1 py-2 text-[10px] font-medium text-neutral-900 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700;
+  @apply flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-neutral-200/80 px-1 py-2 text-[10px] font-medium text-neutral-900 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700;
 }
 </style>
