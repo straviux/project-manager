@@ -19,6 +19,13 @@ import {
   passwordSetPassword,
 } from "../lib/api";
 import type { PasswordEntry } from "../types";
+import {
+  changePin,
+  clearPin,
+  createPin,
+  hasPin,
+  verifyPin,
+} from "../lib/pinLock";
 
 // Password manager, opened from the header "Passwords" button next to
 // Playlists. Secrets live ONLY in the OS keychain (Rust password_*,
@@ -28,6 +35,10 @@ import type { PasswordEntry } from "../types";
 // entry. Closing the dialog unmounts it and drops every revealed
 // value. Reveal is explicit per entry (eye button); copy uses the
 // Rust path, which clears the clipboard after 60 seconds.
+// Before any of that shows, a 4-digit PIN gates the dialog: the first
+// open creates it, every later open asks for it. The PIN itself is
+// stored only as a salted hash (see pinLock.ts); forgetting it just
+// resets the lock, never any saved password.
 const emit = defineEmits<{ close: [] }>();
 
 const dialogPanel = ref<HTMLElement | null>(null);
@@ -39,6 +50,79 @@ const entries = ref<PasswordEntry[]>([]);
 const hasSecret = ref<Record<number, boolean>>({});
 const revealed = ref<Record<number, string>>({});
 const error = ref<string | null>(null);
+
+// --- PIN gate. The dialog mounts locked every time it opens; nothing
+// below loads until the PIN passes, so entries are never even listed
+// before unlock.
+const unlocked = ref(false);
+const pinMode = ref<"create" | "enter" | "change">("enter");
+const pin = ref("");
+const pinConfirm = ref("");
+const pinCurrent = ref("");
+const pinError = ref<string | null>(null);
+const confirmReset = ref(false);
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
+
+async function initLock() {
+  unlocked.value = false;
+  pinMode.value = (await hasPin().catch(() => false)) ? "enter" : "create";
+}
+
+async function submitPin() {
+  pinError.value = null;
+  try {
+    if (pinMode.value === "create") {
+      if (pin.value !== pinConfirm.value)
+        throw new Error("The PINs do not match.");
+      await createPin(pin.value);
+    } else if (pinMode.value === "change") {
+      if (pin.value !== pinConfirm.value)
+        throw new Error("The new PINs do not match.");
+      await changePin(pinCurrent.value, pin.value);
+    } else {
+      if (!(await verifyPin(pin.value)))
+        throw new Error("Incorrect PIN — try again.");
+    }
+    pin.value = "";
+    pinConfirm.value = "";
+    pinCurrent.value = "";
+    confirmReset.value = false;
+    unlocked.value = true;
+    await refresh();
+  } catch (e) {
+    pinError.value = String(e);
+  }
+}
+
+function startChangePin() {
+  pin.value = "";
+  pinConfirm.value = "";
+  pinCurrent.value = "";
+  pinError.value = null;
+  pinMode.value = "change";
+  unlocked.value = false;
+}
+
+function cancelChangePin() {
+  pin.value = "";
+  pinConfirm.value = "";
+  pinCurrent.value = "";
+  pinError.value = null;
+  unlocked.value = true;
+}
+
+async function resetPin() {
+  await clearPin().catch(() => {});
+  pin.value = "";
+  pinConfirm.value = "";
+  pinCurrent.value = "";
+  pinError.value = null;
+  confirmReset.value = false;
+  pinMode.value = "create";
+}
 
 const newName = ref("");
 const newUsername = ref("");
@@ -156,7 +240,7 @@ async function remove(entry: PasswordEntry) {
   }
 }
 
-onMounted(refresh);
+onMounted(initLock);
 </script>
 
 <template>
@@ -173,6 +257,77 @@ onMounted(refresh);
         </button>
       </h2>
 
+      <div v-if="!unlocked">
+        <p class="mb-1 text-sm font-medium">
+          <template v-if="pinMode === 'create'">Create a 4-digit PIN to protect this manager.</template>
+          <template v-else-if="pinMode === 'change'">Change your PIN.</template>
+          <template v-else>Enter your PIN to view your passwords.</template>
+        </p>
+        <p class="mb-4 text-xs text-neutral-500">
+          The PIN only locks this screen — your passwords stay in the
+          OS keychain, and resetting a forgotten PIN never deletes them.
+        </p>
+
+        <div v-if="pinError" class="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          {{ pinError }}
+        </div>
+
+        <input
+          v-if="pinMode === 'change'"
+          v-model="pinCurrent"
+          type="password"
+          inputmode="numeric"
+          maxlength="4"
+          placeholder="Current PIN"
+          class="mb-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm tracking-widest dark:border-neutral-700 dark:bg-neutral-900"
+          @input="pinCurrent = digitsOnly(pinCurrent)"
+          @keyup.enter="submitPin"
+        />
+        <input
+          v-model="pin"
+          type="password"
+          inputmode="numeric"
+          maxlength="4"
+          :placeholder="pinMode === 'enter' ? '4-digit PIN' : 'New 4-digit PIN'"
+          class="mb-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm tracking-widest dark:border-neutral-700 dark:bg-neutral-900"
+          @input="pin = digitsOnly(pin)"
+          @keyup.enter="submitPin"
+        />
+        <input
+          v-if="pinMode !== 'enter'"
+          v-model="pinConfirm"
+          type="password"
+          inputmode="numeric"
+          maxlength="4"
+          placeholder="Confirm PIN"
+          class="mb-4 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm tracking-widest dark:border-neutral-700 dark:bg-neutral-900"
+          @input="pinConfirm = digitsOnly(pinConfirm)"
+          @keyup.enter="submitPin"
+        />
+        <div class="flex gap-2">
+          <button
+            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            :disabled="pin.length !== 4 || (pinMode !== 'enter' && pinConfirm.length !== 4) || (pinMode === 'change' && pinCurrent.length !== 4)"
+            @click="submitPin"
+          >
+            {{ pinMode === "create" ? "Create PIN" : pinMode === "change" ? "Save new PIN" : "Unlock" }}
+          </button>
+          <button v-if="pinMode === 'change'" class="btn btn-ghost btn-sm" @click="cancelChangePin">Cancel</button>
+        </div>
+
+        <div v-if="pinMode === 'enter'" class="mt-4 text-xs">
+          <button v-if="!confirmReset" class="text-neutral-500 underline hover:text-neutral-700 dark:hover:text-neutral-300" @click="confirmReset = true">
+            Forgot PIN?
+          </button>
+          <span v-else class="flex flex-wrap items-center gap-2 text-neutral-500">
+            Reset the PIN lock? Your passwords stay saved.
+            <button class="rounded bg-red-600 px-2 py-1 font-medium text-white" @click="resetPin">Reset PIN</button>
+            <button class="hover:text-neutral-700 dark:hover:text-neutral-300" @click="confirmReset = false">Cancel</button>
+          </span>
+        </div>
+      </div>
+
+      <div v-else>
       <p class="mb-4 text-xs text-neutral-500">
         Passwords are stored only in your operating system's keychain
         (Windows Credential Manager) — never in the app database.
@@ -313,8 +468,10 @@ onMounted(refresh);
         rather than left looking saved with no password behind it.
       </p>
 
-      <div class="flex justify-end">
+      <div class="flex justify-end gap-2">
+        <button class="btn btn-ghost btn-sm" @click="startChangePin">Change PIN</button>
         <button class="btn btn-ghost btn-sm" @click="emit('close')">Close</button>
+      </div>
       </div>
     </div>
   </div>
