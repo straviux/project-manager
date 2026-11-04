@@ -168,12 +168,18 @@ function loadYtApi(): Promise<void> {
   };
   if (win.YT?.Player) return Promise.resolve();
   if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve) => {
+  ytApiPromise = new Promise((resolve, reject) => {
     const previous = win.onYouTubeIframeAPIReady;
     win.onYouTubeIframeAPIReady = () => {
       previous?.();
       resolve();
     };
+    // Without this, a blocked or failed script load would hang the
+    // track forever with no feedback at all.
+    setTimeout(
+      () => reject(new Error("YouTube player script did not load")),
+      15000,
+    );
     const script = document.createElement("script");
     script.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(script);
@@ -197,7 +203,17 @@ function destroyYt() {
 }
 
 async function setupYt(videoId: string) {
-  await loadYtApi();
+  try {
+    await loadYtApi();
+  } catch {
+    // Script never arrived (offline, blocked): show the error state
+    // instead of leaving a silent, unplayable track, and clear the
+    // rejected promise so a later track retries the load.
+    ytApiPromise = null;
+    error.value = true;
+    playing.value = false;
+    return;
+  }
   await nextTick();
   // The track may have changed while the API was loading.
   if (current.value?.kind !== "youtube" || current.value.videoId !== videoId)
@@ -237,6 +253,13 @@ async function setupYt(videoId: string) {
       onError: () => {
         error.value = true;
         playing.value = false;
+        // YouTube refusing the video (e.g. the owner disabled
+        // embedding, or the video is unavailable) is not fixable
+        // in-app — say so plainly instead of leaving a dead track,
+        // and point at the fallback that always works.
+        showToast(
+          "This YouTube video can't be played embedded — open it on YouTube with the open button instead.",
+        );
       },
     },
   });
@@ -419,12 +442,19 @@ function close() {
 
 watch(
   () => [props.track, props.source] as const,
-  ([track, newSource]) => {
+  async ([track, newSource]) => {
     // One watcher for both, so a single App update (new track + new
     // source + new queue) is applied atomically: set the source first,
     // then find the track in the queue that source resolves to.
     source.value = newSource;
     shuffleHistory.value = [];
+    // Playlists are otherwise loaded only on mount, but the manager
+    // can add a track — e.g. a YouTube link — to an existing playlist
+    // while the bar is already open. Re-reading here, before
+    // resolving, is what makes a just-added link actually play:
+    // without it the stale copy silently drops the new track from
+    // the queue (a playlist of only that link looked empty).
+    await refreshPlaylists();
     const i = effectiveQueue.value.findIndex(
       (t) => playerTrackKey(t) === playerTrackKey(track),
     );
