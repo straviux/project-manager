@@ -160,6 +160,9 @@ let ytPlayer: {
 } | null = null;
 let ytApiPromise: Promise<void> | null = null;
 let ytInterval: ReturnType<typeof setInterval> | null = null;
+// Last YouTube error code for the current track, shown in the bar
+// text so the reason survives even if the toast is missed.
+const ytError = ref<number | null>(null);
 
 function loadYtApi(): Promise<void> {
   const win = window as unknown as {
@@ -250,15 +253,30 @@ async function setupYt(videoId: string) {
         else if (event.data === 1) playing.value = true;
         else if (event.data === 2) playing.value = false;
       },
-      onError: () => {
+      onError: (event: { data: number }) => {
         error.value = true;
         playing.value = false;
-        // YouTube refusing the video (e.g. the owner disabled
-        // embedding, or the video is unavailable) is not fixable
-        // in-app — say so plainly instead of leaving a dead track,
-        // and point at the fallback that always works.
+        // YouTube's error codes, in plain words, so a failure says
+        // WHY instead of just "couldn't play": 2 = bad video id,
+        // 5 = YouTube's own player error, 100 = not found / removed
+        // / private, 101 and 150 = the owner disabled embedding.
+        // The last one is not fixable in-app — the fallback is the
+        // open-on-YouTube button. The code is also kept in the bar
+        // text (see ytError below) so it survives a missed toast.
+        const code = event.data;
+        ytError.value = code;
+        const reason =
+          code === 2
+            ? "the video id looks invalid"
+            : code === 5
+              ? "YouTube's player hit an error"
+              : code === 100
+                ? "the video was not found, removed, or made private"
+                : code === 101 || code === 150
+                  ? "the owner doesn't allow embedding"
+                  : `YouTube error ${code}`;
         showToast(
-          "This YouTube video can't be played embedded — open it on YouTube with the open button instead.",
+          `YouTube refused this video: ${reason}. Open it on YouTube with the open button instead.`,
         );
       },
     },
@@ -280,6 +298,7 @@ function load(i: number) {
   }
   index.value = i;
   error.value = false;
+  ytError.value = null;
   currentTime.value = 0;
   duration.value = 0;
   destroyYt();
@@ -532,7 +551,10 @@ onUnmounted(() => {
               <span v-if="shuffle">· Shuffle on</span>
             </template>
             <span v-if="error" class="text-red-600 dark:text-red-400">
-              — couldn't play this file
+              — couldn't play this {{ isYoutube ? "video" : "file" }}
+              <span v-if="isYoutube && ytError !== null">
+                (YouTube error {{ ytError }})
+              </span>
             </span>
           </p>
         </div>
