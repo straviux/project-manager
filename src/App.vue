@@ -815,7 +815,7 @@ function openEdit(project: Project) {
 
     <template v-else-if="ready">
       <header class="relative z-30 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900" :class="{ dark: chromeDark }">
-        <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 px-6 py-4">
+        <div class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-3 px-6 py-4">
           <h1 class="flex items-center gap-2 text-xl font-bold min-[1600px]:absolute min-[1600px]:left-6 min-[1600px]:top-1/2 min-[1600px]:-translate-y-1/2">
             <LayoutGrid class="h-6 w-6 text-blue-600" /> Project Manager
           </h1>
@@ -824,24 +824,28 @@ function openEdit(project: Project) {
                shortcuts follow the same order (1 = Quick Access,
                2 = Files, 3 = Projects). The saved tab still wins
                at boot — see ACTIVE_TAB_KEY. -->
-          <nav class="flex overflow-hidden rounded-lg ring-1 ring-neutral-300 dark:ring-neutral-700">
+          <!-- Ungrouped tabs: no shared segmented container, each tab
+               stands alone; the active one gets a rotating gradient
+               border (.nav-tab-active in index.css) instead of the
+               old underline bar. -->
+          <nav class="flex gap-1">
             <button
-              class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'quickaccess' ? 'switch-active tab-active' : ''"
+              class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium"
+              :class="tab === 'quickaccess' ? 'switch-active nav-tab-active' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
               @click="tab = 'quickaccess'"
             >
               <Zap class="h-4 w-4" /> Quick Access
             </button>
             <button
-              class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'files' ? 'switch-active tab-active' : ''"
+              class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium"
+              :class="tab === 'files' ? 'switch-active nav-tab-active' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
               @click="tab = 'files'"
             >
               <Files class="h-4 w-4" /> Files
             </button>
             <button
-              class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
-              :class="tab === 'projects' ? 'switch-active tab-active' : ''"
+              class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium"
+              :class="tab === 'projects' ? 'switch-active nav-tab-active' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
               @click="tab = 'projects'"
             >
               <LayoutGrid class="h-4 w-4" /> Projects
@@ -867,7 +871,7 @@ function openEdit(project: Project) {
 
       <div
         v-if="pendingUpdate"
-        class="mx-auto mt-4 flex w-full max-w-7xl flex-wrap items-center gap-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100"
+        class="mx-auto mt-4 flex w-full max-w-[1600px] flex-wrap items-center gap-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100"
       >
         <ArrowDownToLine class="h-4 w-4 shrink-0" />
         <span class="min-w-0 flex-1">
@@ -902,18 +906,18 @@ function openEdit(project: Project) {
       </div>
       <div
         v-if="notice"
-        class="mx-auto mt-4 w-full max-w-7xl rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
+        class="mx-auto mt-4 w-full max-w-[1600px] rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300"
       >
         {{ notice }}
       </div>
       <div
         v-if="error"
-        class="mx-auto mt-4 w-full max-w-7xl rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+        class="mx-auto mt-4 w-full max-w-[1600px] rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
       >
         {{ error }}
       </div>
 
-      <main class="mx-auto w-full max-w-7xl flex-1 overflow-y-auto px-6 py-6" @contextmenu="onBodyContext">
+      <main class="mx-auto w-full max-w-[1600px] flex-1 overflow-y-auto px-6 py-6" @contextmenu="onBodyContext">
         <div v-show="tab === 'quickaccess'">
           <QuickAccessView
             :files-dir="filesDir"
@@ -1031,7 +1035,7 @@ function openEdit(project: Project) {
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
         :class="{ dark: chromeDark }"
       >
-        <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-1">
+        <div class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1">
           <template v-if="tab === 'projects'">
           <span class="flex min-w-0 items-baseline gap-1.5">
             <span class="shrink-0">Projects folder:</span>

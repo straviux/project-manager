@@ -135,7 +135,7 @@ watch(() => props.statusKey, loadStatus);
 
 <template>
   <article
-    class="card-glass relative flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
+    class="card-glass relative flex min-w-0 flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
     :data-project-id="project.id"
     :class="[
       project.pinned && !dragActive

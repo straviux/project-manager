@@ -515,10 +515,10 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+    class="border-t border-neutral-200/70 bg-white/70 backdrop-blur-xl backdrop-saturate-150 dark:border-neutral-800/70 dark:bg-neutral-900/70"
     :class="{ dark: chromeDark }"
   >
-    <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
+    <div class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
       <div
         v-if="isYoutube"
         ref="ytEl"

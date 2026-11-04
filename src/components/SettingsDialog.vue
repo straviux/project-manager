@@ -3,9 +3,24 @@ import { ref } from "vue";
 import { Check, Settings, X } from "@lucide/vue";
 import { useDialogDrag } from "../lib/useDialogDrag";
 import { useEscapeClose } from "../lib/useEscapeClose";
-import { BG_THEMES, bgTheme, chromeDark, setBgTheme } from "../lib/theme";
+import {
+  BG_THEMES,
+  bgTheme,
+  chromeDark,
+  setBgTheme,
+  type BgThemeDef,
+} from "../lib/theme";
 
 const emit = defineEmits<{ close: [] }>();
+
+// Swatch preview: in light mode a flat theme shows its light pastel
+// variant, not the dark one — the dark swatch on a light dialog was
+// the visible "wrong color" for sky/mint/blush/butter. Glass themes
+// have no light variant (they are dark-only) and keep theirs.
+function swatchStyle(t: BgThemeDef): { backgroundImage: string } | undefined {
+  const preview = !chromeDark.value && t.previewLight ? t.previewLight : t.preview;
+  return preview ? { backgroundImage: preview } : undefined;
+}
 
 const dialogPanel = ref<HTMLElement | null>(null);
 const dialogHandle = ref<HTMLElement | null>(null);
@@ -34,8 +49,9 @@ useEscapeClose(() => emit("close"));
         Sonoma, Sequoia, Monterey, Big Sur and Catalina are dark iOS/macOS-style glass themes:
         vivid wallpapers with true frosted-glass cards. Light Glass is the same
         frosted-glass look in full light mode — it switches the whole app out of
-        dark mode while it is active. The rest are flat colors with softly
-        translucent cards. Changes apply immediately.
+        dark mode while it is active. The rest are flat colors that follow the
+        app's current light or dark mode, with softly translucent cards.
+        Changes apply immediately.
       </p>
       <div class="grid grid-cols-3 gap-2">
         <button
@@ -47,8 +63,8 @@ useEscapeClose(() => emit("close"));
         >
           <span
             class="relative block h-9 w-full overflow-hidden rounded-md ring-1 ring-neutral-300 dark:ring-neutral-700"
-            :class="t.preview ? '' : 'bg-neutral-100 dark:bg-neutral-800'"
-            :style="t.preview ? { backgroundImage: t.preview } : undefined"
+            :class="swatchStyle(t) ? '' : 'bg-neutral-100 dark:bg-neutral-800'"
+            :style="swatchStyle(t)"
           >
             <Check
               v-if="bgTheme === t.id"

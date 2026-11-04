@@ -28,9 +28,19 @@ export interface BgThemeDef {
   id: BgTheme;
   label: string;
   hint: string;
-  /** Gradient used for the settings swatch preview (the dark variant,
-   *  since the app is dark-only). */
+  /** Swatch preview for the settings dialog, in dark mode. Flat
+   *  themes also carry previewLight for light mode (below). */
   preview: string;
+  /** Swatch preview for the settings dialog, in light mode. Only
+   *  flat themes have one — glass themes are dark-only by design. */
+  previewLight?: string;
+  /** Flat themes follow the app's current light/dark mode instead of
+   *  forcing dark: their CSS already defines both a light pastel
+   *  backdrop and a dark one, and the watcher below leaves the mode
+   *  alone for these. Before this, picking one always yanked a light
+   *  -mode user into dark mode, so the light colors were unreachable
+   *  and the swatches (dark) never matched a light-mode screen. */
+  adaptive?: boolean;
   /** Dark backdrops: loose on-background text flips light for readability. */
   dark?: boolean;
   /** iOS/macOS-style layout themes: cards become true frosted glass. */
@@ -103,30 +113,40 @@ export const BG_THEMES: BgThemeDef[] = [
     label: "Sky",
     hint: "Flat color · sky blue",
     preview: "linear-gradient(#14334d,#14334d)",
+    previewLight: "linear-gradient(#dbeeff,#dbeeff)",
+    adaptive: true,
   },
   {
     id: "mint",
     label: "Mint",
     hint: "Flat color · mint green",
     preview: "linear-gradient(#16382a,#16382a)",
+    previewLight: "linear-gradient(#dcf2e3,#dcf2e3)",
+    adaptive: true,
   },
   {
     id: "blush",
     label: "Blush",
     hint: "Flat color · blush pink",
     preview: "linear-gradient(#3d1e2c,#3d1e2c)",
+    previewLight: "linear-gradient(#fbe3e8,#fbe3e8)",
+    adaptive: true,
   },
   {
     id: "butter",
     label: "Butter",
     hint: "Flat color · butter cream",
     preview: "linear-gradient(#3a3114,#3a3114)",
+    previewLight: "linear-gradient(#fdf3d8,#fdf3d8)",
+    adaptive: true,
   },
   {
     id: "ink",
     label: "Ink",
     hint: "Flat color · ink charcoal",
     preview: "linear-gradient(#101216,#101216)",
+    previewLight: "linear-gradient(#23272f,#23272f)",
+    adaptive: true,
     dark: true,
   },
 ];
@@ -154,24 +174,33 @@ watch(
   bgTheme,
   (bg) => {
     localStorage.setItem(BG_STORAGE_KEY, bg);
-    document.documentElement.dataset.bg = bg;
+    const root = document.documentElement;
+    root.dataset.bg = bg;
     const def = BG_THEMES.find((t) => t.id === bg);
-    if (def?.dark) {
-      document.documentElement.dataset.bgDark = "true";
-    } else {
-      delete document.documentElement.dataset.bgDark;
-    }
-    if (def?.glass) {
-      document.documentElement.dataset.glass = "true";
-    } else {
-      delete document.documentElement.dataset.glass;
-    }
     // Dark mode itself follows the theme: a light theme removes
     // `.dark` from <html> (immediate: true, so a saved light theme
     // applies on launch, before the app mounts), a dark theme puts
-    // it back. All Tailwind dark: styles and the chromeDark bindings
+    // it back — except adaptive (flat) themes, which leave the mode
+    // alone so their light pastel backdrops actually show in light
+    // mode. All Tailwind dark: styles and the chromeDark bindings
     // above follow from this single toggle.
-    document.documentElement.classList.toggle("dark", !def?.light);
+    if (def?.light) root.classList.remove("dark");
+    else if (!def?.adaptive) root.classList.add("dark");
+    const isDark = root.classList.contains("dark");
+    // Loose on-background text flips light over dark backdrops: a
+    // theme's own dark flag wins (ink is dark in both modes), an
+    // adaptive theme follows the mode it landed in, everything else
+    // keeps the default dark text.
+    if (def?.dark || (def?.adaptive && isDark)) {
+      root.dataset.bgDark = "true";
+    } else {
+      delete root.dataset.bgDark;
+    }
+    if (def?.glass) {
+      root.dataset.glass = "true";
+    } else {
+      delete root.dataset.glass;
+    }
   },
   { immediate: true },
 );
