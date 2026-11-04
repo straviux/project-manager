@@ -51,6 +51,16 @@ const emit = defineEmits<{
 }>();
 
 const status = ref<GitStatus | null>(null);
+// Short repo link text: "straviux/scholarship-sys" instead of the
+// full https://github.com/...git URL. Anything that is not a
+// github.com URL falls back to the full URL unchanged.
+const shortRepoUrl = computed(() => {
+  const url = props.project.repoUrl ?? "";
+  const short = url
+    .replace(/^https?:\/\/(www\.)?github\.com\//, "")
+    .replace(/\.git$/, "");
+  return short || url;
+});
 const iconColorClass = computed(
   () =>
     (PROJECT_ICON_COLORS[props.project.iconColor ?? "blue"] ??
@@ -186,6 +196,13 @@ watch(() => props.statusKey, loadStatus);
         >
           <Star class="h-4 w-4" :fill="project.pinned ? 'currentColor' : 'none'" />
         </button>
+        <button
+          class="tooltip tooltip-left rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          data-tip="Open README.md"
+          @click="emit('readme')"
+        >
+          <FileText class="h-4 w-4" />
+        </button>
         <div ref="menuWrap" class="relative">
           <button
             class="tooltip tooltip-left rounded p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -265,21 +282,36 @@ watch(() => props.statusKey, loadStatus);
       <span v-else-if="status" class="text-neutral-400">Not a git repository</span>
     </div>
 
-    <a
-      v-if="project.repoUrl"
-      :href="project.repoUrl"
-      target="_blank"
-      rel="noreferrer"
-      class="mb-4 flex items-center gap-1 truncate text-sm text-blue-600 hover:underline dark:text-blue-400"
+    <div
+      v-if="project.repoUrl || status?.isRepo"
+      class="mb-4 flex items-center gap-2"
     >
-      <ExternalLink class="h-3.5 w-3.5 shrink-0" />
-      <span class="truncate">{{ project.repoUrl }}</span>
-    </a>
+      <a
+        v-if="project.repoUrl"
+        :href="project.repoUrl"
+        target="_blank"
+        rel="noreferrer"
+        class="flex min-w-0 flex-1 items-center gap-1 truncate text-sm text-blue-600 hover:underline dark:text-blue-400"
+      >
+        <ExternalLink class="h-3.5 w-3.5 shrink-0" />
+        <span class="truncate">{{ shortRepoUrl }}</span>
+      </a>
+      <span v-else class="min-w-0 flex-1"></span>
+      <button
+        class="tooltip tooltip-top flex shrink-0 items-center gap-1 rounded-lg bg-neutral-200/80 px-2.5 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+        data-tip="Pull latest changes (fast-forward only)"
+        @click="emit('pull')"
+      >
+        <ArrowDown class="h-3.5 w-3.5" /> Pull
+      </button>
+    </div>
 
-    <!-- Footer actions, grouped so the row reads as three tools
-         instead of seven scattered buttons. Group widths are
-         proportional to their button count (4 / 1 / 2), so every
-         button keeps the same width it had in the old 7-column grid.
+    <!-- Footer actions, grouped so the row reads as two tools
+         instead of seven scattered buttons. README moved up beside
+         the star in the header, Pull moved up beside the repo link,
+         so only Open and Run stay here. Group widths are
+         proportional to their button count (4 / 1), so every button
+         keeps the same width it had in the old 7-column grid.
          Labels and icons are unchanged on purpose. -->
     <footer class="mt-auto flex items-stretch gap-2">
       <!-- Open: VS Code, Folder, Terminal, SSH -->
@@ -302,20 +334,8 @@ watch(() => props.statusKey, loadStatus);
         </button>
       </div>
       <div aria-hidden="true" class="my-1 w-px shrink-0 bg-neutral-300/70 dark:bg-white/20"></div>
-      <!-- View: README -->
+      <!-- Run -->
       <div class="flex flex-[1] gap-1.5">
-        <button class="action flex-1 tooltip tooltip-top" data-tip="Open README.md" @click="emit('readme')">
-          <FileText class="h-4 w-4" />
-          <span>README</span>
-        </button>
-      </div>
-      <div aria-hidden="true" class="my-1 w-px shrink-0 bg-neutral-300/70 dark:bg-white/20"></div>
-      <!-- Sync & run: Pull, Run -->
-      <div class="flex flex-[2] gap-1.5">
-        <button class="action flex-1 tooltip tooltip-top" data-tip="Pull latest changes (fast-forward only)" @click="emit('pull')">
-          <ArrowDown class="h-4 w-4" />
-          <span>Pull</span>
-        </button>
         <button class="action flex-1 tooltip tooltip-top" data-tip="Build & run — command from README.md" @click="emit('buildrun')">
           <Play class="h-4 w-4" />
           <span>Run</span>
