@@ -228,9 +228,24 @@ let autofetchTimer: ReturnType<typeof setInterval> | null = null;
 async function autofetch() {
   const snapshot = [...projects.value];
   if (!snapshot.length) return;
-  for (const project of snapshot) {
-    await gitFetch(project.path).catch(() => {});
+  // Fetches used to run one at a time, so the background pass took
+  // as long as every repo's fetch added together — with many
+  // projects, minutes of network waits every 3 minutes. Fetches on
+  // different repos are independent, so run a small pool of them
+  // (4 at a time keeps the process storm bounded on Windows).
+  const CONCURRENCY = 4;
+  let next = 0;
+  async function worker() {
+    while (next < snapshot.length) {
+      const project = snapshot[next++];
+      await gitFetch(project.path).catch(() => {});
+    }
   }
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, snapshot.length) }, () =>
+      worker(),
+    ),
+  );
   statusKey.value++;
 }
 onMounted(() => {

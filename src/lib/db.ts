@@ -187,19 +187,27 @@ export async function listProjects(): Promise<Project[]> {
   const rows = await db.select<ProjectRow[]>(
     "SELECT * FROM projects ORDER BY pinned DESC, sort_order ASC, name COLLATE NOCASE ASC",
   );
+  // One query for every project's stacks, grouped in memory — the
+  // old loop ran one stacks query per project (N+1 round-trips
+  // through the plugin bridge on every boot and every list reload).
+  const stackRows = await db.select<{ project_id: number; stack: string }[]>(
+    "SELECT project_id, stack FROM project_stacks ORDER BY project_id, stack",
+  );
+  const stacksByProject = new Map<number, string[]>();
+  for (const s of stackRows) {
+    const list = stacksByProject.get(s.project_id) ?? [];
+    list.push(s.stack);
+    stacksByProject.set(s.project_id, list);
+  }
   const projects: Project[] = [];
   for (const row of rows) {
-    const stackRows = await db.select<{ stack: string }[]>(
-      "SELECT stack FROM project_stacks WHERE project_id = $1 ORDER BY stack",
-      [row.id],
-    );
     projects.push({
       id: row.id,
       name: row.name,
       path: row.path,
       repoUrl: row.repo_url,
       description: row.description,
-      stacks: stackRows.map((s) => s.stack),
+      stacks: stacksByProject.get(row.id) ?? [],
       pinned: row.pinned === 1,
       sortOrder: row.sort_order,
       iconKind: (row.icon_kind as Project["iconKind"]) ?? null,

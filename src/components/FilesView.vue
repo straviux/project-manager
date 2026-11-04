@@ -418,6 +418,30 @@ const displayGroups = computed(() =>
       : []
     : groups.value,
 );
+// Rendering cap for search mode only. A broad search used to render
+// every match — thousands of rows, each with its own buttons and
+// listeners, which is what made big searches feel frozen. Drill-in
+// browsing is unaffected (a folder shows all its files); search
+// shows the first 500 matches with a note, and selection still
+// covers the full result set because it reads displayGroups, not
+// this capped view. Group headers keep their true totals.
+const RENDER_LIMIT = 500;
+const renderGroups = computed((): [string, LibraryFile[], number][] => {
+  const groups = displayGroups.value;
+  if (drillIn.value)
+    return groups.map(([g, items]) => [g, items, items.length]);
+  const out: [string, LibraryFile[], number][] = [];
+  let remaining = RENDER_LIMIT;
+  for (const [g, items] of groups) {
+    if (remaining <= 0) break;
+    out.push([g, items.slice(0, remaining), items.length]);
+    remaining -= items.length;
+  }
+  return out;
+});
+const searchTruncated = computed(
+  () => !drillIn.value && filtered.value.length > RENDER_LIMIT,
+);
 function goFolder(path: string) {
   currentFolder.value = path;
 }
@@ -1470,10 +1494,13 @@ onUnmounted(() => {
         </p>
       </template>
 
-      <section v-for="[group, items] in displayGroups" :key="group">
+      <p v-if="searchTruncated" class="mb-4 text-sm text-neutral-500">
+        Showing the first {{ RENDER_LIMIT }} of {{ filtered.length }} matches — refine your search to see more.
+      </p>
+      <section v-for="[group, items, total] in renderGroups" :key="group">
         <div v-if="!drillIn" class="relative z-20 mb-2 flex items-center justify-between gap-2 rounded-lg" :class="isDropTarget(items[0]?.folder ?? '') ? 'ring-2 ring-blue-500' : ''" :data-drop-folder="items[0]?.folder ?? ''">
           <h3 class="on-bg text-sm font-semibold uppercase tracking-wide text-neutral-500">
-            {{ group }} <span class="font-normal normal-case">({{ items.length }})</span>
+            {{ group }} <span class="font-normal normal-case">({{ total }})</span>
           </h3>
           <button
             v-if="items[0]?.folder"

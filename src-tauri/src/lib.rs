@@ -1253,9 +1253,21 @@ fn collect_library_files(dir: &Path, base: &Path, out: &mut Vec<LibraryFile>) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
+        // DirEntry::file_type comes free with the directory listing,
+        // while is_dir()/is_file() each cost a stat call — the old
+        // code paid up to three stats per file on every rescan.
+        // Symlinks are the one case file_type cannot answer (it does
+        // not follow them), so only symlinks fall back to the
+        // stat-based checks, preserving the old follow behaviour.
+        let file_type = entry.file_type().ok();
+        let (is_dir, is_file) = match file_type {
+            Some(ref ft) if ft.is_symlink() => (path.is_dir(), path.is_file()),
+            Some(ref ft) => (ft.is_dir(), ft.is_file()),
+            None => (path.is_dir(), path.is_file()),
+        };
+        if is_dir {
             collect_library_files(&path, base, out);
-        } else if path.is_file() {
+        } else if is_file {
             let relative = path.strip_prefix(base).unwrap_or(&path).to_path_buf();
             let relative_str = relative.display().to_string();
             let folder = relative
