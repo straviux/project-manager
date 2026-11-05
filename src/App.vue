@@ -20,6 +20,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   Settings,
@@ -41,6 +42,7 @@ import ReadmeDialog from "./components/ReadmeDialog.vue";
 import RunCommandDialog from "./components/RunCommandDialog.vue";
 import TerminalPanel, { type TerminalTab } from "./components/TerminalPanel.vue";
 import QuickAccessView from "./components/QuickAccessView.vue";
+import PrintView from "./components/PrintView.vue";
 import TodoManagerDialog from "./components/TodoManagerDialog.vue";
 import PasswordManagerDialog from "./components/PasswordManagerDialog.vue";
 import { listen } from "@tauri-apps/api/event";
@@ -100,7 +102,7 @@ const pointerDrag = ref<{
   after: boolean;
 } | null>(null);
 const searchInput = ref<HTMLInputElement | null>(null);
-const tab = ref<"quickaccess" | "projects" | "files">("quickaccess");
+const tab = ref<"quickaccess" | "projects" | "files" | "printing">("quickaccess");
 // Tab persistency: the last active tab is saved in settings on every
 // switch and restored at boot, so the app reopens where you left it
 // instead of always landing on Quick Access.
@@ -205,7 +207,8 @@ async function boot() {
   if (
     savedTab === "quickaccess" ||
     savedTab === "projects" ||
-    savedTab === "files"
+    savedTab === "files" ||
+    savedTab === "printing"
   )
     tab.value = savedTab as typeof tab.value;
   if (projectsDir.value) await refresh();
@@ -789,6 +792,8 @@ function onKeydown(e: KeyboardEvent) {
     tab.value = "files";
   } else if (e.key === "3") {
     tab.value = "projects";
+  } else if (e.key === "4") {
+    tab.value = "printing";
   } else if (e.key.toLowerCase() === "s" && tab.value === "projects" && projectsDir.value) {
     scan();
   } else if (e.key.toLowerCase() === "i" && tab.value === "projects" && projectsDir.value) {
@@ -831,10 +836,10 @@ function openEdit(project: Project) {
     <template v-else-if="ready">
       <header class="relative z-30 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900" :class="{ dark: chromeDark }">
         <div class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-3 px-6 py-4">
-          <!-- Tab order: Quick Access, Files, Projects. Keyboard
-               shortcuts follow the same order (1 = Quick Access,
-               2 = Files, 3 = Projects). The saved tab still wins
-               at boot — see ACTIVE_TAB_KEY. -->
+          <!-- Tab order: Quick Access, Files, Projects, Printing.
+               Keyboard shortcuts follow the same order (1 = Quick
+               Access, 2 = Files, 3 = Projects, 4 = Printing). The
+               saved tab still wins at boot — see ACTIVE_TAB_KEY. -->
           <!-- Ungrouped tabs: no shared segmented container, each tab
                stands alone; the active one gets a rotating gradient
                border (.nav-tab-active in index.css) instead of the
@@ -860,6 +865,13 @@ function openEdit(project: Project) {
               @click="tab = 'projects'"
             >
               <LayoutGrid class="h-4 w-4" /> Projects
+            </button>
+            <button
+              class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium"
+              :class="tab === 'printing' ? 'switch-active nav-tab-active' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+              @click="tab = 'printing'"
+            >
+              <Printer class="h-4 w-4" /> Printing
             </button>
           </nav>
 
@@ -1020,6 +1032,9 @@ function openEdit(project: Project) {
             @play-audio="onPlayAudio"
           />
         </div>
+        <div v-show="tab === 'printing'">
+          <PrintView :active="tab === 'printing'" />
+        </div>
       </main>
       <footer @contextmenu="onBodyContext"
         class="border-t border-neutral-200 bg-white px-6 py-2.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900"
@@ -1039,6 +1054,12 @@ function openEdit(project: Project) {
               <span class="shrink-0">— drop files anywhere here to add them.</span>
             </span>
             <span v-if="filesStats" class="ml-auto shrink-0 whitespace-nowrap">{{ filesStats }}</span>
+          </template>
+          <template v-else-if="tab === 'printing'">
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="shrink-0">Printing:</span>
+              <span class="shrink-0">host setup and client address for the office print server.</span>
+            </span>
           </template>
           <template v-else>
             <span class="flex min-w-0 items-baseline gap-1.5">

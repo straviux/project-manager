@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FileCheck, GitStatus, LibraryFile, ScannedProject, SshConfig } from "../types";
+import type { FileCheck, GitStatus, LibraryFile, PrintPrerequisites, PrintServerStatus, ScannedProject, SshConfig } from "../types";
 
 /** Open the project folder in VS Code. */
 export function openInVsCode(path: string): Promise<void> {
@@ -267,6 +267,41 @@ export function saveDocumentFile(
  */
 export function convertOfficeToPdf(path: string): Promise<string> {
   return invoke("convert_office_to_pdf", { path });
+}
+
+/* ------------------------- print server (Level 1) ----------------------- */
+/* Setup panel only: the Python print server still does the real work.
+   These commands check host readiness and start/stop it; uploading
+   and the queue stay in the browser print page. */
+
+/** This PC's LAN address (for the host URL shown after starting). */
+export function printLanIp(): Promise<string> {
+  return invoke("print_lan_ip");
+}
+
+/** Best-effort auto-detect for the print-server folder ("" when not found). */
+export function printDefaultServerDir(): Promise<string> {
+  return invoke("print_default_server_dir");
+}
+
+/** One-click readiness check for hosting the print server. */
+export function printCheckPrerequisites(serverDir: string): Promise<PrintPrerequisites> {
+  return invoke("print_check_prerequisites", { serverDir });
+}
+
+/** Start `python server.py` in the print-server folder. Resolves to the host URL. */
+export function printStartServer(serverDir: string, port: number, printer: string): Promise<string> {
+  return invoke("print_start_server", { serverDir, port, printer });
+}
+
+/** Stop the print server started from this app. */
+export function printStopServer(): Promise<void> {
+  return invoke("print_stop_server");
+}
+
+/** Whether the print server (started from this app) is still running. */
+export function printServerStatus(): Promise<PrintServerStatus> {
+  return invoke("print_server_status");
 }
 
 /** Move or copy a folder into the file library, keeping its structure. */

@@ -2240,9 +2240,392 @@ fn delete_project_icon(app: tauri::AppHandle, project_id: i64) -> Result<(), Str
     Ok(())
 }
 
+/* ========================== print server ==============================
+ * Level 1 integration for the office print server (Epson L3210, USB
+ * only): this app is the setup panel, not the server itself. The
+ * Python server in the print-server folder still does the real work
+ * (queue, Office conversion, SumatraPDF printing); these commands
+ * only check the host is ready for it and start/stop it, so users
+ * never have to type the cmd steps by hand. Uploading and the queue
+ * stay in the browser print page (opened with open_url) — the app's
+ * CSP only allows connections to itself, so the frontend cannot
+ * fetch http://<host>:8000 directly, and no HTTP client crate is
+ * added here to work around that. That is the deliberate Level 1
+ * boundary; a full in-app client would need that client first.
+ *
+ * The server child is owned by this app: Start spawns `python
+ * server.py` in the chosen print-server folder (no console window),
+ * Stop kills the whole process tree. Closing the app does NOT stop
+ * the server — use Stop in the Printing tab, or close the server's
+ * own window if it was started some other way. */
+
+/** The print server's LAN address, from the interface that would
+ * reach the internet (a UDP "connect" sends nothing). */
+fn lan_ip() -> Option<String> {
+    use std::net::UdpSocket;
+    let sock = UdpSocket::bind("0.0.0.0:0").ok()?;
+    sock.connect("8.8.8.8:80").ok()?;
+    let ip = sock.local_addr().ok()?.ip().to_string();
+    if ip.starts_with("127.") {
+        None
+    } else {
+        Some(ip)
+    }
+}
+
+#[tauri::command]
+fn print_lan_ip() -> Result<String, String> {
+    lan_ip().ok_or_else(|| "Could not find this PC's network address.".into())
+}
+
+/// Best-effort auto-detect for the print-server folder, so first use
+/// does not need a folder pick when the app runs from the repo (the
+/// print-server files ship in the repo's print-server/ folder).
+/// Returns "" when nothing is found — the user then picks it by hand.
+#[tauri::command]
+fn print_default_server_dir() -> Result<String, String> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("print-server"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join("print-server"));
+            candidates.push(dir.join("..").join("print-server"));
+            candidates.push(dir.join("..").join("..").join("print-server"));
+            candidates.push(
+                dir.join("..")
+                    .join("..")
+                    .join("..")
+                    .join("print-server"),
+            );
+        }
+    }
+    for candidate in candidates {
+        if candidate.join("server.py").is_file() {
+            return Ok(candidate.to_string_lossy().to_string());
+        }
+    }
+    Ok(String::new())
+}
+
+/** `python --version`, falling back to the `py` launcher on Windows. */
+fn find_python() -> Option<(String, String)> {
+    for (exe, args) in [("python", vec!["--version"]), ("py", vec!["-3", "--version"])] {
+        let mut cmd = Command::new(exe);
+        #[cfg(target_os = "windows")]
+        no_console_window(&mut cmd);
+        if let Ok(out) = cmd.args(&args).output() {
+            if out.status.success() {
+                let version = format!(
+                    "{}{}",
+                    String::from_utf8_lossy(&out.stdout),
+                    String::from_utf8_lossy(&out.stderr)
+                )
+                .trim()
+                .to_string();
+                return Some((exe.to_string(), version));
+            }
+        }
+    }
+    None
+}
+
+fn list_system_printers() -> (Vec<String>, String) {
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = Command::new("powershell");
+        no_console_window(&mut cmd);
+        match cmd
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Get-Printer | Select-Object -ExpandProperty Name",
+            ])
+            .output()
+        {
+            Ok(out) => {
+                let names: Vec<String> = String::from_utf8_lossy(&out.stdout)
+                    .lines()
+                    .map(|l| l.trim().to_string())
+                    .filter(|l| !l.is_empty())
+                    .collect();
+                if names.is_empty() {
+                    (
+                        names,
+                        String::from_utf8_lossy(&out.stderr).trim().to_string(),
+                    )
+                } else {
+                    (names, String::new())
+                }
+            }
+            Err(e) => (Vec::new(), format!("Could not run PowerShell: {e}")),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        match Command::new("lpstat").arg("-p").output() {
+            Ok(out) => {
+                let names: Vec<String> = String::from_utf8_lossy(&out.stdout)
+                    .lines()
+                    .filter_map(|l| {
+                        l.strip_prefix("printer ")
+                            .and_then(|rest| rest.split_whitespace().next())
+                            .map(|s| s.to_string())
+                    })
+                    .collect();
+                (names, String::new())
+            }
+            Err(_) => (
+                Vec::new(),
+                "lpstat was not found. Is CUPS installed on this host?".into(),
+            ),
+        }
+    }
+}
+
+/** Is Word (the Office app the converter needs) installed? */
+fn office_found() -> (bool, String) {
+    #[cfg(target_os = "windows")]
+    {
+        // Word's App Paths registry entry is the reliable check: the
+        // Office install registers it, a stray WINWORD.EXE copy does not.
+        let mut cmd = Command::new("reg");
+        no_console_window(&mut cmd);
+        if let Ok(out) = cmd
+            .args([
+                "query",
+                r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\WINWORD.EXE",
+                "/ve",
+            ])
+            .output()
+        {
+            if out.status.success() {
+                return (true, "Microsoft Word found.".into());
+            }
+        }
+        for path in [
+            r"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE",
+            r"C:\Program Files (x86)\Microsoft Office\root\Office16\WINWORD.EXE",
+            r"C:\Program Files\Microsoft Office\root\Office15\WINWORD.EXE",
+        ] {
+            if Path::new(path).is_file() {
+                return (true, "Microsoft Word found.".into());
+            }
+        }
+        (
+            false,
+            "Microsoft Word was not found. Office files cannot be converted on this host until Office is installed (PDF uploads still work).".into(),
+        )
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if Command::new("soffice").arg("--version").output().is_ok()
+            || Command::new("libreoffice").arg("--version").output().is_ok()
+        {
+            (true, "LibreOffice found (Office converter fallback).".into())
+        } else {
+            (
+                false,
+                "Neither Microsoft Office nor LibreOffice was found, so Office files cannot be converted on this host (PDF uploads still work).".into(),
+            )
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PrintPrerequisites {
+    python_ok: bool,
+    python_detail: String,
+    sumatra_ok: bool,
+    sumatra_detail: String,
+    printers: Vec<String>,
+    printers_error: String,
+    l3210_found: bool,
+    office_ok: bool,
+    office_detail: String,
+    server_found: bool,
+    server_dir: String,
+}
+
+/// One-click readiness check for the print-server host. Every check
+/// reports its own result in plain words, so a missing piece names
+/// itself instead of failing later as a vague print error.
+#[tauri::command]
+fn print_check_prerequisites(server_dir: String) -> Result<PrintPrerequisites, String> {
+    let (python_ok, python_detail) = match find_python() {
+        Some((_exe, version)) => (true, version),
+        None => (
+            false,
+            "Python was not found. Install Python 3.9 or newer and tick \"Add python.exe to PATH\" during setup.".into(),
+        ),
+    };
+    let dir = PathBuf::from(&server_dir);
+    let server_found = !server_dir.trim().is_empty() && dir.join("server.py").is_file();
+    let mut sumatra_path: Option<PathBuf> = None;
+    if let Ok(env_path) = std::env::var("SUMATRA_PATH") {
+        let p = PathBuf::from(env_path);
+        if p.is_file() {
+            sumatra_path = Some(p);
+        }
+    }
+    for candidate in [dir.join("SumatraPDF.exe"), dir.join("sumatra").join("SumatraPDF.exe")] {
+        if candidate.is_file() {
+            sumatra_path = Some(candidate);
+            break;
+        }
+    }
+    let (sumatra_ok, sumatra_detail) = match sumatra_path {
+        Some(p) => (true, format!("SumatraPDF found: {}", p.display())),
+        None => (
+            false,
+            "SumatraPDF.exe was not found next to server.py. Download the portable SumatraPDF and put SumatraPDF.exe in the print-server folder.".into(),
+        ),
+    };
+    let (printers, printers_error) = list_system_printers();
+    let l3210_found = printers.iter().any(|p| p.to_lowercase().contains("l3210"));
+    let (office_ok, office_detail) = office_found();
+    Ok(PrintPrerequisites {
+        python_ok,
+        python_detail,
+        sumatra_ok,
+        sumatra_detail,
+        printers,
+        printers_error,
+        l3210_found,
+        office_ok,
+        office_detail,
+        server_found,
+        server_dir,
+    })
+}
+
+#[derive(Default)]
+struct PrintServerState {
+    child: std::sync::Mutex<Option<std::process::Child>>,
+    dir: std::sync::Mutex<String>,
+    port: std::sync::Mutex<u16>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PrintServerStatus {
+    running: bool,
+    url: String,
+    dir: String,
+    port: u16,
+}
+
+fn print_server_url(port: u16) -> String {
+    match lan_ip() {
+        Some(ip) => format!("http://{ip}:{port}"),
+        None => format!("http://localhost:{port}"),
+    }
+}
+
+/// Start `python server.py` in the print-server folder. The server
+/// keeps running after this call returns; use print_stop_server to
+/// stop it. Errors if the folder has no server.py, Python is missing,
+/// or the server is already running from this app.
+#[tauri::command]
+fn print_start_server(
+    state: tauri::State<PrintServerState>,
+    server_dir: String,
+    port: u16,
+    printer: String,
+) -> Result<String, String> {
+    let port = if port == 0 { 8000 } else { port };
+    {
+        let mut child_guard = state.child.lock().map_err(|_| "Print server state locked")?;
+        if let Some(child) = child_guard.as_mut() {
+            if child.try_wait().map_err(|e| e.to_string())?.is_none() {
+                return Err("The print server is already running from this app. Stop it first, then start it again.".into());
+            }
+            *child_guard = None;
+        }
+    }
+    let dir = PathBuf::from(&server_dir);
+    if !dir.join("server.py").is_file() {
+        return Err(format!(
+            "server.py was not found in {server_dir}. Choose the print-server folder first."
+        ));
+    }
+    let (python, _version) = find_python()
+        .ok_or_else(|| "Python was not found. Install Python 3.9 or newer first.".to_string())?;
+    let mut cmd = Command::new(python);
+    #[cfg(target_os = "windows")]
+    no_console_window(&mut cmd);
+    cmd.current_dir(&dir)
+        .args(["server.py", "--port", &port.to_string()])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    if !printer.trim().is_empty() {
+        cmd.args(["--printer", printer.trim()]);
+    }
+    let child = cmd
+        .spawn()
+        .map_err(|e| format!("Could not start the print server: {e}"))?;
+    {
+        *state.child.lock().map_err(|_| "Print server state locked")? = Some(child);
+        *state.dir.lock().map_err(|_| "Print server state locked")? = server_dir;
+        *state.port.lock().map_err(|_| "Print server state locked")? = port;
+    }
+    Ok(print_server_url(port))
+}
+
+/// Stop the print server started from this app. On Windows the whole
+/// process tree is killed first, so no python child is left behind.
+#[tauri::command]
+fn print_stop_server(state: tauri::State<PrintServerState>) -> Result<(), String> {
+    let mut child_guard = state.child.lock().map_err(|_| "Print server state locked")?;
+    let mut child = match child_guard.take() {
+        Some(c) => c,
+        None => return Ok(()),
+    };
+    drop(child_guard);
+    #[cfg(target_os = "windows")]
+    {
+        let pid = child.id();
+        let mut tk = Command::new("taskkill");
+        no_console_window(&mut tk);
+        let _ = tk.args(["/PID", &pid.to_string(), "/T", "/F"]).output();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    Ok(())
+}
+
+/// Is the print server (started from this app) still running, and at
+/// which address? A server that exited on its own reports as stopped.
+#[tauri::command]
+fn print_server_status(state: tauri::State<PrintServerState>) -> Result<PrintServerStatus, String> {
+    let mut child_guard = state.child.lock().map_err(|_| "Print server state locked")?;
+    let running = match child_guard.as_mut() {
+        Some(child) => match child.try_wait() {
+            Ok(None) => true,
+            _ => {
+                *child_guard = None;
+                false
+            }
+        },
+        None => false,
+    };
+    let dir = state.dir.lock().map_err(|_| "Print server state locked")?.clone();
+    let port = *state.port.lock().map_err(|_| "Print server state locked")?;
+    Ok(PrintServerStatus {
+        running,
+        url: if running { print_server_url(port) } else { String::new() },
+        dir,
+        port,
+    })
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(RunState::default())
+        .manage(PrintServerState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_process::init())
@@ -2286,7 +2669,13 @@ pub fn run() {
             open_path,
             allow_asset_dir,
             save_document_file,
-            convert_office_to_pdf
+            convert_office_to_pdf,
+            print_lan_ip,
+            print_default_server_dir,
+            print_check_prerequisites,
+            print_start_server,
+            print_stop_server,
+            print_server_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

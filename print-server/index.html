@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Office Print Server</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; margin: 0 auto; max-width: 720px; padding: 24px 16px 64px; color: #1f2937; background: #f9fafb; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  p.sub { color: #6b7280; margin-top: 0; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 16px 0; }
+  label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 4px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
+  button { background: #111827; color: #fff; border: 0; border-radius: 8px; padding: 12px 20px; font-size: 1rem; cursor: pointer; margin-top: 16px; }
+  button.small { padding: 6px 12px; font-size: 0.85rem; margin: 0; }
+  button:disabled { opacity: 0.5; }
+  .msg { margin-top: 12px; font-size: 0.95rem; }
+  .msg.error { color: #b91c1c; }
+  .msg.ok { color: #047857; }
+  .banner { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; font-size: 0.95rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+  .queued { background: #dbeafe; color: #1e40af; }
+  .printing, .converting { background: #fef3c7; color: #92400e; }
+  .done { background: #d1fae5; color: #065f46; }
+  .failed, .cancelled { background: #fee2e2; color: #991b1b; }
+  .err { color: #991b1b; font-size: 0.85rem; }
+  .muted { color: #6b7280; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<h1>🖨️ Office Print Server</h1>
+<p class="sub">Upload a PDF or an Office file and it prints on the shared USB printer. Office files are converted to PDF on the host first — set orientation, margins and paper size in the document before uploading, as those come from the document.</p>
+
+<div id="banner" class="card banner" style="display:none"></div>
+
+<div class="card">
+  <form id="form">
+    <label for="file">PDF or Office file</label>
+    <input id="file" name="file" type="file" accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt" required>
+
+    <label for="printer">Printer</label>
+    <select id="printer" name="printer"></select>
+    <p class="muted" id="printerNote"></p>
+
+    <label for="sender">Your name (optional, so the host knows whose job it is)</label>
+    <input id="sender" name="sender" type="text" maxlength="80" placeholder="e.g. Arc">
+
+    <label for="copies">Copies</label>
+    <input id="copies" name="copies" type="number" min="1" max="20" value="1">
+
+    <h3 style="font-size:0.95rem;margin:20px 0 0">Print settings</h3>
+    <p class="muted">These override the document at print time. Margins still come from the document itself.</p>
+
+    <label for="orientation">Orientation</label>
+    <select id="orientation" name="orientation">
+      <option value="auto" selected>Auto (as in the document)</option>
+      <option value="portrait">Portrait</option>
+      <option value="landscape">Landscape</option>
+    </select>
+
+    <label for="paper">Paper size</label>
+    <select id="paper" name="paper">
+      <option value="auto" selected>Auto (as in the document)</option>
+      <option value="A4">A4</option>
+      <option value="A5">A5</option>
+      <option value="Letter">Letter</option>
+    </select>
+
+    <label for="color">Colour</label>
+    <select id="color" name="color">
+      <option value="color" selected>Colour</option>
+      <option value="monochrome">Black &amp; white (grayscale)</option>
+    </select>
+
+    <label for="scaling">Scaling</label>
+    <select id="scaling" name="scaling">
+      <option value="fit" selected>Fit to page</option>
+      <option value="actual">Actual size (no scaling)</option>
+    </select>
+
+    <label for="pin">PIN (only if the host set one)</label>
+    <input id="pin" name="pin" type="password" inputmode="numeric" placeholder="Leave blank if no PIN is set">
+
+    <button id="submit" type="submit">Print this file</button>
+    <div id="msg" class="msg"></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2 style="font-size:1.1rem;margin-top:0">Print queue</h2>
+  <p class="muted">Refreshes automatically. Jobs print one at a time, in order.</p>
+  <div id="jobs"><p class="muted">Loading…</p></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    const sel = $('printer');
+    sel.innerHTML = '';
+    if (s.printers && s.printers.length) {
+      s.printers.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p; o.textContent = p;
+        if (p === s.default_printer) o.selected = true;
+        sel.appendChild(o);
+      });
+      $('printerNote').textContent = '';
+    } else {
+      const o = document.createElement('option');
+      o.value = ''; o.textContent = '(no printer detected)';
+      sel.appendChild(o);
+      $('printerNote').textContent = 'No printer detected on the host yet. Check the driver and USB cable on the host PC.';
+    }
+    let banner = '';
+    if (s.printer_error) banner += 'Printer problem on the host: ' + s.printer_error + '<br>';
+    if (s.sumatra_found === false) banner += 'SumatraPDF is not installed on the Windows host yet — jobs will fail until it is placed next to server.py (see README step 3).<br>';
+    if (s.office_converter === '') banner += 'No Office converter on this host — Office files will fail to convert. PDF uploads still work.<br>';
+    if (s.dry_run) banner += 'Dry-run mode is ON: jobs will be marked done but nothing will actually print.<br>';
+    $('banner').style.display = banner ? 'block' : 'none';
+    $('banner').innerHTML = banner;
+  } catch (e) {
+    $('banner').style.display = 'block';
+    $('banner').textContent = 'Could not reach the print server. Is it still running on the host PC?';
+  }
+}
+
+async function loadJobs() {
+  try {
+    const r = await fetch('/api/jobs');
+    const jobs = await r.json();
+    if (!jobs.length) { $('jobs').innerHTML = '<p class="muted">No jobs yet.</p>'; return; }
+    let html = '<table><tr><th>File</th><th>From</th><th>Copies</th><th>Status</th><th></th></tr>';
+    for (const j of jobs) {
+      const s = j.settings || {};
+      const set = [s.orientation || 'auto', s.paper || 'auto', s.color || 'color', s.scaling || 'fit'].join(' / ');
+      html += '<tr><td>' + esc(j.filename) + '<div class="muted">' + esc(set) + '</div></td><td>' + esc(j.sender || '—') + '</td><td>' + j.copies + '</td>'
+        + '<td><span class="badge ' + esc(j.status) + '">' + esc(j.status) + '</span>'
+        + (j.error ? '<div class="err">' + esc(j.error) + '</div>' : '') + '</td>'
+        + '<td>' + (j.status === 'queued'
+            ? '<button class="small" onclick="cancelJob(\'' + esc(j.id) + '\')">Cancel</button>' : '') + '</td></tr>';
+    }
+    $('jobs').innerHTML = html + '</table>';
+  } catch (e) { /* keep the last list on a transient failure */ }
+}
+
+async function cancelJob(id) {
+  await fetch('/api/jobs/' + id + '/cancel', { method: 'POST' });
+  loadJobs();
+}
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('submit'), msg = $('msg');
+  btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Uploading…';
+  try {
+    const r = await fetch('/api/jobs', { method: 'POST', body: new FormData(e.target) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Upload failed.');
+    msg.className = 'msg ok';
+    msg.textContent = 'Queued: ' + data.filename + ' (job ' + data.id + '). It will print in order.';
+    e.target.querySelector('#file').value = '';
+    loadJobs();
+  } catch (err) {
+    msg.className = 'msg error';
+    msg.textContent = err.message;
+  } finally { btn.disabled = false; }
+});
+
+loadStatus(); loadJobs();
+setInterval(loadJobs, 2000);
+setInterval(loadStatus, 15000);
+</script>
+</body>
+</html>

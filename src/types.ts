@@ -141,6 +141,33 @@ export interface PasswordEntry {
   updatedAt: string;
 }
 
+/**
+ * Print server (Level 1 setup panel): readiness checks and status
+ * for the office print server. The server itself still runs as
+ * Python in the print-server folder; these types only describe
+ * whether this PC is ready to host it and whether it is running.
+ */
+export interface PrintPrerequisites {
+  pythonOk: boolean;
+  pythonDetail: string;
+  sumatraOk: boolean;
+  sumatraDetail: string;
+  printers: string[];
+  printersError: string;
+  l3210Found: boolean;
+  officeOk: boolean;
+  officeDetail: string;
+  serverFound: boolean;
+  serverDir: string;
+}
+
+export interface PrintServerStatus {
+  running: boolean;
+  url: string;
+  dir: string;
+  port: number;
+}
+
 /** Library categories used by the (future) file manager. */
 export const FILE_CATEGORIES = [
   "Images",
