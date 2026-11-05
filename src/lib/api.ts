@@ -279,9 +279,11 @@ export function printLanIp(): Promise<string> {
   return invoke("print_lan_ip");
 }
 
-/** Best-effort auto-detect for the print-server folder ("" when not found). */
-export function printDefaultServerDir(): Promise<string> {
-  return invoke("print_default_server_dir");
+/** Best-effort auto-detect for the print-server folder ("" when not found).
+ * `projectsDir` is the app's projects folder when set — the repo usually
+ * lives at <projectsDir>/project-manager, so it is checked too. */
+export function printDefaultServerDir(projectsDir?: string | null): Promise<string> {
+  return invoke("print_default_server_dir", { projectsDir: projectsDir ?? null });
 }
 
 /** One-click readiness check for hosting the print server. */

@@ -20,7 +20,7 @@ import {
   printStartServer,
   printStopServer,
 } from "../lib/api";
-import { getSetting, setSetting } from "../lib/db";
+import { getSetting, setSetting, PROJECTS_DIR_KEY } from "../lib/db";
 import { pickerDefaultPath } from "../lib/paths";
 import { showToast } from "../lib/toast";
 import type { PrintPrerequisites, PrintServerStatus } from "../types";
@@ -48,6 +48,7 @@ const PRINT_PORT_KEY = "print_port";
 const PRINT_PRINTER_KEY = "print_printer";
 
 const serverDir = ref("");
+const projectsDir = ref("");
 const port = ref(8000);
 const printer = ref("");
 const checks = ref<PrintPrerequisites | null>(null);
@@ -60,11 +61,12 @@ const clientHost = ref("");
 
 async function loadSettings() {
   serverDir.value = (await getSetting(SERVER_DIR_KEY)) ?? "";
+  projectsDir.value = (await getSetting(PROJECTS_DIR_KEY)) ?? "";
   if (!serverDir.value) {
     // First use: the print-server files ship in the repo's
     // print-server/ folder, so auto-detect usually finds them.
     try {
-      const found = await printDefaultServerDir();
+      const found = await printDefaultServerDir(projectsDir.value || null);
       if (found) {
         serverDir.value = found;
         await setSetting(SERVER_DIR_KEY, found);
@@ -110,10 +112,15 @@ async function runChecks() {
 }
 
 async function chooseServerDir() {
+  // Open at the projects folder when set: the repo (and its
+  // print-server folder) usually lives right under it, so the
+  // native dialog starts one click away instead of at the Desktop.
+  // The dialog itself is Windows' own picker, so its speed is
+  // outside this app — starting in the right place is the fix.
   const picked = await open({
     directory: true,
     multiple: false,
-    defaultPath: await pickerDefaultPath(),
+    defaultPath: projectsDir.value || (await pickerDefaultPath()),
   });
   if (typeof picked === "string" && picked) {
     serverDir.value = picked;
@@ -357,3 +364,13 @@ watch(
     </section>
   </div>
 </template>
+
+<style scoped>
+/* Same button as the rest of the app. It lives in App.vue's and
+   FilesView.vue's scoped styles, so this tab gets no styling for it
+   unless it defines its own copy — without this, the buttons render
+   as plain native buttons that shrink and wrap their labels. */
+.toolbar-btn {
+  @apply flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-neutral-200/80 px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700;
+}
+</style>

@@ -2281,12 +2281,22 @@ fn print_lan_ip() -> Result<String, String> {
 /// Best-effort auto-detect for the print-server folder, so first use
 /// does not need a folder pick when the app runs from the repo (the
 /// print-server files ship in the repo's print-server/ folder).
+/// `projects_dir` is the app's projects folder when set: the repo
+/// usually lives at <projects_dir>/project-manager, so that is
+/// checked too — a built/installed copy of the app runs far from
+/// the repo, and without this hint the folder is never found and
+/// the user has to pick it by hand in a slow native dialog.
 /// Returns "" when nothing is found — the user then picks it by hand.
 #[tauri::command]
-fn print_default_server_dir() -> Result<String, String> {
+fn print_default_server_dir(projects_dir: Option<String>) -> Result<String, String> {
     let mut candidates: Vec<PathBuf> = Vec::new();
     if let Ok(cwd) = std::env::current_dir() {
         candidates.push(cwd.join("print-server"));
+    }
+    if let Some(projects_dir) = projects_dir.filter(|p| !p.is_empty()) {
+        let projects_dir = PathBuf::from(projects_dir);
+        candidates.push(projects_dir.join("project-manager").join("print-server"));
+        candidates.push(projects_dir.join("print-server"));
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
